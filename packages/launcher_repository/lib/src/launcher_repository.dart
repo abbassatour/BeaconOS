@@ -7,6 +7,7 @@ import 'package:local_vault_api/local_vault_api.dart';
 import 'package:system_hardware_api/system_hardware_api.dart';
 import 'package:voice_ai_api/voice_ai_api.dart';
 
+/// نتيجة تنفيذ أي أمر تنفيذي أو صوتي داخل نظام BeaconOS
 class LauncherCommandResult {
   const LauncherCommandResult({
     required this.intent,
@@ -19,6 +20,8 @@ class LauncherCommandResult {
   final dynamic actionPayload;
 }
 
+/// المايسترو والمنسق المركزي لعمليات النظام (Launcher Repository)
+/// يربط بين: عتاد أندرويد + بنك الذاكرة Drift + سحابة Supabase + الذكاء الاصطناعي
 class LauncherRepository {
   LauncherRepository({
     AppDatabase? database,
@@ -55,6 +58,10 @@ class LauncherRepository {
     'phone': 'com.google.android.dialer',
   };
 
+  // ===========================================================================
+  // 🎙️ 1. محركات الصوت والكلام (Speech & TTS)
+  // ===========================================================================
+
   Future<void> initializeEngines() async {
     await _speech.initialize();
     await _tts.initialize();
@@ -80,6 +87,100 @@ class LauncherRepository {
     await _tts.stop();
   }
 
+  // ===========================================================================
+  // 📇 2. إدارة جهات الاتصال ورادار الطوارئ (Contacts & Emergency Hub)
+  // ===========================================================================
+
+  /// حفظ جهة اتصال جديدة (محلياً وسحابياً)
+  Future<void> saveContact({
+    required String name,
+    required String phoneNumber,
+    String? relationship,
+    bool isEmergency = false,
+  }) async {
+    await _db.insertContact(
+      ContactsCompanion.insert(
+        name: name,
+        phoneNumber: phoneNumber,
+        relationship: Value(relationship),
+        isEmergency: Value(isEmergency),
+      ),
+    );
+
+    // رفع خلفي إلى Supabase
+    await _cloud.syncContact(
+      name: name,
+      phoneNumber: phoneNumber,
+      relationship: relationship,
+      isEmergency: isEmergency,
+    );
+  }
+
+  /// حذف جهة اتصال
+  Future<void> deleteContact(int localId, {String? cloudId}) async {
+    await _db.deleteContact(localId);
+    if (cloudId != null) {
+      await _cloud.deleteContact(cloudId);
+    }
+  }
+
+  /// بث حي لجهات الاتصال لقمرة القيادة
+  Stream<List<Contact>> watchContacts() => _db.watchAllContacts();
+
+  /// جلب جهات اتصال الطوارئ المعتمدة
+  Future<List<Contact>> getEmergencyContacts() => _db.getEmergencyContacts();
+
+  /// البحث الذكي بالاسم أو صلة القرابة (أبي، طبيبي، أمي)
+  Future<Contact?> findContact(String query) => _db.findContactByNameOrRelation(query);
+
+  // ===========================================================================
+  // 💬 3. سجل التراسل الصامت (Messages Vault)
+  // ===========================================================================
+
+  /// تسجيل رسالة جديدة واردة أو صادرة
+  Future<void> recordMessage({
+    required String contactIdentifier,
+    required String senderName,
+    required String messageText,
+    String platform = 'sms',
+    bool isOutgoing = false,
+  }) async {
+    await _db.insertMessage(
+      MessagesVaultCompanion.insert(
+        contactIdentifier: contactIdentifier,
+        senderName: senderName,
+        messageText: messageText,
+        platform: Value(platform),
+        isOutgoing: Value(isOutgoing),
+      ),
+    );
+
+    await _cloud.syncMessage(
+      contactIdentifier: contactIdentifier,
+      senderName: senderName,
+      messageText: messageText,
+      platform: platform,
+      isOutgoing: isOutgoing,
+    );
+  }
+
+  /// استعراض رسائل محادثة معينة
+  Stream<List<MessagesVaultData>> watchMessages(String contactIdentifier) =>
+      _db.watchMessagesForContact(contactIdentifier);
+
+  /// جلب الرسائل غير المقروءة لتلخيصها صوتياً
+  Future<List<MessagesVaultData>> getUnreadMessages() => _db.getUnreadMessages();
+
+  /// تمييز الرسائل كمقروءة
+  Future<void> markMessagesAsRead(String contactIdentifier) async {
+    await _db.markMessagesAsRead(contactIdentifier);
+    await _cloud.markMessagesAsReadInCloud(contactIdentifier);
+  }
+
+  // ===========================================================================
+  // 🧠 4. موجه الأوامر التنفيذية الفوري (Voice & Action Dispatcher)
+  // ===========================================================================
+
   Future<LauncherCommandResult> dispatchVoiceCommand(
     String userQuery, {
     String? base64Image,
@@ -91,6 +192,10 @@ class LauncherRepository {
         spokenResponse: 'I am listening. Please speak your command.',
       );
     }
+
+    // -------------------------------------------------------------
+    // مسار الاستجابة اللحظية أوفلاين (Sub-5ms Local Dispatch)
+    // -------------------------------------------------------------
 
     // 1. فحص محلي فوري للمنبه
     if (cleanQuery.contains('alarm')) {
@@ -111,7 +216,7 @@ class LauncherRepository {
       }
     }
 
-    // 2. فحص محلي للكشاف
+    // 2. الكشاف (Flashlight)
     if (cleanQuery.contains('flashlight') || cleanQuery.contains('torch')) {
       final enable = !cleanQuery.contains('off');
       final success = await _hardware.toggleFlashlight(enable: enable);
@@ -123,7 +228,7 @@ class LauncherRepository {
       );
     }
 
-    // 3. قفل الشاشة
+    // 3. قفل الشاشة والنوم الهادئ
     if (cleanQuery.contains('lock screen') || cleanQuery.contains('turn off screen') || cleanQuery == 'sleep' || cleanQuery == 'lock') {
       await _hardware.lockScreen();
       return const LauncherCommandResult(
@@ -132,7 +237,7 @@ class LauncherRepository {
       );
     }
 
-    // 4. فتح التطبيقات
+    // 4. إطلاق التطبيقات
     if (cleanQuery.startsWith('open ') || cleanQuery.startsWith('launch ')) {
       final targetApp = cleanQuery.replaceFirst(RegExp(r'^(open|launch)\s+'), '').trim();
       final package = _knownAppPackages[targetApp] ?? targetApp;
@@ -143,17 +248,60 @@ class LauncherRepository {
       );
     }
 
-    // 5. الاتصال الهاتفي
+    // 5. الاتصال الهاتفي الذكي بالاسم أو صلة القرابة (مثل: "call dad", "call doctor")
     if (cleanQuery.startsWith('call ') || cleanQuery.startsWith('dial ')) {
       final target = cleanQuery.replaceFirst(RegExp(r'^(call|dial)\s+'), '').trim();
-      final called = await _hardware.callPhoneNumber(target);
+      
+      // فحص هل الاسم أو صلة القرابة مسجلة مسبقاً في دليل الهاتف؟
+      final contact = await _db.findContactByNameOrRelation(target);
+      final numberToCall = contact != null ? contact.phoneNumber : target;
+      final displayName = contact != null ? contact.name : target;
+
+      final called = await _hardware.callPhoneNumber(numberToCall);
       return LauncherCommandResult(
         intent: 'CALL_PHONE',
-        spokenResponse: called ? 'Calling $target.' : 'Unable to place a call to $target.',
+        spokenResponse: called ? 'Calling $displayName.' : 'Unable to place a call to $displayName.',
+        actionPayload: {'name': displayName, 'phoneNumber': numberToCall},
       );
     }
 
-    // 6. الوقت
+    // 6. إضافة جهة اتصال صوتياً (مثال: "save contact dad 0551234567")
+    if (cleanQuery.startsWith('save contact ') || cleanQuery.startsWith('add contact ')) {
+      final raw = userQuery.replaceFirst(RegExp(r'^(save contact|add contact)\s+', caseSensitive: false), '').trim();
+      final match = RegExp(r'^(.*?)\s+([0-9\+\-\s]{5,})$').firstMatch(raw);
+      if (match != null) {
+        final name = match.group(1)!.trim();
+        final phone = match.group(2)!.replaceAll(RegExp(r'\s+'), '');
+        await saveContact(name: name, phoneNumber: phone);
+        return LauncherCommandResult(
+          intent: 'SAVE_CONTACT',
+          spokenResponse: 'Contact $name saved.',
+          actionPayload: {'name': name, 'phoneNumber': phone},
+        );
+      }
+    }
+
+    // 7. قراءة الرسائل غير المقروءة (Headless Messages Digest)
+    if (cleanQuery.contains('read messages') || cleanQuery.contains('check messages') || cleanQuery == 'messages') {
+      final unread = await _db.getUnreadMessages();
+      if (unread.isEmpty) {
+        return const LauncherCommandResult(
+          intent: 'READ_MESSAGES',
+          spokenResponse: 'You have no unread messages.',
+        );
+      }
+      final buffer = StringBuffer('You have ${unread.length} new message${unread.length > 1 ? 's' : ''}: ');
+      for (var i = 0; i < unread.length && i < 3; i++) {
+        buffer.write('From ${unread[i].senderName}: ${unread[i].messageText}. ');
+      }
+      return LauncherCommandResult(
+        intent: 'READ_MESSAGES',
+        spokenResponse: buffer.toString().trim(),
+        actionPayload: unread,
+      );
+    }
+
+    // 8. الوقت والتاريخ
     if (cleanQuery.contains('time') || cleanQuery.contains('clock') || cleanQuery == 'date') {
       final now = DateTime.now();
       final timeStr = DateFormat('h:mm a, EEEE').format(now);
@@ -163,7 +311,7 @@ class LauncherRepository {
       );
     }
 
-    // 7. البطارية
+    // 9. مستوى البطارية
     if (cleanQuery.contains('battery') || cleanQuery.contains('charge')) {
       final batteryStatus = await _hardware.getBatteryStatus();
       return LauncherCommandResult(
@@ -172,7 +320,7 @@ class LauncherRepository {
       );
     }
 
-    // 8. قراءة المهام
+    // 10. قراءة المهام
     if (cleanQuery.contains('my tasks') || cleanQuery.contains('what are my tasks') || cleanQuery.contains('read tasks')) {
       final pending = await _db.getPendingTasks();
       if (pending.isEmpty) {
@@ -191,18 +339,32 @@ class LauncherRepository {
       );
     }
 
-    // 9. حفظ المهام
+    // 11. حفظ مهمة سريعة
     if (cleanQuery.startsWith('remind me to') || cleanQuery.startsWith('task:')) {
       final title = userQuery.replaceFirst(RegExp(r'^(remind me to|task:)\s*', caseSensitive: false), '').trim();
       await _db.insertTask(TasksCompanion.insert(title: title));
-      _cloud.backupTask(title: title);
+      await _cloud.backupTask(title: title);
       return LauncherCommandResult(
         intent: 'SAVE_TASK',
         spokenResponse: 'Task saved: $title.',
       );
     }
 
-    // 10. إرسال الأوامر المعقدة لـ Gemini Flash
+    // 12. حفظ مذكرة سريعة (Note/Memo)
+    if (cleanQuery.startsWith('note:') || cleanQuery.startsWith('take a note') || cleanQuery.startsWith('memo:')) {
+      final content = userQuery.replaceFirst(RegExp(r'^(note:|take a note|memo:)\s*', caseSensitive: false), '').trim();
+      final title = content.length > 25 ? '${content.substring(0, 25)}...' : content;
+      await _db.insertMemo(VoiceMemosCompanion.insert(title: title, content: content));
+      await _cloud.backupMemo(title: title, content: content);
+      return LauncherCommandResult(
+        intent: 'SAVE_MEMO',
+        spokenResponse: 'Note saved: $title.',
+      );
+    }
+
+    // -------------------------------------------------------------
+    // مسار الذكاء الاصطناعي المتقدم (Gemini 2.0 Flash via OpenRouter)
+    // -------------------------------------------------------------
     final aiResult = await _llm.processCommand(
       userCommand: userQuery,
       base64Image: base64Image,
@@ -216,6 +378,7 @@ class LauncherRepository {
         ? Map<String, dynamic>.from(rawParams)
         : <String, dynamic>{};
 
+    // تنفيذ إجراءات استدعاء الدوال الذاتية (Autonomous Tool Execution)
     switch (intent) {
       case 'SET_ALARM':
         final timeStr = params['time'] as String?;
@@ -229,7 +392,29 @@ class LauncherRepository {
 
       case 'CALL_CONTACT':
         final target = params['contact_name'] as String? ?? '';
-        await _hardware.callPhoneNumber(target);
+        if (target.isNotEmpty) {
+          final contact = await _db.findContactByNameOrRelation(target);
+          final numberToCall = contact != null ? contact.phoneNumber : target;
+          await _hardware.callPhoneNumber(numberToCall);
+        }
+        break;
+
+      case 'SAVE_TASK':
+        final taskTitle = params['task_title'] as String? ?? '';
+        if (taskTitle.isNotEmpty) {
+          DateTime? dueDate;
+          final dueStr = params['due_date'] as String?;
+          if (dueStr != null) dueDate = DateTime.tryParse(dueStr);
+          await _db.insertTask(TasksCompanion.insert(title: taskTitle, dueDate: Value(dueDate)));
+          await _cloud.backupTask(title: taskTitle, dueDate: dueDate);
+        }
+        break;
+
+      case 'SAVE_MEMO':
+        final memoTitle = params['memo_title'] as String? ?? 'Voice Note';
+        final memoContent = params['memo_content'] as String? ?? memoTitle;
+        await _db.insertMemo(VoiceMemosCompanion.insert(title: memoTitle, content: memoContent));
+        await _cloud.backupMemo(title: memoTitle, content: memoContent);
         break;
 
       case 'LOCK_SCREEN':
@@ -255,13 +440,28 @@ class LauncherRepository {
     );
   }
 
+  // ===========================================================================
+  // 🚨 5. رادار الطوارئ وبث الاستغاثة (Emergency SOS Radar)
+  // ===========================================================================
+
   Future<void> triggerEmergencySos({
     required double latitude,
     required double longitude,
+    int? batteryLevel,
   }) async {
+    // 1. بث الإحداثيات لسيرفرات Supabase لمتابعة المرافقين لحظياً
     await _cloud.broadcastEmergencySos(
       latitude: latitude,
       longitude: longitude,
+      batteryLevel: batteryLevel,
     );
+
+    // 2. فحص جهات اتصال الطوارئ والاتصال التلقائي برقم الطوارئ الأول
+    final emergencyContacts = await _db.getEmergencyContacts();
+    if (emergencyContacts.isNotEmpty) {
+      final primaryContact = emergencyContacts.first;
+      log('LauncherRepository: Auto-dialing emergency contact: ${primaryContact.name}');
+      await _hardware.callPhoneNumber(primaryContact.phoneNumber);
+    }
   }
 }
