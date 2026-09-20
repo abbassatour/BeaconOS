@@ -5,6 +5,7 @@ import 'package:beacon_os/zero_ui/cubit/zero_ui_state.dart';
 import 'package:beacon_os/zero_ui/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:beacon_os/subscription/view/paywall_page.dart';
 
 class ZeroUiView extends StatelessWidget {
   const ZeroUiView({super.key});
@@ -17,18 +18,28 @@ class ZeroUiView extends StatelessWidget {
       builder: (context, state) {
         final isEyesFree = state.displayMode == DisplayMode.eyesFree;
 
-        return Scaffold(
-          backgroundColor: AppTheme.pureBlack,
-          body: HapticCanvas(
-            onLongPressStart: cubit.onTouchStarted,
-            onLongPressEnd: cubit.onTouchReleased,
-            onSwipeUp: cubit.replayLastResponse,
-            onSwipeDown: cubit.toggleDisplayMode,
-            onTripleTap: cubit.triggerEmergencySos,
-            child: SafeArea(
-              child: isEyesFree
-                  ? _buildEyesFreeMode(state)
-                  : _buildVisualHudMode(context, state),
+        // PopScope(canPop: false) يمنع الهاتف من إغلاق الواجهة عند الضغط على زر الرجوع
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            // إذا كان المستخدم في حالة معينة، أعده لحالة الاستعداد بدلاً من إغلاق التطبيق
+            if (state.status != ZeroUiStatus.idle) {
+              cubit.replayLastResponse();
+            }
+          },
+          child: Scaffold(
+            backgroundColor: AppTheme.pureBlack,
+            body: HapticCanvas(
+              onLongPressStart: cubit.onTouchStarted,
+              onLongPressEnd: cubit.onTouchReleased,
+              onSwipeUp: cubit.replayLastResponse,
+              onSwipeDown: cubit.toggleDisplayMode,
+              onTripleTap: cubit.triggerEmergencySos,
+              child: SafeArea(
+                child: isEyesFree
+                    ? _buildEyesFreeMode(state)
+                    : _buildVisualHudMode(context, state),
+              ),
             ),
           ),
         );
@@ -104,10 +115,28 @@ class ZeroUiView extends StatelessWidget {
                   letterSpacing: 1.5,
                 ),
               ),
-              IconButton(
-                icon: const Icon(Icons.visibility_off_rounded, color: AppTheme.iceBlue),
-                onPressed: cubit.toggleDisplayMode,
-                tooltip: 'Switch to Eyes-Free mode',
+              Row(
+                children: [
+                  // زر الـ PRO للمحكمين
+                  TextButton.icon(
+                    style: TextButton.styleFrom(
+                      backgroundColor: AppTheme.iceBlue,
+                      foregroundColor: AppTheme.pureBlack,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      minimumSize: const Size(0, 32),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.workspace_premium_rounded, size: 16),
+                    label: const Text('PRO', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+                    onPressed: () => Navigator.of(context).push(PaywallPage.route()),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.visibility_off_rounded, color: AppTheme.iceBlue),
+                    onPressed: cubit.toggleDisplayMode,
+                    tooltip: 'Switch to Eyes-Free mode',
+                  ),
+                ],
               ),
             ],
           ),
@@ -117,7 +146,6 @@ class ZeroUiView extends StatelessWidget {
             isListening: state.status == ZeroUiStatus.listening,
           ),
           const SizedBox(height: 16),
-          // الضغط على البطاقة يفتح نافذة تجربة الأوامر السريعة
           GestureDetector(
             onTap: () => _showEmulatorCommandDialog(context),
             child: LiveTranscriptCard(state: state),
@@ -168,11 +196,11 @@ class ZeroUiView extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                _buildQuickChip(ctx, controller, 'What time is it?'),
-                _buildQuickChip(ctx, controller, 'What is my battery?'),
-                _buildQuickChip(ctx, controller, 'Remind me to buy medicine at 5 PM'),
-                _buildQuickChip(ctx, controller, 'What are my tasks?'),
-                _buildQuickChip(ctx, controller, 'Note: Meeting with John tomorrow'),
+                _buildQuickChip(controller, 'What time is it?'),
+                _buildQuickChip(controller, 'What is my battery?'),
+                _buildQuickChip(controller, 'Remind me to buy medicine at 5 PM'),
+                _buildQuickChip(controller, 'What are my tasks?'),
+                _buildQuickChip(controller, 'Note: Meeting with John tomorrow'),
               ],
             ),
           ],
@@ -191,8 +219,7 @@ class ZeroUiView extends StatelessWidget {
               final query = controller.text.trim();
               if (query.isNotEmpty) {
                 Navigator.of(ctx).pop();
-                // تنفيذ الأمر ومحاكاة دورة اللمس
-                _simulateCommand(cubit, query);
+                cubit.submitQuery(query);
               }
             },
             child: const Text('Run Command', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -202,27 +229,11 @@ class ZeroUiView extends StatelessWidget {
     );
   }
 
-  Widget _buildQuickChip(BuildContext ctx, TextEditingController controller, String text) {
+  Widget _buildQuickChip(TextEditingController controller, String text) {
     return ActionChip(
       backgroundColor: AppTheme.subtleGray,
       label: Text(text, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 11)),
       onPressed: () => controller.text = text,
     );
   }
-
-  void _simulateCommand(ZeroUiCubit cubit, String query) async {
-    // محاكاة وضع الإصبع، إدخال النص، ورفع الإصبع
-    cubit.emit(cubit.state.copyWith(status: ZeroUiStatus.processing, recognizedText: query));
-    final repo = cubit.state;
-    // استدعاء المعالجة عبر الكيوبت
-    final result = await cubit.repository.dispatchVoiceCommand(query);
-    cubit.emit(cubit.state.copyWith(status: ZeroUiStatus.speaking, responseText: result.spokenResponse));
-    await cubit.repository.speak(result.spokenResponse);
-    cubit.emit(cubit.state.copyWith(status: ZeroUiStatus.idle));
-  }
-}
-
-// امتداد للوصول إلى الـ repository من داخل الكيوبت
-extension on ZeroUiCubit {
-  LauncherRepository get repository => (this as dynamic)._repository as LauncherRepository;
 }

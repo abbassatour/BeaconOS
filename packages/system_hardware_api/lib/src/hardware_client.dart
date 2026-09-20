@@ -8,16 +8,16 @@ class HardwareClient {
 
   final Battery _battery = Battery();
   
-  // قناة الاتصال مع كود الـ Kotlin (سنقوم ببرمجة الكود الأصلي لاحقاً في الـ MainActivity)
+  // قناة الاتصال مع طبقة أندرويد الأصلية في MainActivity.kt
   static const MethodChannel _systemChannel = MethodChannel('com.beaconos/system');
 
-  /// جلب مستوى البطارية وحالتها كنص مقروء للذكاء الاصطناعي
+  /// جلب مستوى البطارية وحالتها كنص مقروء للمستخدم
   Future<String> getBatteryStatus() async {
     try {
       final level = await _battery.batteryLevel;
       final state = await _battery.batteryState;
       
-      String stateStr = 'discharging';
+      var stateStr = 'discharging';
       if (state == BatteryState.charging) stateStr = 'charging';
       if (state == BatteryState.full) stateStr = 'fully charged';
 
@@ -27,9 +27,8 @@ class HardwareClient {
     }
   }
 
-  /// إجراء مكالمة هاتفية سريعة
+  /// إجراء مكالمة هاتفية سريعة ومباشرة
   Future<bool> callPhoneNumber(String phoneNumber) async {
-    // تنظيف الرقم من أي نصوص أو مسافات
     final digits = phoneNumber.replaceAll(RegExp(r'[^\d+]'), '');
     if (digits.isEmpty) return false;
 
@@ -45,17 +44,7 @@ class HardwareClient {
     }
   }
 
-  /// قفل شاشة الهاتف (يتطلب Accessibility Service في أندرويد)
-  Future<bool> lockScreen() async {
-    try {
-      final result = await _systemChannel.invokeMethod<bool>('lockScreen');
-      return result ?? false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// ضبط منبه في نظام الهاتف
+  /// ضبط منبه حقيقي في نظام أندرويد دون فتح شاشة الساعة
   Future<bool> setSystemAlarm({
     required int hour, 
     required int minute, 
@@ -70,6 +59,42 @@ class HardwareClient {
           'label': label,
         },
       );
+      return result ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// تشغيل أو إطفاء فلاش الكاميرا (الكشاف)
+  Future<bool> toggleFlashlight({bool? enable}) async {
+    try {
+      final result = await _systemChannel.invokeMethod<bool>(
+        'toggleFlashlight',
+        enable != null ? {'enable': enable} : null,
+      );
+      return result ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// فتح أي تطبيق خارجي مثبت على الهاتف عبر اسم الحزمة (Package Name)
+  Future<bool> openApp(String packageName) async {
+    try {
+      final result = await _systemChannel.invokeMethod<bool>(
+        'openApp',
+        {'packageName': packageName},
+      );
+      return result ?? false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// قفل شاشة الهاتف
+  Future<bool> lockScreen() async {
+    try {
+      final result = await _systemChannel.invokeMethod<bool>('lockScreen');
       return result ?? false;
     } catch (e) {
       return false;

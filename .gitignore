@@ -119,3 +119,7 @@ lib/l10n/gen/
 repomix-output.xml
 repomix.config.json
 .repomixignore
+# Environment Variables
+.env
+.env.*
+!.env.example

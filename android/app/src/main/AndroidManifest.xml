@@ -1,12 +1,24 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 1. الأذونات الحيوية للنظام (يجب أن توضع هنا مباشرة تحت وسم manifest) -->
+    <!-- 1. أذونات العتاد والنظام الأساسية -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.BATTERY_STATS" />
     <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.FLASHLIGHT" />
+    <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- 2. السماح للـ Launcher بفتح جميع التطبيقات المثبتة (Android 11+) -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" 
+        tools:ignore="QueryAllPackagesCondition" />
+
+    <!-- ميزات العتاد الاختيارية حتى لا يتم رفض تثبيت التطبيق إن كان الجهاز بلا فلاش -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
 
     <application
         android:label="${appName}"
@@ -15,14 +27,16 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
-            android:taskAffinity=""
+            android:launchMode="singleTask"
+            android:clearTaskOnLaunch="true"
+            android:stateNotNeeded="true"
             android:theme="@style/LaunchTheme"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
             
-            <!-- ثيم شاشة البداية الافتراضي لـ Very Good CLI -->
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
@@ -30,6 +44,9 @@
             
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
+                <!-- تسجيل التطبيق كمشغل نظام رسمي (Home Launcher) -->
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
@@ -39,13 +56,12 @@
             android:value="2" />
     </application>
 
-    <!-- 2. استعلامات النظام المطلوبة لأندرويد 11 فما فوق (لقراءة النصوص وإجراء المكالمات) -->
+    <!-- 3. استعلامات النظام (System Queries) -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
-        <!-- ضروري لتمكين زر أو أمر الاتصال الهاتفي -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="tel" />

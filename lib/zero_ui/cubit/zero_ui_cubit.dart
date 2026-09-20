@@ -25,7 +25,6 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     await _repository.initializeEngines();
   }
 
-  /// يبدأ عند وضع المستخدم إصبعه في أي مكان على الشاشة
   Future<void> onTouchStarted() async {
     await _sound.stop();
     await _repository.stopSpeaking();
@@ -51,9 +50,11 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     );
   }
 
-  /// ينطلق عند رفع الإصبع لإرسال الأمر ومعالجته
   Future<void> onTouchReleased() async {
     _haptics.stopListeningPulse();
+
+    // مهلة قصيرة لإعطاء مايك المحاكي فرصة لإكمال تفريغ آخر كلمة
+    await Future<void>.delayed(const Duration(milliseconds: 300));
 
     final finalWords = await _repository.stopListening();
     final query = finalWords.isNotEmpty ? finalWords : state.recognizedText.trim();
@@ -65,14 +66,24 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
       return;
     }
 
+    await submitQuery(query);
+  }
+
+  /// تنفيذ أمر صوتي أو كتابي مباشرة وتحديث الواجهة
+  Future<void> submitQuery(String query) async {
+    final clean = query.trim();
+    if (clean.isEmpty) return;
+
+    await _sound.stop();
+    await _repository.stopSpeaking();
+
     emit(state.copyWith(
       status: ZeroUiStatus.processing,
-      recognizedText: query,
+      recognizedText: clean,
     ));
     await _sound.playProcessingCue();
 
-    // إرسال الأمر للمستودع المركزي للتنفيذ
-    final result = await _repository.dispatchVoiceCommand(query);
+    final result = await _repository.dispatchVoiceCommand(clean);
 
     await _haptics.successNotification();
     await _sound.playSuccessCue();
@@ -86,7 +97,6 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     emit(state.copyWith(status: ZeroUiStatus.idle));
   }
 
-  /// إعادة نطق آخر إجابة
   Future<void> replayLastResponse() async {
     if (state.responseText.isNotEmpty) {
       await _haptics.successNotification();
@@ -96,7 +106,6 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     }
   }
 
-  /// التبديل بين الوضع المعتم التام (Eyes-Free) والوضع المرئي (Visual HUD)
   void toggleDisplayMode() {
     final nextMode = state.displayMode == DisplayMode.eyesFree
         ? DisplayMode.visualHud
@@ -105,14 +114,11 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     emit(state.copyWith(displayMode: nextMode));
   }
 
-  /// تفعيل إشارة الاستغاثة الطارئة SOS
   Future<void> triggerEmergencySos() async {
     emit(state.copyWith(status: ZeroUiStatus.sosTriggered));
     await _haptics.emergencyAlarmPulse();
     await _sound.playSosAlarm();
     await _repository.speak('Emergency SOS broadcasted.');
-    
-    // إحداثيات افتراضية سيتم تحديثها بموقع الـ GPS لاحقاً
     await _repository.triggerEmergencySos(latitude: 0.0, longitude: 0.0);
   }
 
