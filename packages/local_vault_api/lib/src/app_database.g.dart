@@ -1119,6 +1119,1070 @@ class NotificationsDigestCompanion
   }
 }
 
+class $ContactsTable extends Contacts with TableInfo<$ContactsTable, Contact> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ContactsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 1,
+      maxTextLength: 120,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _phoneNumberMeta = const VerificationMeta(
+    'phoneNumber',
+  );
+  @override
+  late final GeneratedColumn<String> phoneNumber = GeneratedColumn<String>(
+    'phone_number',
+    aliasedName,
+    false,
+    additionalChecks: GeneratedColumn.checkTextLength(
+      minTextLength: 3,
+      maxTextLength: 40,
+    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _relationshipMeta = const VerificationMeta(
+    'relationship',
+  );
+  @override
+  late final GeneratedColumn<String> relationship = GeneratedColumn<String>(
+    'relationship',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isEmergencyMeta = const VerificationMeta(
+    'isEmergency',
+  );
+  @override
+  late final GeneratedColumn<bool> isEmergency = GeneratedColumn<bool>(
+    'is_emergency',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_emergency" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _isSyncedMeta = const VerificationMeta(
+    'isSynced',
+  );
+  @override
+  late final GeneratedColumn<bool> isSynced = GeneratedColumn<bool>(
+    'is_synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    phoneNumber,
+    relationship,
+    isEmergency,
+    createdAt,
+    isSynced,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'contacts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<Contact> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('phone_number')) {
+      context.handle(
+        _phoneNumberMeta,
+        phoneNumber.isAcceptableOrUnknown(
+          data['phone_number']!,
+          _phoneNumberMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_phoneNumberMeta);
+    }
+    if (data.containsKey('relationship')) {
+      context.handle(
+        _relationshipMeta,
+        relationship.isAcceptableOrUnknown(
+          data['relationship']!,
+          _relationshipMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_emergency')) {
+      context.handle(
+        _isEmergencyMeta,
+        isEmergency.isAcceptableOrUnknown(
+          data['is_emergency']!,
+          _isEmergencyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('is_synced')) {
+      context.handle(
+        _isSyncedMeta,
+        isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Contact map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Contact(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      phoneNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}phone_number'],
+      )!,
+      relationship: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}relationship'],
+      ),
+      isEmergency: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_emergency'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      isSynced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_synced'],
+      )!,
+    );
+  }
+
+  @override
+  $ContactsTable createAlias(String alias) {
+    return $ContactsTable(attachedDatabase, alias);
+  }
+}
+
+class Contact extends DataClass implements Insertable<Contact> {
+  final int id;
+
+  /// الاسم الظاهر (مثلاً: أحمد، John Smith)
+  final String name;
+
+  /// رقم الهاتف المعياري
+  final String phoneNumber;
+
+  /// صلة القرابة لتمكين الأوامر الصوتية الذكية (مثلاً: أبي، Dad, Doctor, Sister)
+  final String? relationship;
+
+  /// هل يتم اعتماده كجهة اتصال للطوارئ في رادار الاستغاثة SOS؟
+  final bool isEmergency;
+  final DateTime createdAt;
+  final bool isSynced;
+  const Contact({
+    required this.id,
+    required this.name,
+    required this.phoneNumber,
+    this.relationship,
+    required this.isEmergency,
+    required this.createdAt,
+    required this.isSynced,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['name'] = Variable<String>(name);
+    map['phone_number'] = Variable<String>(phoneNumber);
+    if (!nullToAbsent || relationship != null) {
+      map['relationship'] = Variable<String>(relationship);
+    }
+    map['is_emergency'] = Variable<bool>(isEmergency);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['is_synced'] = Variable<bool>(isSynced);
+    return map;
+  }
+
+  ContactsCompanion toCompanion(bool nullToAbsent) {
+    return ContactsCompanion(
+      id: Value(id),
+      name: Value(name),
+      phoneNumber: Value(phoneNumber),
+      relationship: relationship == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relationship),
+      isEmergency: Value(isEmergency),
+      createdAt: Value(createdAt),
+      isSynced: Value(isSynced),
+    );
+  }
+
+  factory Contact.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Contact(
+      id: serializer.fromJson<int>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      phoneNumber: serializer.fromJson<String>(json['phoneNumber']),
+      relationship: serializer.fromJson<String?>(json['relationship']),
+      isEmergency: serializer.fromJson<bool>(json['isEmergency']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      isSynced: serializer.fromJson<bool>(json['isSynced']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'name': serializer.toJson<String>(name),
+      'phoneNumber': serializer.toJson<String>(phoneNumber),
+      'relationship': serializer.toJson<String?>(relationship),
+      'isEmergency': serializer.toJson<bool>(isEmergency),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'isSynced': serializer.toJson<bool>(isSynced),
+    };
+  }
+
+  Contact copyWith({
+    int? id,
+    String? name,
+    String? phoneNumber,
+    Value<String?> relationship = const Value.absent(),
+    bool? isEmergency,
+    DateTime? createdAt,
+    bool? isSynced,
+  }) => Contact(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    phoneNumber: phoneNumber ?? this.phoneNumber,
+    relationship: relationship.present ? relationship.value : this.relationship,
+    isEmergency: isEmergency ?? this.isEmergency,
+    createdAt: createdAt ?? this.createdAt,
+    isSynced: isSynced ?? this.isSynced,
+  );
+  Contact copyWithCompanion(ContactsCompanion data) {
+    return Contact(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      phoneNumber: data.phoneNumber.present
+          ? data.phoneNumber.value
+          : this.phoneNumber,
+      relationship: data.relationship.present
+          ? data.relationship.value
+          : this.relationship,
+      isEmergency: data.isEmergency.present
+          ? data.isEmergency.value
+          : this.isEmergency,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Contact(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('phoneNumber: $phoneNumber, ')
+          ..write('relationship: $relationship, ')
+          ..write('isEmergency: $isEmergency, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isSynced: $isSynced')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    phoneNumber,
+    relationship,
+    isEmergency,
+    createdAt,
+    isSynced,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Contact &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.phoneNumber == this.phoneNumber &&
+          other.relationship == this.relationship &&
+          other.isEmergency == this.isEmergency &&
+          other.createdAt == this.createdAt &&
+          other.isSynced == this.isSynced);
+}
+
+class ContactsCompanion extends UpdateCompanion<Contact> {
+  final Value<int> id;
+  final Value<String> name;
+  final Value<String> phoneNumber;
+  final Value<String?> relationship;
+  final Value<bool> isEmergency;
+  final Value<DateTime> createdAt;
+  final Value<bool> isSynced;
+  const ContactsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.phoneNumber = const Value.absent(),
+    this.relationship = const Value.absent(),
+    this.isEmergency = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+  });
+  ContactsCompanion.insert({
+    this.id = const Value.absent(),
+    required String name,
+    required String phoneNumber,
+    this.relationship = const Value.absent(),
+    this.isEmergency = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+  }) : name = Value(name),
+       phoneNumber = Value(phoneNumber);
+  static Insertable<Contact> custom({
+    Expression<int>? id,
+    Expression<String>? name,
+    Expression<String>? phoneNumber,
+    Expression<String>? relationship,
+    Expression<bool>? isEmergency,
+    Expression<DateTime>? createdAt,
+    Expression<bool>? isSynced,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (phoneNumber != null) 'phone_number': phoneNumber,
+      if (relationship != null) 'relationship': relationship,
+      if (isEmergency != null) 'is_emergency': isEmergency,
+      if (createdAt != null) 'created_at': createdAt,
+      if (isSynced != null) 'is_synced': isSynced,
+    });
+  }
+
+  ContactsCompanion copyWith({
+    Value<int>? id,
+    Value<String>? name,
+    Value<String>? phoneNumber,
+    Value<String?>? relationship,
+    Value<bool>? isEmergency,
+    Value<DateTime>? createdAt,
+    Value<bool>? isSynced,
+  }) {
+    return ContactsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      relationship: relationship ?? this.relationship,
+      isEmergency: isEmergency ?? this.isEmergency,
+      createdAt: createdAt ?? this.createdAt,
+      isSynced: isSynced ?? this.isSynced,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (phoneNumber.present) {
+      map['phone_number'] = Variable<String>(phoneNumber.value);
+    }
+    if (relationship.present) {
+      map['relationship'] = Variable<String>(relationship.value);
+    }
+    if (isEmergency.present) {
+      map['is_emergency'] = Variable<bool>(isEmergency.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (isSynced.present) {
+      map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ContactsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('phoneNumber: $phoneNumber, ')
+          ..write('relationship: $relationship, ')
+          ..write('isEmergency: $isEmergency, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('isSynced: $isSynced')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $MessagesVaultTable extends MessagesVault
+    with TableInfo<$MessagesVaultTable, MessagesVaultData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $MessagesVaultTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _contactIdentifierMeta = const VerificationMeta(
+    'contactIdentifier',
+  );
+  @override
+  late final GeneratedColumn<String> contactIdentifier =
+      GeneratedColumn<String>(
+        'contact_identifier',
+        aliasedName,
+        false,
+        additionalChecks: GeneratedColumn.checkTextLength(
+          minTextLength: 1,
+          maxTextLength: 120,
+        ),
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _senderNameMeta = const VerificationMeta(
+    'senderName',
+  );
+  @override
+  late final GeneratedColumn<String> senderName = GeneratedColumn<String>(
+    'sender_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageTextMeta = const VerificationMeta(
+    'messageText',
+  );
+  @override
+  late final GeneratedColumn<String> messageText = GeneratedColumn<String>(
+    'message_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _platformMeta = const VerificationMeta(
+    'platform',
+  );
+  @override
+  late final GeneratedColumn<String> platform = GeneratedColumn<String>(
+    'platform',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('sms'),
+  );
+  static const VerificationMeta _isOutgoingMeta = const VerificationMeta(
+    'isOutgoing',
+  );
+  @override
+  late final GeneratedColumn<bool> isOutgoing = GeneratedColumn<bool>(
+    'is_outgoing',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_outgoing" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _timestampMeta = const VerificationMeta(
+    'timestamp',
+  );
+  @override
+  late final GeneratedColumn<DateTime> timestamp = GeneratedColumn<DateTime>(
+    'timestamp',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _isReadMeta = const VerificationMeta('isRead');
+  @override
+  late final GeneratedColumn<bool> isRead = GeneratedColumn<bool>(
+    'is_read',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_read" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isSyncedMeta = const VerificationMeta(
+    'isSynced',
+  );
+  @override
+  late final GeneratedColumn<bool> isSynced = GeneratedColumn<bool>(
+    'is_synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    contactIdentifier,
+    senderName,
+    messageText,
+    platform,
+    isOutgoing,
+    timestamp,
+    isRead,
+    isSynced,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'messages_vault';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<MessagesVaultData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('contact_identifier')) {
+      context.handle(
+        _contactIdentifierMeta,
+        contactIdentifier.isAcceptableOrUnknown(
+          data['contact_identifier']!,
+          _contactIdentifierMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_contactIdentifierMeta);
+    }
+    if (data.containsKey('sender_name')) {
+      context.handle(
+        _senderNameMeta,
+        senderName.isAcceptableOrUnknown(data['sender_name']!, _senderNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_senderNameMeta);
+    }
+    if (data.containsKey('message_text')) {
+      context.handle(
+        _messageTextMeta,
+        messageText.isAcceptableOrUnknown(
+          data['message_text']!,
+          _messageTextMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_messageTextMeta);
+    }
+    if (data.containsKey('platform')) {
+      context.handle(
+        _platformMeta,
+        platform.isAcceptableOrUnknown(data['platform']!, _platformMeta),
+      );
+    }
+    if (data.containsKey('is_outgoing')) {
+      context.handle(
+        _isOutgoingMeta,
+        isOutgoing.isAcceptableOrUnknown(data['is_outgoing']!, _isOutgoingMeta),
+      );
+    }
+    if (data.containsKey('timestamp')) {
+      context.handle(
+        _timestampMeta,
+        timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta),
+      );
+    }
+    if (data.containsKey('is_read')) {
+      context.handle(
+        _isReadMeta,
+        isRead.isAcceptableOrUnknown(data['is_read']!, _isReadMeta),
+      );
+    }
+    if (data.containsKey('is_synced')) {
+      context.handle(
+        _isSyncedMeta,
+        isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  MessagesVaultData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return MessagesVaultData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      contactIdentifier: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}contact_identifier'],
+      )!,
+      senderName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_name'],
+      )!,
+      messageText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_text'],
+      )!,
+      platform: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}platform'],
+      )!,
+      isOutgoing: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_outgoing'],
+      )!,
+      timestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}timestamp'],
+      )!,
+      isRead: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_read'],
+      )!,
+      isSynced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_synced'],
+      )!,
+    );
+  }
+
+  @override
+  $MessagesVaultTable createAlias(String alias) {
+    return $MessagesVaultTable(attachedDatabase, alias);
+  }
+}
+
+class MessagesVaultData extends DataClass
+    implements Insertable<MessagesVaultData> {
+  final int id;
+
+  /// معرف جهة الاتصال (سواء كان رقم هاتف أو اسم)
+  final String contactIdentifier;
+
+  /// اسم المرسل الظاهر
+  final String senderName;
+
+  /// محتوى الرسالة النصية
+  final String messageText;
+
+  /// التطبيق أو المنصة المصدر (sms, whatsapp, telegram)
+  final String platform;
+
+  /// هل الرسالة صادرة من المستخدم (عبر الرد الصوتي) أم واردة؟
+  final bool isOutgoing;
+
+  /// توقيت الرسالة
+  final DateTime timestamp;
+
+  /// هل استمع إليها المستخدم أو قرأها؟
+  final bool isRead;
+  final bool isSynced;
+  const MessagesVaultData({
+    required this.id,
+    required this.contactIdentifier,
+    required this.senderName,
+    required this.messageText,
+    required this.platform,
+    required this.isOutgoing,
+    required this.timestamp,
+    required this.isRead,
+    required this.isSynced,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['contact_identifier'] = Variable<String>(contactIdentifier);
+    map['sender_name'] = Variable<String>(senderName);
+    map['message_text'] = Variable<String>(messageText);
+    map['platform'] = Variable<String>(platform);
+    map['is_outgoing'] = Variable<bool>(isOutgoing);
+    map['timestamp'] = Variable<DateTime>(timestamp);
+    map['is_read'] = Variable<bool>(isRead);
+    map['is_synced'] = Variable<bool>(isSynced);
+    return map;
+  }
+
+  MessagesVaultCompanion toCompanion(bool nullToAbsent) {
+    return MessagesVaultCompanion(
+      id: Value(id),
+      contactIdentifier: Value(contactIdentifier),
+      senderName: Value(senderName),
+      messageText: Value(messageText),
+      platform: Value(platform),
+      isOutgoing: Value(isOutgoing),
+      timestamp: Value(timestamp),
+      isRead: Value(isRead),
+      isSynced: Value(isSynced),
+    );
+  }
+
+  factory MessagesVaultData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return MessagesVaultData(
+      id: serializer.fromJson<int>(json['id']),
+      contactIdentifier: serializer.fromJson<String>(json['contactIdentifier']),
+      senderName: serializer.fromJson<String>(json['senderName']),
+      messageText: serializer.fromJson<String>(json['messageText']),
+      platform: serializer.fromJson<String>(json['platform']),
+      isOutgoing: serializer.fromJson<bool>(json['isOutgoing']),
+      timestamp: serializer.fromJson<DateTime>(json['timestamp']),
+      isRead: serializer.fromJson<bool>(json['isRead']),
+      isSynced: serializer.fromJson<bool>(json['isSynced']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'contactIdentifier': serializer.toJson<String>(contactIdentifier),
+      'senderName': serializer.toJson<String>(senderName),
+      'messageText': serializer.toJson<String>(messageText),
+      'platform': serializer.toJson<String>(platform),
+      'isOutgoing': serializer.toJson<bool>(isOutgoing),
+      'timestamp': serializer.toJson<DateTime>(timestamp),
+      'isRead': serializer.toJson<bool>(isRead),
+      'isSynced': serializer.toJson<bool>(isSynced),
+    };
+  }
+
+  MessagesVaultData copyWith({
+    int? id,
+    String? contactIdentifier,
+    String? senderName,
+    String? messageText,
+    String? platform,
+    bool? isOutgoing,
+    DateTime? timestamp,
+    bool? isRead,
+    bool? isSynced,
+  }) => MessagesVaultData(
+    id: id ?? this.id,
+    contactIdentifier: contactIdentifier ?? this.contactIdentifier,
+    senderName: senderName ?? this.senderName,
+    messageText: messageText ?? this.messageText,
+    platform: platform ?? this.platform,
+    isOutgoing: isOutgoing ?? this.isOutgoing,
+    timestamp: timestamp ?? this.timestamp,
+    isRead: isRead ?? this.isRead,
+    isSynced: isSynced ?? this.isSynced,
+  );
+  MessagesVaultData copyWithCompanion(MessagesVaultCompanion data) {
+    return MessagesVaultData(
+      id: data.id.present ? data.id.value : this.id,
+      contactIdentifier: data.contactIdentifier.present
+          ? data.contactIdentifier.value
+          : this.contactIdentifier,
+      senderName: data.senderName.present
+          ? data.senderName.value
+          : this.senderName,
+      messageText: data.messageText.present
+          ? data.messageText.value
+          : this.messageText,
+      platform: data.platform.present ? data.platform.value : this.platform,
+      isOutgoing: data.isOutgoing.present
+          ? data.isOutgoing.value
+          : this.isOutgoing,
+      timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
+      isRead: data.isRead.present ? data.isRead.value : this.isRead,
+      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MessagesVaultData(')
+          ..write('id: $id, ')
+          ..write('contactIdentifier: $contactIdentifier, ')
+          ..write('senderName: $senderName, ')
+          ..write('messageText: $messageText, ')
+          ..write('platform: $platform, ')
+          ..write('isOutgoing: $isOutgoing, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('isRead: $isRead, ')
+          ..write('isSynced: $isSynced')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    contactIdentifier,
+    senderName,
+    messageText,
+    platform,
+    isOutgoing,
+    timestamp,
+    isRead,
+    isSynced,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is MessagesVaultData &&
+          other.id == this.id &&
+          other.contactIdentifier == this.contactIdentifier &&
+          other.senderName == this.senderName &&
+          other.messageText == this.messageText &&
+          other.platform == this.platform &&
+          other.isOutgoing == this.isOutgoing &&
+          other.timestamp == this.timestamp &&
+          other.isRead == this.isRead &&
+          other.isSynced == this.isSynced);
+}
+
+class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
+  final Value<int> id;
+  final Value<String> contactIdentifier;
+  final Value<String> senderName;
+  final Value<String> messageText;
+  final Value<String> platform;
+  final Value<bool> isOutgoing;
+  final Value<DateTime> timestamp;
+  final Value<bool> isRead;
+  final Value<bool> isSynced;
+  const MessagesVaultCompanion({
+    this.id = const Value.absent(),
+    this.contactIdentifier = const Value.absent(),
+    this.senderName = const Value.absent(),
+    this.messageText = const Value.absent(),
+    this.platform = const Value.absent(),
+    this.isOutgoing = const Value.absent(),
+    this.timestamp = const Value.absent(),
+    this.isRead = const Value.absent(),
+    this.isSynced = const Value.absent(),
+  });
+  MessagesVaultCompanion.insert({
+    this.id = const Value.absent(),
+    required String contactIdentifier,
+    required String senderName,
+    required String messageText,
+    this.platform = const Value.absent(),
+    this.isOutgoing = const Value.absent(),
+    this.timestamp = const Value.absent(),
+    this.isRead = const Value.absent(),
+    this.isSynced = const Value.absent(),
+  }) : contactIdentifier = Value(contactIdentifier),
+       senderName = Value(senderName),
+       messageText = Value(messageText);
+  static Insertable<MessagesVaultData> custom({
+    Expression<int>? id,
+    Expression<String>? contactIdentifier,
+    Expression<String>? senderName,
+    Expression<String>? messageText,
+    Expression<String>? platform,
+    Expression<bool>? isOutgoing,
+    Expression<DateTime>? timestamp,
+    Expression<bool>? isRead,
+    Expression<bool>? isSynced,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (contactIdentifier != null) 'contact_identifier': contactIdentifier,
+      if (senderName != null) 'sender_name': senderName,
+      if (messageText != null) 'message_text': messageText,
+      if (platform != null) 'platform': platform,
+      if (isOutgoing != null) 'is_outgoing': isOutgoing,
+      if (timestamp != null) 'timestamp': timestamp,
+      if (isRead != null) 'is_read': isRead,
+      if (isSynced != null) 'is_synced': isSynced,
+    });
+  }
+
+  MessagesVaultCompanion copyWith({
+    Value<int>? id,
+    Value<String>? contactIdentifier,
+    Value<String>? senderName,
+    Value<String>? messageText,
+    Value<String>? platform,
+    Value<bool>? isOutgoing,
+    Value<DateTime>? timestamp,
+    Value<bool>? isRead,
+    Value<bool>? isSynced,
+  }) {
+    return MessagesVaultCompanion(
+      id: id ?? this.id,
+      contactIdentifier: contactIdentifier ?? this.contactIdentifier,
+      senderName: senderName ?? this.senderName,
+      messageText: messageText ?? this.messageText,
+      platform: platform ?? this.platform,
+      isOutgoing: isOutgoing ?? this.isOutgoing,
+      timestamp: timestamp ?? this.timestamp,
+      isRead: isRead ?? this.isRead,
+      isSynced: isSynced ?? this.isSynced,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (contactIdentifier.present) {
+      map['contact_identifier'] = Variable<String>(contactIdentifier.value);
+    }
+    if (senderName.present) {
+      map['sender_name'] = Variable<String>(senderName.value);
+    }
+    if (messageText.present) {
+      map['message_text'] = Variable<String>(messageText.value);
+    }
+    if (platform.present) {
+      map['platform'] = Variable<String>(platform.value);
+    }
+    if (isOutgoing.present) {
+      map['is_outgoing'] = Variable<bool>(isOutgoing.value);
+    }
+    if (timestamp.present) {
+      map['timestamp'] = Variable<DateTime>(timestamp.value);
+    }
+    if (isRead.present) {
+      map['is_read'] = Variable<bool>(isRead.value);
+    }
+    if (isSynced.present) {
+      map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('MessagesVaultCompanion(')
+          ..write('id: $id, ')
+          ..write('contactIdentifier: $contactIdentifier, ')
+          ..write('senderName: $senderName, ')
+          ..write('messageText: $messageText, ')
+          ..write('platform: $platform, ')
+          ..write('isOutgoing: $isOutgoing, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('isRead: $isRead, ')
+          ..write('isSynced: $isSynced')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1126,6 +2190,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TasksTable tasks = $TasksTable(this);
   late final $NotificationsDigestTable notificationsDigest =
       $NotificationsDigestTable(this);
+  late final $ContactsTable contacts = $ContactsTable(this);
+  late final $MessagesVaultTable messagesVault = $MessagesVaultTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1134,6 +2200,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     voiceMemos,
     tasks,
     notificationsDigest,
+    contacts,
+    messagesVault,
   ];
 }
 
@@ -1778,6 +2846,538 @@ typedef $$NotificationsDigestTableProcessedTableManager =
       NotificationsDigestData,
       PrefetchHooks Function()
     >;
+typedef $$ContactsTableCreateCompanionBuilder =
+    ContactsCompanion Function({
+      Value<int> id,
+      required String name,
+      required String phoneNumber,
+      Value<String?> relationship,
+      Value<bool> isEmergency,
+      Value<DateTime> createdAt,
+      Value<bool> isSynced,
+    });
+typedef $$ContactsTableUpdateCompanionBuilder =
+    ContactsCompanion Function({
+      Value<int> id,
+      Value<String> name,
+      Value<String> phoneNumber,
+      Value<String?> relationship,
+      Value<bool> isEmergency,
+      Value<DateTime> createdAt,
+      Value<bool> isSynced,
+    });
+
+class $$ContactsTableFilterComposer
+    extends Composer<_$AppDatabase, $ContactsTable> {
+  $$ContactsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get phoneNumber => $composableBuilder(
+    column: $table.phoneNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get relationship => $composableBuilder(
+    column: $table.relationship,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isEmergency => $composableBuilder(
+    column: $table.isEmergency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ContactsTableOrderingComposer
+    extends Composer<_$AppDatabase, $ContactsTable> {
+  $$ContactsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get phoneNumber => $composableBuilder(
+    column: $table.phoneNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get relationship => $composableBuilder(
+    column: $table.relationship,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isEmergency => $composableBuilder(
+    column: $table.isEmergency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ContactsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ContactsTable> {
+  $$ContactsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get phoneNumber => $composableBuilder(
+    column: $table.phoneNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get relationship => $composableBuilder(
+    column: $table.relationship,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isEmergency => $composableBuilder(
+    column: $table.isEmergency,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSynced =>
+      $composableBuilder(column: $table.isSynced, builder: (column) => column);
+}
+
+class $$ContactsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ContactsTable,
+          Contact,
+          $$ContactsTableFilterComposer,
+          $$ContactsTableOrderingComposer,
+          $$ContactsTableAnnotationComposer,
+          $$ContactsTableCreateCompanionBuilder,
+          $$ContactsTableUpdateCompanionBuilder,
+          (Contact, BaseReferences<_$AppDatabase, $ContactsTable, Contact>),
+          Contact,
+          PrefetchHooks Function()
+        > {
+  $$ContactsTableTableManager(_$AppDatabase db, $ContactsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ContactsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ContactsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ContactsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> phoneNumber = const Value.absent(),
+                Value<String?> relationship = const Value.absent(),
+                Value<bool> isEmergency = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+              }) => ContactsCompanion(
+                id: id,
+                name: name,
+                phoneNumber: phoneNumber,
+                relationship: relationship,
+                isEmergency: isEmergency,
+                createdAt: createdAt,
+                isSynced: isSynced,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String name,
+                required String phoneNumber,
+                Value<String?> relationship = const Value.absent(),
+                Value<bool> isEmergency = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+              }) => ContactsCompanion.insert(
+                id: id,
+                name: name,
+                phoneNumber: phoneNumber,
+                relationship: relationship,
+                isEmergency: isEmergency,
+                createdAt: createdAt,
+                isSynced: isSynced,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$ContactsTable, Contact>(table),
+                  BaseReferences<_$AppDatabase, $ContactsTable, Contact>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ContactsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ContactsTable,
+      Contact,
+      $$ContactsTableFilterComposer,
+      $$ContactsTableOrderingComposer,
+      $$ContactsTableAnnotationComposer,
+      $$ContactsTableCreateCompanionBuilder,
+      $$ContactsTableUpdateCompanionBuilder,
+      (Contact, BaseReferences<_$AppDatabase, $ContactsTable, Contact>),
+      Contact,
+      PrefetchHooks Function()
+    >;
+typedef $$MessagesVaultTableCreateCompanionBuilder =
+    MessagesVaultCompanion Function({
+      Value<int> id,
+      required String contactIdentifier,
+      required String senderName,
+      required String messageText,
+      Value<String> platform,
+      Value<bool> isOutgoing,
+      Value<DateTime> timestamp,
+      Value<bool> isRead,
+      Value<bool> isSynced,
+    });
+typedef $$MessagesVaultTableUpdateCompanionBuilder =
+    MessagesVaultCompanion Function({
+      Value<int> id,
+      Value<String> contactIdentifier,
+      Value<String> senderName,
+      Value<String> messageText,
+      Value<String> platform,
+      Value<bool> isOutgoing,
+      Value<DateTime> timestamp,
+      Value<bool> isRead,
+      Value<bool> isSynced,
+    });
+
+class $$MessagesVaultTableFilterComposer
+    extends Composer<_$AppDatabase, $MessagesVaultTable> {
+  $$MessagesVaultTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contactIdentifier => $composableBuilder(
+    column: $table.contactIdentifier,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderName => $composableBuilder(
+    column: $table.senderName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageText => $composableBuilder(
+    column: $table.messageText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isOutgoing => $composableBuilder(
+    column: $table.isOutgoing,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isRead => $composableBuilder(
+    column: $table.isRead,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$MessagesVaultTableOrderingComposer
+    extends Composer<_$AppDatabase, $MessagesVaultTable> {
+  $$MessagesVaultTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contactIdentifier => $composableBuilder(
+    column: $table.contactIdentifier,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderName => $composableBuilder(
+    column: $table.senderName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageText => $composableBuilder(
+    column: $table.messageText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get platform => $composableBuilder(
+    column: $table.platform,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isOutgoing => $composableBuilder(
+    column: $table.isOutgoing,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isRead => $composableBuilder(
+    column: $table.isRead,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$MessagesVaultTableAnnotationComposer
+    extends Composer<_$AppDatabase, $MessagesVaultTable> {
+  $$MessagesVaultTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get contactIdentifier => $composableBuilder(
+    column: $table.contactIdentifier,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get senderName => $composableBuilder(
+    column: $table.senderName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get messageText => $composableBuilder(
+    column: $table.messageText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get platform =>
+      $composableBuilder(column: $table.platform, builder: (column) => column);
+
+  GeneratedColumn<bool> get isOutgoing => $composableBuilder(
+    column: $table.isOutgoing,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get timestamp =>
+      $composableBuilder(column: $table.timestamp, builder: (column) => column);
+
+  GeneratedColumn<bool> get isRead =>
+      $composableBuilder(column: $table.isRead, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSynced =>
+      $composableBuilder(column: $table.isSynced, builder: (column) => column);
+}
+
+class $$MessagesVaultTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $MessagesVaultTable,
+          MessagesVaultData,
+          $$MessagesVaultTableFilterComposer,
+          $$MessagesVaultTableOrderingComposer,
+          $$MessagesVaultTableAnnotationComposer,
+          $$MessagesVaultTableCreateCompanionBuilder,
+          $$MessagesVaultTableUpdateCompanionBuilder,
+          (
+            MessagesVaultData,
+            BaseReferences<
+              _$AppDatabase,
+              $MessagesVaultTable,
+              MessagesVaultData
+            >,
+          ),
+          MessagesVaultData,
+          PrefetchHooks Function()
+        > {
+  $$MessagesVaultTableTableManager(_$AppDatabase db, $MessagesVaultTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$MessagesVaultTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$MessagesVaultTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$MessagesVaultTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> contactIdentifier = const Value.absent(),
+                Value<String> senderName = const Value.absent(),
+                Value<String> messageText = const Value.absent(),
+                Value<String> platform = const Value.absent(),
+                Value<bool> isOutgoing = const Value.absent(),
+                Value<DateTime> timestamp = const Value.absent(),
+                Value<bool> isRead = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+              }) => MessagesVaultCompanion(
+                id: id,
+                contactIdentifier: contactIdentifier,
+                senderName: senderName,
+                messageText: messageText,
+                platform: platform,
+                isOutgoing: isOutgoing,
+                timestamp: timestamp,
+                isRead: isRead,
+                isSynced: isSynced,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String contactIdentifier,
+                required String senderName,
+                required String messageText,
+                Value<String> platform = const Value.absent(),
+                Value<bool> isOutgoing = const Value.absent(),
+                Value<DateTime> timestamp = const Value.absent(),
+                Value<bool> isRead = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+              }) => MessagesVaultCompanion.insert(
+                id: id,
+                contactIdentifier: contactIdentifier,
+                senderName: senderName,
+                messageText: messageText,
+                platform: platform,
+                isOutgoing: isOutgoing,
+                timestamp: timestamp,
+                isRead: isRead,
+                isSynced: isSynced,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$MessagesVaultTable, MessagesVaultData>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $MessagesVaultTable,
+                    MessagesVaultData
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$MessagesVaultTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $MessagesVaultTable,
+      MessagesVaultData,
+      $$MessagesVaultTableFilterComposer,
+      $$MessagesVaultTableOrderingComposer,
+      $$MessagesVaultTableAnnotationComposer,
+      $$MessagesVaultTableCreateCompanionBuilder,
+      $$MessagesVaultTableUpdateCompanionBuilder,
+      (
+        MessagesVaultData,
+        BaseReferences<_$AppDatabase, $MessagesVaultTable, MessagesVaultData>,
+      ),
+      MessagesVaultData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -1788,4 +3388,8 @@ class $AppDatabaseManager {
       $$TasksTableTableManager(_db, _db.tasks);
   $$NotificationsDigestTableTableManager get notificationsDigest =>
       $$NotificationsDigestTableTableManager(_db, _db.notificationsDigest);
+  $$ContactsTableTableManager get contacts =>
+      $$ContactsTableTableManager(_db, _db.contacts);
+  $$MessagesVaultTableTableManager get messagesVault =>
+      $$MessagesVaultTableTableManager(_db, _db.messagesVault);
 }
