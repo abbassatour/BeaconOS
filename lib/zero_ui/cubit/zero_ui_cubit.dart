@@ -1,6 +1,7 @@
 // lib/zero_ui/cubit/zero_ui_cubit.dart
 import 'package:beacon_os/core/audio/sound_controller.dart';
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
+import 'package:beacon_os/core/services/camera_service.dart';
 import 'package:beacon_os/zero_ui/cubit/zero_ui_state.dart';
 import 'package:bloc/bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
@@ -10,9 +11,11 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     required LauncherRepository repository,
     HapticManager? hapticManager,
     SoundController? soundController,
+    CameraService? cameraService,
   })  : _repository = repository,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
+        _camera = cameraService ?? CameraService.instance,
         super(const ZeroUiState()) {
     _initEngines();
   }
@@ -20,9 +23,11 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
   final LauncherRepository _repository;
   final HapticManager _haptics;
   final SoundController _sound;
+  final CameraService _camera;
 
   Future<void> _initEngines() async {
     await _repository.initializeEngines();
+     // تشغيل الكاميرا بالخلفية
   }
 
   Future<void> onTouchStarted() async {
@@ -59,14 +64,25 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     final finalWords = await _repository.stopListening();
     final query = finalWords.isNotEmpty ? finalWords : state.recognizedText.trim();
 
+    // الميزة السحرية: إذا لم ينطق بشيء، نعتبرها طلب رؤية للمحيط
     if (query.isEmpty) {
-      await _sound.playErrorCue();
-      await _haptics.errorAlert();
-      emit(state.copyWith(status: ZeroUiStatus.idle));
+      await submitQuery("What is in front of me?");
       return;
     }
 
     await submitQuery(query);
+  }
+
+  /// دالة مساعدة لمعرفة هل الطلب يتطلب فتح الكاميرا
+  bool _isVisualQuery(String query) {
+    final text = query.toLowerCase();
+    return text.contains('look') ||
+        text.contains('see') ||
+        text.contains('front of me') ||
+        text.contains('read') ||
+        text.contains('what is this') ||
+        text.contains('describe') ||
+        text.contains('color');
   }
 
   /// تنفيذ أمر صوتي أو كتابي مباشرة وتحديث الواجهة
@@ -83,7 +99,17 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     ));
     await _sound.playProcessingCue();
 
-    final result = await _repository.dispatchVoiceCommand(clean);
+    // التقاط الصورة إذا كان الأمر يتطلب رؤية
+    String? base64Image;
+    if (_isVisualQuery(clean)) {
+      base64Image = await _camera.captureAsBase64();
+    }
+
+    // إرسال الأمر (مع أو بدون الصورة) للمستودع (Repository)
+    final result = await _repository.dispatchVoiceCommand(
+      clean,
+      base64Image: base64Image,
+    );
 
     await _haptics.successNotification();
     await _sound.playSuccessCue();
@@ -126,6 +152,7 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
   Future<void> close() {
     _haptics.dispose();
     _sound.dispose();
+    _camera.dispose(); // إغلاق الكاميرا عند الخروج
     return super.close();
   }
 }
