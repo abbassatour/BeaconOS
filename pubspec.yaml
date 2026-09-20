@@ -1,0 +1,45 @@
+name: beacon_os
+description: Ambient Voice OS and Spatial Cockpit
+version: 1.0.0+1
+publish_to: none
+
+environment:
+  sdk: ^3.12.0
+  flutter: ^3.44.0
+
+dependencies:
+  bloc: ^9.2.1
+  camera: ^0.12.1
+  cloud_sync_api:
+    path: packages/cloud_sync_api
+  equatable: ^3.0.0
+  flutter:
+    sdk: flutter
+  flutter_bloc: ^9.1.1
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  launcher_repository:
+    path: packages/launcher_repository
+  local_vault_api:
+    path: packages/local_vault_api
+  onesignal_flutter: ^5.6.11
+  purchases_flutter: ^8.11.0
+  supabase_flutter: ^2.17.2
+  system_hardware_api:
+    path: packages/system_hardware_api
+  voice_ai_api:
+    path: packages/voice_ai_api
+
+dev_dependencies:
+  bloc_lint: ^0.4.1
+  bloc_test: ^10.0.0
+  bloc_tools: ^0.1.0-dev.24
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.5
+  very_good_analysis: ^10.3.0
+
+flutter:
+  generate: true
+  uses-material-design: true
