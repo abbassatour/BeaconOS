@@ -2,6 +2,7 @@
 import 'dart:developer';
 import 'package:cloud_sync_api/cloud_sync_api.dart';
 import 'package:drift/drift.dart';
+import 'package:intl/intl.dart';
 import 'package:local_vault_api/local_vault_api.dart';
 import 'package:system_hardware_api/system_hardware_api.dart';
 import 'package:voice_ai_api/voice_ai_api.dart';
@@ -40,13 +41,11 @@ class LauncherRepository {
   final HardwareClient _hardware;
   final CloudSyncClient _cloud;
 
-  // -- تهيئة المحركات --
   Future<void> initializeEngines() async {
     await _speech.initialize();
     await _tts.initialize();
   }
 
-  // -- عمليات الصوت المباشرة --
   Future<void> startListening({
     required Function(String text, bool isFinal) onResult,
     Function(double level)? onSoundLevel,
@@ -67,95 +66,91 @@ class LauncherRepository {
     await _tts.stop();
   }
 
-  // -- معالجة الأوامر الصوتية وتحويلها إلى أفعال نظام --
+  /// معالجة الأوامر الصوتية: تبدأ بالفحص المحلي السريع (Zero-Latency)، ثم الذكاء الاصطناعي
   Future<LauncherCommandResult> dispatchVoiceCommand(
     String userQuery, {
     String? base64Image,
   }) async {
-    final cleanQuery = userQuery.trim();
+    final cleanQuery = userQuery.trim().toLowerCase();
     if (cleanQuery.isEmpty) {
       return const LauncherCommandResult(
         intent: 'EMPTY',
-        spokenResponse: 'I did not catch that. Please speak again.',
+        spokenResponse: 'I am listening. Please speak your command.',
       );
     }
 
-    // 1. إرسال الصوت للذكاء الاصطناعي لفهم النية عبر JSON
+    // 1. فحص محلي فوري للوقت (يعمل بدون إنترنت)
+    if (cleanQuery.contains('time') || cleanQuery.contains('clock') || cleanQuery == 'date') {
+      final now = DateTime.now();
+      final timeStr = DateFormat('h:mm a, EEEE').format(now);
+      return LauncherCommandResult(
+        intent: 'TIME',
+        spokenResponse: 'The time is $timeStr.',
+      );
+    }
+
+    // 2. فحص محلي فوري للبطارية
+    if (cleanQuery.contains('battery') || cleanQuery.contains('charge')) {
+      final batteryStatus = await _hardware.getBatteryStatus();
+      return LauncherCommandResult(
+        intent: 'BATTERY',
+        spokenResponse: batteryStatus,
+      );
+    }
+
+    // 3. فحص محلي لقراءة المهام المسجلة اليوم
+    if (cleanQuery.contains('my tasks') || cleanQuery.contains('what are my tasks') || cleanQuery.contains('read tasks')) {
+      final pending = await _db.getPendingTasks();
+      if (pending.isEmpty) {
+        return const LauncherCommandResult(
+          intent: 'READ_TASKS',
+          spokenResponse: 'You have no pending tasks. Your day is completely clear.',
+        );
+      }
+      final buffer = StringBuffer('You have ${pending.length} pending task${pending.length > 1 ? 's' : ''}: ');
+      for (var i = 0; i < pending.length; i++) {
+        buffer.write('Task ${i + 1}: ${pending[i].title}. ');
+      }
+      return LauncherCommandResult(
+        intent: 'READ_TASKS',
+        spokenResponse: buffer.toString().trim(),
+      );
+    }
+
+    // 4. حفظ سريع للمهام (محلياً)
+    if (cleanQuery.startsWith('remind me to') || cleanQuery.startsWith('task:')) {
+      final title = userQuery.replaceFirst(RegExp(r'^(remind me to|task:)\s*', caseSensitive: false), '').trim();
+      await _db.insertTask(TasksCompanion.insert(title: title));
+      _cloud.backupTask(title: title);
+      return LauncherCommandResult(
+        intent: 'SAVE_TASK',
+        spokenResponse: 'Task saved to your local vault: $title.',
+      );
+    }
+
+    // 5. حفظ سريع للملاحظات الصوتية (محلياً)
+    if (cleanQuery.startsWith('note:') || cleanQuery.startsWith('save note')) {
+      final content = userQuery.replaceFirst(RegExp(r'^(note:|save note)\s*', caseSensitive: false), '').trim();
+      await _db.insertMemo(VoiceMemosCompanion.insert(
+        title: content.length > 20 ? '${content.substring(0, 20)}...' : content,
+        content: content,
+      ));
+      _cloud.backupMemo(title: 'Quick Memo', content: content);
+      return LauncherCommandResult(
+        intent: 'SAVE_MEMO',
+        spokenResponse: 'Voice memo securely stored offline.',
+      );
+    }
+
+    // 6. التحويل للذكاء الاصطناعي السحابي (Gemini Flash) للأوامر المعقدة
     final aiResult = await _llm.processCommand(
-      userCommand: cleanQuery,
+      userCommand: userQuery,
       base64Image: base64Image,
     );
 
     final intent = aiResult['intent'] as String? ?? 'GENERAL_CHAT';
     final spokenResponse = aiResult['spoken_response'] as String? ?? 'Command processed.';
     final params = (aiResult['parameters'] as Map<String, dynamic>?) ?? {};
-
-    log('LauncherRepository: Intent identified: $intent with params: $params');
-
-    // 2. تنفيذ الأمر على النظام بحسب نوع النية
-    switch (intent) {
-      case 'SAVE_TASK':
-        final title = params['task_title'] as String? ?? cleanQuery;
-        DateTime? due;
-        if (params['due_date'] != null) {
-          due = DateTime.tryParse(params['due_date'].toString());
-        }
-        await _db.insertTask(TasksCompanion.insert(
-          title: title,
-          dueDate: Value(due),
-        ));
-        _cloud.backupTask(title: title, dueDate: due);
-        break;
-
-      case 'SAVE_MEMO':
-        final title = params['memo_title'] as String? ?? 'Quick Memo';
-        final content = params['memo_content'] as String? ?? cleanQuery;
-        await _db.insertMemo(VoiceMemosCompanion.insert(
-          title: title,
-          content: content,
-        ));
-        _cloud.backupMemo(title: title, content: content);
-        break;
-
-      case 'SET_ALARM':
-        final timeStr = params['time'] as String?;
-        if (timeStr != null && timeStr.contains(':')) {
-          final parts = timeStr.split(':');
-          final hour = int.tryParse(parts[0]) ?? 8;
-          final minute = int.tryParse(parts[1]) ?? 0;
-          await _hardware.setSystemAlarm(hour: hour, minute: minute);
-        }
-        break;
-
-      case 'CALL_CONTACT':
-        final target = params['contact_name'] as String? ?? '';
-        await _hardware.callPhoneNumber(target);
-        break;
-
-      case 'LOCK_SCREEN':
-        await _hardware.lockScreen();
-        break;
-
-      case 'READ_NOTIFICATIONS':
-        final unread = await _db.getUnreadNotifications();
-        if (unread.isEmpty) {
-          return const LauncherCommandResult(
-            intent: 'READ_NOTIFICATIONS',
-            spokenResponse: 'You have no new notifications. Your day is clear and quiet.',
-          );
-        }
-        await _db.markAllNotificationsAsRead();
-        final summary = unread.map((n) => '${n.appName}: ${n.content}').join('. ');
-        return LauncherCommandResult(
-          intent: 'READ_NOTIFICATIONS',
-          spokenResponse: 'Here is your notification digest: $summary',
-        );
-
-      case 'VISUAL_QUERY':
-      case 'GENERAL_CHAT':
-      default:
-        break;
-    }
 
     return LauncherCommandResult(
       intent: intent,
@@ -164,7 +159,6 @@ class LauncherRepository {
     );
   }
 
-  // -- نظام الطوارئ SOS الفوري --
   Future<void> triggerEmergencySos({
     required double latitude,
     required double longitude,

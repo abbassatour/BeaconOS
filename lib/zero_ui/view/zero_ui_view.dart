@@ -28,7 +28,7 @@ class ZeroUiView extends StatelessWidget {
             child: SafeArea(
               child: isEyesFree
                   ? _buildEyesFreeMode(state)
-                  : _buildVisualHudMode(state),
+                  : _buildVisualHudMode(context, state),
             ),
           ),
         );
@@ -84,7 +84,9 @@ class ZeroUiView extends StatelessWidget {
     );
   }
 
-  Widget _buildVisualHudMode(ZeroUiState state) {
+  Widget _buildVisualHudMode(BuildContext context, ZeroUiState state) {
+    final cubit = context.read<ZeroUiCubit>();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
@@ -92,8 +94,8 @@ class ZeroUiView extends StatelessWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text(
+            children: [
+              const Text(
                 'BEACON OS',
                 style: TextStyle(
                   color: AppTheme.iceBlue,
@@ -102,7 +104,11 @@ class ZeroUiView extends StatelessWidget {
                   letterSpacing: 1.5,
                 ),
               ),
-              Icon(Icons.visibility_rounded, color: AppTheme.iceBlue),
+              IconButton(
+                icon: const Icon(Icons.visibility_off_rounded, color: AppTheme.iceBlue),
+                onPressed: cubit.toggleDisplayMode,
+                tooltip: 'Switch to Eyes-Free mode',
+              ),
             ],
           ),
           const Spacer(),
@@ -111,10 +117,14 @@ class ZeroUiView extends StatelessWidget {
             isListening: state.status == ZeroUiStatus.listening,
           ),
           const SizedBox(height: 16),
-          LiveTranscriptCard(state: state),
+          // الضغط على البطاقة يفتح نافذة تجربة الأوامر السريعة
+          GestureDetector(
+            onTap: () => _showEmulatorCommandDialog(context),
+            child: LiveTranscriptCard(state: state),
+          ),
           const SizedBox(height: 12),
           const Text(
-            'Triple-tap anywhere for SOS • Swipe up to replay',
+            'Hold screen to speak • Tap transcript to test quick commands',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.white38, fontSize: 12),
           ),
@@ -122,4 +132,97 @@ class ZeroUiView extends StatelessWidget {
       ),
     );
   }
+
+  void _showEmulatorCommandDialog(BuildContext context) {
+    final cubit = context.read<ZeroUiCubit>();
+    final controller = TextEditingController();
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.deepSlate,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: AppTheme.iceBlue, width: 1.5),
+        ),
+        title: const Text(
+          'BeaconOS Quick Command Tester',
+          style: TextStyle(color: AppTheme.iceBlue, fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: controller,
+              style: const TextStyle(color: AppTheme.pureWhite),
+              decoration: const InputDecoration(
+                hintText: 'Type or choose a command below...',
+                hintStyle: TextStyle(color: Colors.white38),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppTheme.iceBlue),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildQuickChip(ctx, controller, 'What time is it?'),
+                _buildQuickChip(ctx, controller, 'What is my battery?'),
+                _buildQuickChip(ctx, controller, 'Remind me to buy medicine at 5 PM'),
+                _buildQuickChip(ctx, controller, 'What are my tasks?'),
+                _buildQuickChip(ctx, controller, 'Note: Meeting with John tomorrow'),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.iceBlue,
+              foregroundColor: AppTheme.pureBlack,
+            ),
+            onPressed: () {
+              final query = controller.text.trim();
+              if (query.isNotEmpty) {
+                Navigator.of(ctx).pop();
+                // تنفيذ الأمر ومحاكاة دورة اللمس
+                _simulateCommand(cubit, query);
+              }
+            },
+            child: const Text('Run Command', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickChip(BuildContext ctx, TextEditingController controller, String text) {
+    return ActionChip(
+      backgroundColor: AppTheme.subtleGray,
+      label: Text(text, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 11)),
+      onPressed: () => controller.text = text,
+    );
+  }
+
+  void _simulateCommand(ZeroUiCubit cubit, String query) async {
+    // محاكاة وضع الإصبع، إدخال النص، ورفع الإصبع
+    cubit.emit(cubit.state.copyWith(status: ZeroUiStatus.processing, recognizedText: query));
+    final repo = cubit.state;
+    // استدعاء المعالجة عبر الكيوبت
+    final result = await cubit.repository.dispatchVoiceCommand(query);
+    cubit.emit(cubit.state.copyWith(status: ZeroUiStatus.speaking, responseText: result.spokenResponse));
+    await cubit.repository.speak(result.spokenResponse);
+    cubit.emit(cubit.state.copyWith(status: ZeroUiStatus.idle));
+  }
+}
+
+// امتداد للوصول إلى الـ repository من داخل الكيوبت
+extension on ZeroUiCubit {
+  LauncherRepository get repository => (this as dynamic)._repository as LauncherRepository;
 }
