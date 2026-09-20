@@ -18,7 +18,7 @@ dependencies:
   flutter_bloc: ^9.1.1
   flutter_localizations:
     sdk: flutter
-  intl: ^0.20.2
+  intl: ^0.20.3
   launcher_repository:
     path: packages/launcher_repository
   local_vault_api:
