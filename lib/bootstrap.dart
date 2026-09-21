@@ -7,6 +7,7 @@ import 'package:beacon_os/core/constants/api_constants.dart';
 import 'package:beacon_os/core/services/onesignal_service.dart';
 import 'package:beacon_os/core/services/revenuecat_service.dart';
 import 'package:bloc/bloc.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:launcher_repository/launcher_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -35,6 +36,11 @@ Future<void> bootstrap() async {
 
   Bloc.observer = const AppBlocObserver();
   WidgetsFlutterBinding.ensureInitialized();
+
+  // إخفاء شريط الحالة لشاشة كاملة حقيقية
+  await SystemChrome.setEnabledSystemUIMode(
+    SystemUiMode.immersiveSticky,
+  );
 
   // 1. تهيئة Supabase بشكل آمن
   if (ApiConstants.supabaseUrl.isNotEmpty &&
