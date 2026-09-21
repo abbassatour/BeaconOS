@@ -218,7 +218,10 @@ class ZeroUiView extends StatelessWidget {
               children: [
                 _buildQuickChip(controller, 'What time is it?'),
                 _buildQuickChip(controller, 'What is my battery?'),
-                _buildQuickChip(controller, 'Remind me to buy medicine at 5 PM'),
+                _buildQuickChip(
+                  controller,
+                  'Remind me to buy medicine at 5 PM',
+                ),
                 _buildQuickChip(controller, 'What are my tasks?'),
                 _buildQuickChip(controller, 'Note: Meeting with John tomorrow'),
               ],
@@ -228,13 +231,18 @@ class ZeroUiView extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: AppTheme.mutedInk)),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppTheme.mutedInk),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.terracotta,
               foregroundColor: AppTheme.cardSurface,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () {
               final query = controller.text.trim();
@@ -243,7 +251,10 @@ class ZeroUiView extends StatelessWidget {
                 cubit.submitQuery(query);
               }
             },
-            child: const Text('Run Command', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Run Command',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),

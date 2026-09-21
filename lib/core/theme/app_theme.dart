@@ -7,13 +7,21 @@ class AppTheme {
   // الهوية البصرية الرسمية الموحدة لجميع شاشات النظام
   // ========================================================
   static const Color warmPaper = Color(0xFFFAF7F2); // سكري عاجي دافئ للخلفية
-  static const Color cardSurface = Color(0xFFFFFFFF); // أبيض نقي للبطاقات والحقول
+  static const Color cardSurface = Color(
+    0xFFFFFFFF,
+  ); // أبيض نقي للبطاقات والحقول
   static const Color carbonInk = Color(0xFF1C1917); // حبر كربوني فاحم للقراءة
   static const Color mutedInk = Color(0xFF78716C); // رمادي دافئ للنصوص الثانوية
-  static const Color terracotta = Color(0xFFC2410C); // لون ترابي فخاري للإجراءات الأساسية
-  static const Color warmAmber = Color(0xFFD97706); // كهرماني دافئ للنشاط والمؤقتات
+  static const Color terracotta = Color(
+    0xFFC2410C,
+  ); // لون ترابي فخاري للإجراءات الأساسية
+  static const Color warmAmber = Color(
+    0xFFD97706,
+  ); // كهرماني دافئ للنشاط والمؤقتات
   static const Color softBorder = Color(0xFFE7E2D8); // فواصل ورقية ناعمة
-  static const Color subtleFill = Color(0xFFF4EFEA); // حشو خفيف للحقول والرقاقات
+  static const Color subtleFill = Color(
+    0xFFF4EFEA,
+  ); // حشو خفيف للحقول والرقاقات
   static const Color errorRed = Color(0xFFDC2626); // أحمر الطوارئ والأخطاء
 
   // ألوان إضافية مساعدة

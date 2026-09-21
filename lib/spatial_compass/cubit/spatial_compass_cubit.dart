@@ -16,57 +16,99 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   final LauncherRepository _repository;
   final HapticManager _haptics;
 
-  /// معالجة إيماءة التمرير السريع وتحديد المحور المهيمن (Horizontal vs Vertical)
+  // ===========================================================================
+  // 🏢 1. التحكم الرأسي بالطوابق (Z-Axis Vertical Control)
+  // ===========================================================================
+
+  /// الصعود للطابق الثاني مع البقاء في نفس الاتجاه الأفقي المتطابق
+  Future<void> goToSettingsFloor() async {
+    if (state.isSettingsFloor) return;
+
+    await _haptics.emergencyAlarmPulse(); // نبضة مصعد حسية مميزة
+    emit(state.copyWith(currentFloor: 1));
+
+    // إعلان صوتي فوري للغرفة المقابلة في الطابق الثاني
+    _announceLocation(
+      direction: state.currentDirection,
+      isSettingsFloor: true,
+    );
+  }
+
+  /// النزول للطابق الأرضي إلى نفس الغرفة المقابلة
+  Future<void> returnToGroundFloor() async {
+    if (!state.isSettingsFloor) return;
+
+    await _haptics.successNotification();
+    emit(state.copyWith(currentFloor: 0));
+
+    // إعلان صوتي فوري للغرفة الأساسية في الطابق الأرضي
+    _announceLocation(
+      direction: state.currentDirection,
+      isSettingsFloor: false,
+    );
+  }
+
+  /// تبديل الطابق الرأسي (زر أو إيماءة المصعد)
+  void toggleFloor() {
+    if (state.isSettingsFloor) {
+      returnToGroundFloor();
+    } else {
+      goToSettingsFloor();
+    }
+  }
+
+  // ===========================================================================
+  // 🧭 2. التنقل الأفقي المتطابق (XY-Axis Horizontal Navigation)
+  // ===========================================================================
+
+  /// معالجة إيماءات السحب بالأصبع الواحد (تعمل بنفس التطابق في كلا الطابقين)
   void handleSwipeGesture({
     required double velocityX,
     required double velocityY,
     required double deltaX,
     required double deltaY,
   }) {
-    // تحديد ما إذا كان السحب قوياً بما يكفي لاعتباره إيماءة تنقل
-    const velocityThreshold = 280.0;
-    const distanceThreshold = 45.0;
-
+    const velocityThreshold = 250.0;
+    const distanceThreshold = 40.0;
     final isHorizontal = deltaX.abs() > deltaY.abs();
 
     if (state.isAtCenter) {
-      // التنقل من المركز إلى أي من الاتجاهات الأربعة
       if (isHorizontal) {
-        if (velocityX > velocityThreshold || deltaX > distanceThreshold) {
-          // سحب لليمين ➡️ الذهاب للشرق (الذكاء الاصطناعي والرؤية)
+        // سحب لليسار ⬅️ = الانتقال شرقاً (غرفة الرؤية / إعدادات الرؤية)
+        if (velocityX < -velocityThreshold || deltaX < -distanceThreshold) {
           moveTo(CompassDirection.east);
-        } else if (velocityX < -velocityThreshold ||
-            deltaX < -distanceThreshold) {
-          // سحب لليسار ⬅️ الذهاب للغرب (المنبهات والمذاكرة)
+        }
+        // سحب لليمين ➡️ = الانتقال غرباً (غرفة التركيز والمنبهات / إعدادات التركيز)
+        else if (velocityX > velocityThreshold || deltaX > distanceThreshold) {
           moveTo(CompassDirection.west);
         }
       } else {
+        // سحب للأعلى ⬆️ = الانتقال جنوباً (غرفة التواصل والرسائل / إعدادات الطوارئ)
         if (velocityY < -velocityThreshold || deltaY < -distanceThreshold) {
-          // سحب للأعلى ⬆️ الذهاب للشمال (المهام والأجندة)
-          moveTo(CompassDirection.north);
-        } else if (velocityY > velocityThreshold ||
-            deltaY > distanceThreshold) {
-          // سحب للأسفل ⬇️ الذهاب للجنوب (الرسائل ودليل الاتصال)
           moveTo(CompassDirection.south);
+        }
+        // سحب للأسفل ⬇️ = الانتقال شمالاً (غرفة الأجندة / إعدادات المهام)
+        else if (velocityY > velocityThreshold || deltaY > distanceThreshold) {
+          moveTo(CompassDirection.north);
         }
       }
     } else {
-      // في حال كان المستخدم في أي شاشة فرعية، السحب المعاكس يعيده للمركز
+      // العودة للمركز الحالي عبر السحب في الاتجاه المعاكس
       final current = state.currentDirection;
       var shouldReturn = false;
 
       if (current == CompassDirection.north &&
-          (velocityY > velocityThreshold || deltaY > distanceThreshold)) {
-        shouldReturn = true; // سحب للأسفل من الشمال يعود للمركز
-      } else if (current == CompassDirection.south &&
           (velocityY < -velocityThreshold || deltaY < -distanceThreshold)) {
-        shouldReturn = true; // سحب للأعلى من الجنوب يعود للمركز
+        shouldReturn = true;
+      } else if (current == CompassDirection.south &&
+          (velocityY > velocityThreshold || deltaY > distanceThreshold)) {
+        shouldReturn = true;
       } else if (current == CompassDirection.east &&
-          (velocityX < -velocityThreshold || deltaX < -distanceThreshold)) {
-        shouldReturn = true; // سحب لليسار من الشرق يعود للمركز
-      } else if (current == CompassDirection.west &&
           (velocityX > velocityThreshold || deltaX > distanceThreshold)) {
-        shouldReturn = true; // سحب لليمين من الغرب يعود للمركز
+        shouldReturn = true;
+      } else if (current == CompassDirection.west &&
+          (velocityX < -velocityThreshold || deltaX < -distanceThreshold)) {
+        shouldReturn = true;
       }
 
       if (shouldReturn) {
@@ -75,7 +117,7 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
     }
   }
 
-  /// الانتقال إلى اتجاه محدد مع تغذية حسية وصوتية مقتضبة
+  /// الانتقال إلى اتجاه محدد داخل نفس الطابق
   Future<void> moveTo(CompassDirection destination) async {
     if (state.currentDirection == destination) return;
 
@@ -85,44 +127,71 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
       state.copyWith(
         previousDirection: state.currentDirection,
         currentDirection: destination,
-        isTransitioning: true,
+        isTransitioning: false,
       ),
     );
 
-    // إعلان صوتي مقتضب باسم الشاشة الجديدة (Accessibility First)
-    _announceDirection(destination);
-
-    emit(state.copyWith(isTransitioning: false));
+    _announceLocation(
+      direction: destination,
+      isSettingsFloor: state.isSettingsFloor,
+    );
   }
 
-  /// إيماءة الرجوع الموحدة (العودة لبهو النظام المركزي)
+  /// العودة لمركز الطابق الحالي
   Future<void> returnToCenter() async {
     if (state.isAtCenter) return;
     await moveTo(CompassDirection.center);
   }
 
-  void _announceDirection(CompassDirection direction) {
-    String announcement;
-    switch (direction) {
-      case CompassDirection.north:
-        announcement = 'Agenda and Tasks.';
-        break;
-      case CompassDirection.south:
-        announcement = 'Communications and Messages.';
-        break;
-      case CompassDirection.east:
-        announcement = 'AI Spatial Vision Studio.';
-        break;
-      case CompassDirection.west:
-        announcement = 'Focus study cycles and Alarms.';
-        break;
-      case CompassDirection.center:
-        announcement = 'Core Canvas.';
-        break;
-    }
+  // ===========================================================================
+  // 🔊 3. النظام الصوتي الموجه للمكفوفين (Spatial Audio Announcements)
+  // ===========================================================================
 
-    // إيقاف أي نطق سابق وإعلان الشاشة فوراً
+  void _announceLocation({
+    required CompassDirection direction,
+    required bool isSettingsFloor,
+  }) {
+    final announcement = _buildAnnouncementText(
+      direction: direction,
+      isSettingsFloor: isSettingsFloor,
+    );
+
     _repository.speak(announcement);
-    log('SpatialCompass: Transitioned to $direction -> "$announcement"');
+    log('SpatialCompass: Announced -> "$announcement"');
+  }
+
+  String _buildAnnouncementText({
+    required CompassDirection direction,
+    required bool isSettingsFloor,
+  }) {
+    if (isSettingsFloor) {
+      // إعلانات الطابق الثاني (غرف المحركات والإعدادات)
+      switch (direction) {
+        case CompassDirection.center:
+          return 'Floor Two: System Core and Preferences.';
+        case CompassDirection.north:
+          return 'Floor Two: Agenda and Task Preferences.';
+        case CompassDirection.south:
+          return 'Floor Two: Emergency Radar and Communications Settings.';
+        case CompassDirection.east:
+          return 'Floor Two: AI Vision Engine and Inspector Settings.';
+        case CompassDirection.west:
+          return 'Floor Two: Focus Intervals and Alarm Tuning.';
+      }
+    } else {
+      // إعلانات الطابق الأرضي (غرف الحياة اليومية والعمليات)
+      switch (direction) {
+        case CompassDirection.center:
+          return 'Today Cockpit.';
+        case CompassDirection.north:
+          return 'Agenda and Tasks.';
+        case CompassDirection.south:
+          return 'Communications and Messages.';
+        case CompassDirection.east:
+          return 'AI Spatial Vision Studio.';
+        case CompassDirection.west:
+          return 'Focus study cycles and Alarms.';
+      }
+    }
   }
 }

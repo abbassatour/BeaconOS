@@ -2,6 +2,7 @@
 import 'package:beacon_os/cockpit_dashboard/cubit/cockpit_dashboard_cubit.dart';
 import 'package:beacon_os/cockpit_dashboard/cubit/cockpit_dashboard_state.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
+import 'package:beacon_os/spatial_compass/cubit/spatial_compass_cubit.dart';
 import 'package:beacon_os/subscription/view/paywall_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -31,6 +32,7 @@ class _CockpitDashboardContent extends StatelessWidget {
     final now = DateTime.now();
     final dayName = DateFormat('EEEE').format(now).toUpperCase();
     final fullDate = DateFormat('MMMM d, yyyy').format(now);
+    final compassCubit = context.read<SpatialCompassCubit>();
 
     return Scaffold(
       backgroundColor: AppTheme.warmPaper,
@@ -61,34 +63,61 @@ class _CockpitDashboardContent extends StatelessWidget {
                                 letterSpacing: 1.5,
                               ),
                             ),
-                            TextButton.icon(
-                              style: TextButton.styleFrom(
-                                backgroundColor: AppTheme.cardSurface,
-                                foregroundColor: AppTheme.carbonInk,
-                                side: const BorderSide(color: AppTheme.softBorder),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
+                            Row(
+                              children: [
+                                // زر الترقية PRO
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    backgroundColor: AppTheme.cardSurface,
+                                    foregroundColor: AppTheme.carbonInk,
+                                    side: const BorderSide(
+                                      color: AppTheme.softBorder,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    minimumSize: const Size(0, 32),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.workspace_premium_rounded,
+                                    size: 16,
+                                    color: AppTheme.terracotta,
+                                  ),
+                                  label: const Text(
+                                    'PRO',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  onPressed: () => Navigator.of(
+                                    context,
+                                  ).push(PaywallPage.route()),
                                 ),
-                                minimumSize: const Size(0, 32),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                const SizedBox(width: 8),
+                                // زر الصعود للطابق الثاني (Floor 2: Settings)
+                                IconButton.filledTonal(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: AppTheme.cardSurface,
+                                    foregroundColor: AppTheme.carbonInk,
+                                    side: const BorderSide(
+                                      color: AppTheme.softBorder,
+                                    ),
+                                    minimumSize: const Size(32, 32),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.tune_rounded,
+                                    size: 18,
+                                  ),
+                                  tooltip: 'Floor 2 • Engine & Settings',
+                                  onPressed: compassCubit.goToSettingsFloor,
                                 ),
-                              ),
-                              icon: const Icon(
-                                Icons.workspace_premium_rounded,
-                                size: 16,
-                                color: AppTheme.terracotta,
-                              ),
-                              label: const Text(
-                                'PRO',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              onPressed: () =>
-                                  Navigator.of(context).push(PaywallPage.route()),
+                              ],
                             ),
                           ],
                         ),
@@ -126,10 +155,13 @@ class _CockpitDashboardContent extends StatelessWidget {
                   ),
                 ),
 
-                // 2. بطاقة الإيجاز الصوتي اليومي (Daily Audio Briefing Hero)
+                // 2. بطاقة الإيجاز الصوتي اليومي
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
                     child: GestureDetector(
                       onTap: cubit.playDailyBriefing,
                       child: Container(
@@ -137,10 +169,15 @@ class _CockpitDashboardContent extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: AppTheme.cardSurface,
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: AppTheme.terracotta, width: 1.5),
+                          border: Border.all(
+                            color: AppTheme.terracotta,
+                            width: 1.5,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.terracotta.withValues(alpha: 0.08),
+                              color: AppTheme.terracotta.withValues(
+                                alpha: 0.08,
+                              ),
                               blurRadius: 16,
                               offset: const Offset(0, 6),
                             ),
@@ -192,7 +229,7 @@ class _CockpitDashboardContent extends StatelessWidget {
                   ),
                 ),
 
-                // 3. بطاقة المنبه القادم (Next Alarm)
+                // 3. بطاقة المنبه القادم
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
@@ -209,7 +246,7 @@ class _CockpitDashboardContent extends StatelessWidget {
                   ),
                 ),
 
-                // 4. مهام اليوم ذات الأولوية (Today's Priorities)
+                // 4. مهام اليوم ذات الأولوية
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
@@ -222,10 +259,16 @@ class _CockpitDashboardContent extends StatelessWidget {
                 if (state.pendingTasks.isEmpty)
                   const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 8,
+                      ),
                       child: Text(
-                        'Your day is completely clear. Swipe UP ⬆️ to view the full agenda.',
-                        style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+                        'Your day is completely clear. Swipe DOWN ⬇️ to view the full agenda.',
+                        style: TextStyle(
+                          color: AppTheme.mutedInk,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   )
@@ -262,7 +305,7 @@ class _CockpitDashboardContent extends StatelessWidget {
                   ),
                 ],
 
-                // 6. دليل الاتجاهات الفضائية الأربعة في أسفل الصفحة
+                // 6. بطاقة توجيه الحركات الفضائية
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(20, 28, 20, 40),
@@ -305,7 +348,7 @@ class _CockpitDashboardContent extends StatelessWidget {
           border: Border.all(color: AppTheme.softBorder),
         ),
         child: const Text(
-          'No scheduled alarms for today. Swipe LEFT ⬅️ to set an alarm.',
+          'No scheduled alarms for today. Swipe RIGHT ➡️ to set an alarm.',
           style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
         ),
       );
@@ -419,7 +462,6 @@ class _CockpitDashboardContent extends StatelessWidget {
   }
 }
 
-/// بطاقة التوجيه السفلية التي توضح الاتجاهات الأربعة
 class _SpatialNavigationGuideFooter extends StatelessWidget {
   const _SpatialNavigationGuideFooter();
 
@@ -447,11 +489,48 @@ class _SpatialNavigationGuideFooter extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              Text('⬆️ Agenda', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.carbonInk)),
-              Text('⬇️ Comms', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.carbonInk)),
-              Text('⬅️ Focus', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.carbonInk)),
-              Text('➡️ Vision', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.carbonInk)),
+              Text(
+                '⬇️ Agenda',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.carbonInk,
+                ),
+              ),
+              Text(
+                '⬆️ Comms',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.carbonInk,
+                ),
+              ),
+              Text(
+                '➡️ Focus',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.carbonInk,
+                ),
+              ),
+              Text(
+                '⬅️ Vision',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.carbonInk,
+                ),
+              ),
             ],
+          ),
+          SizedBox(height: 8),
+          Text(
+            '🤏 Pinch with 2 fingers to enter Floor 2 (Settings)',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppTheme.terracotta,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),

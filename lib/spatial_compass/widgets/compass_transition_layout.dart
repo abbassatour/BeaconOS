@@ -25,53 +25,48 @@ class CompassTransitionLayout extends StatelessWidget {
       case CompassDirection.center:
         return Offset.zero;
       case CompassDirection.north:
-        return const Offset(0, 1); // تحريك المركز لأسفل ليظهر الشمال من أعلى
+        return const Offset(0, 1);
       case CompassDirection.south:
-        return const Offset(0, -1); // تحريك المركز لأعلى ليظهر الجنوب
+        return const Offset(0, -1);
       case CompassDirection.east:
-        return const Offset(-1, 0); // تحريك المركز لليسار ليظهر الشرق
+        return const Offset(-1, 0);
       case CompassDirection.west:
-        return const Offset(1, 0); // تحريك المركز لليمين ليظهر الغرب
+        return const Offset(1, 0);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final targetOffset = _getTargetOffset();
-
     return AnimatedSlide(
-      offset: targetOffset,
+      offset: _getTargetOffset(),
       duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
+      curve: Curves.fastOutSlowIn,
       child: Stack(
         children: [
-          // 🔘 المركز (Center Canvas)
-          centerChild,
+          // 🔘 المركز: قمرة اليوم
+          _buildRoomLayer(centerChild, Offset.zero),
 
-          // ⬆️ الشمال (North: فوق المركز بالضبط)
-          FractionalTranslation(
-            translation: const Offset(0, -1),
-            child: northChild,
-          ),
+          // ⬆️ الشمال: الأجندة
+          _buildRoomLayer(northChild, const Offset(0, -1)),
 
-          // ⬇️ الجنوب (South: تحت المركز بالضبط)
-          FractionalTranslation(
-            translation: const Offset(0, 1),
-            child: southChild,
-          ),
+          // ⬇️ الجنوب: التواصل
+          _buildRoomLayer(southChild, const Offset(0, 1)),
 
-          // ➡️ الشرق (East: يمين المركز)
-          FractionalTranslation(
-            translation: const Offset(1, 0),
-            child: eastChild,
-          ),
+          // ➡️ الشرق: الرؤية
+          _buildRoomLayer(eastChild, const Offset(1, 0)),
 
-          // ⬅️ الغرب (West: يسار المركز)
-          FractionalTranslation(
-            translation: const Offset(-1, 0),
-            child: westChild,
-          ),
+          // ⬅️ الغرب: التركيز والمنبهات
+          _buildRoomLayer(westChild, const Offset(-1, 0)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildRoomLayer(Widget child, Offset translation) {
+    return FractionalTranslation(
+      translation: translation,
+      child: RepaintBoundary(
+        child: child,
       ),
     );
   }

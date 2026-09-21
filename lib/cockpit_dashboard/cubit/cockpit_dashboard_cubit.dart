@@ -11,9 +11,9 @@ class CockpitDashboardCubit extends Cubit<CockpitDashboardState> {
   CockpitDashboardCubit({
     required LauncherRepository repository,
     HapticManager? hapticManager,
-  })  : _repository = repository,
-        _haptics = hapticManager ?? HapticManager.instance,
-        super(const CockpitDashboardState()) {
+  }) : _repository = repository,
+       _haptics = hapticManager ?? HapticManager.instance,
+       super(const CockpitDashboardState()) {
     _initSubscriptions();
   }
 

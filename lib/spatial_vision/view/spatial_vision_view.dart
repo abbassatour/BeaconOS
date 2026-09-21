@@ -98,7 +98,8 @@ class _SpatialVisionContent extends StatelessWidget {
                         _buildModeChip(
                           title: 'Surroundings',
                           icon: Icons.explore_rounded,
-                          isSelected: state.activeMode == VisionMode.surroundings,
+                          isSelected:
+                              state.activeMode == VisionMode.surroundings,
                           onTap: () => cubit.setMode(VisionMode.surroundings),
                         ),
                         _buildModeChip(
@@ -116,7 +117,8 @@ class _SpatialVisionContent extends StatelessWidget {
                         _buildModeChip(
                           title: 'Product / Expiry',
                           icon: Icons.qr_code_scanner_rounded,
-                          isSelected: state.activeMode == VisionMode.productExpiry,
+                          isSelected:
+                              state.activeMode == VisionMode.productExpiry,
                           onTap: () => cubit.setMode(VisionMode.productExpiry),
                         ),
                       ],

@@ -64,12 +64,12 @@ class CockpitDashboardState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        alarms,
-        tasks,
-        memos,
-        batteryStatus,
-        isBriefingPlaying,
-        errorMessage,
-      ];
+    status,
+    alarms,
+    tasks,
+    memos,
+    batteryStatus,
+    isBriefingPlaying,
+    errorMessage,
+  ];
 }
