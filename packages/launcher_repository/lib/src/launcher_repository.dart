@@ -464,4 +464,126 @@ class LauncherRepository {
       await _hardware.callPhoneNumber(primaryContact.phoneNumber);
     }
   }
+  // أضف هذه الدوال داخل LauncherRepository:
+
+  // --- المهام والأجندة ---
+  Stream<List<Task>> watchTasks() => _db.watchAllTasks();
+
+  Future<void> createTask({
+    required String title,
+    DateTime? dueDate,
+    String priority = 'medium',
+  }) async {
+    await _db.insertTask(
+      TasksCompanion.insert(
+        title: title,
+        dueDate: Value(dueDate),
+        priority: Value(priority),
+      ),
+    );
+    await _cloud.backupTask(title: title, dueDate: dueDate);
+  }
+
+  Future<void> toggleTask(Task task) async {
+    final nextStatus = !task.isCompleted;
+    await _db.toggleTaskCompletion(task.id, nextStatus);
+    await _cloud.updateTaskStatusInCloud(
+      taskTitle: task.title,
+      isCompleted: nextStatus,
+    );
+  }
+
+  Future<void> deleteTask(Task task) async {
+    await _db.deleteTask(task.id);
+    await _cloud.deleteTaskFromCloud(task.title);
+  }
+
+  // --- المذكرات والملاحظات ---
+  Stream<List<VoiceMemo>> watchMemos() => _db.watchRecentMemos();
+
+  Future<void> deleteMemo(int id) async {
+    await _db.deleteMemo(id);
+  }
+
+  // --- المنبهات وجلسات التركيز ---
+  Stream<List<Alarm>> watchAlarms() => _db.watchAllAlarms();
+
+  Future<void> createAlarm({
+    required int hour,
+    required int minute,
+    String label = 'Beacon Alarm',
+  }) async {
+    // 1. حفظ في قاعدة البيانات المحلية
+    await _db.insertAlarm(
+      AlarmsCompanion.insert(
+        hour: hour,
+        minute: minute,
+        label: Value(label),
+      ),
+    );
+
+    // 2. تفعيل المنبه الفعلي في نظام أندرويد عبر الجسر الأصلي (Kotlin Bridge)
+    await _hardware.setSystemAlarm(hour: hour, minute: minute, label: label);
+
+    // 3. مزامنة سحابية بالخلفية
+    await _cloud.syncAlarm(hour: hour, minute: minute, label: label);
+  }
+
+  Future<void> toggleAlarm(Alarm alarm) async {
+    final newStatus = !alarm.isActive;
+    await _db.toggleAlarmStatus(alarm.id, newStatus);
+    if (newStatus) {
+      await _hardware.setSystemAlarm(
+        hour: alarm.hour,
+        minute: alarm.minute,
+        label: alarm.label,
+      );
+    }
+  }
+
+  Future<void> deleteAlarm(int alarmId) => _db.deleteAlarm(alarmId);
+
+  Stream<List<FocusSession>> watchTodayFocusSessions() =>
+      _db.watchTodayFocusSessions();
+
+  Future<void> recordCompletedFocusSession(int minutes) async {
+    await _db.insertFocusSession(
+      FocusSessionsCompanion.insert(durationMinutes: minutes),
+    );
+    await _cloud.logFocusSession(durationMinutes: minutes);
+  }
+
+
+  // أضف هذه الدوال داخل كلاس LauncherRepository في:
+// packages/launcher_repository/lib/src/launcher_repository.dart
+
+  // ===========================================================================
+  // 👁️ دوال استوديو الرؤية المكانية (Multimodal Vision Engine)
+  // ===========================================================================
+
+  /// تحليل الإطار الملتقط بواسطة Gemini 2.0 Flash عبر موجه متخصص
+  Future<String> analyzeVisionFrame({
+    required String base64Image,
+    required String prompt,
+  }) async {
+    final result = await _llm.processCommand(
+      userCommand: prompt,
+      base64Image: base64Image,
+    );
+    return result['spoken_response'] as String? ?? 'Could not identify the scene.';
+  }
+
+  /// حفظ النتيجة البصرية كمذكرة صوتية دائمة في بنك الذاكرة والسحابة
+  Future<void> saveVisionScanAsMemo({
+    required String title,
+    required String description,
+  }) async {
+    await _db.insertMemo(
+      VoiceMemosCompanion.insert(
+        title: title,
+        content: description,
+      ),
+    );
+    await _cloud.backupMemo(title: title, content: description);
+  }
 }

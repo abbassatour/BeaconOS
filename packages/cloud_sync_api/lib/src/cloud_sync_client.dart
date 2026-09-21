@@ -66,7 +66,7 @@ class CloudSyncClient {
     }
   }
 
-  /// الدخول السريع كضيف (ضروري جداً للتشغيل الفوري للمكفوفين بدون تعقيد كتابة بيانات)
+  /// الدخول السريع كضيف (ضروري للتشغيل الفوري للمكفوفين بدون كتابة)
   Future<AuthResponse?> signInAnonymously() async {
     try {
       final response = await _client?.auth.signInAnonymously();
@@ -92,7 +92,6 @@ class CloudSyncClient {
   // 📇 2. مزامنة جهات الاتصال (Contacts Cloud Sync)
   // ===========================================================================
 
-  /// رفع أو تحديث جهة اتصال في السحابة
   Future<void> syncContact({
     required String name,
     required String phoneNumber,
@@ -117,7 +116,6 @@ class CloudSyncClient {
     }
   }
 
-  /// جلب كافة جهات الاتصال المحفوظة بالسحابة للمستخدم
   Future<List<Map<String, dynamic>>> fetchContacts() async {
     final client = _client;
     final userId = currentUser?.id;
@@ -137,7 +135,6 @@ class CloudSyncClient {
     }
   }
 
-  /// بث لحظي لتعديلات جهات الاتصال (مفيد للمرافق عند إضافة أرقام جديدة من جهاز آخر)
   Stream<List<Map<String, dynamic>>>? streamContacts() {
     final client = _client;
     final userId = currentUser?.id;
@@ -150,7 +147,6 @@ class CloudSyncClient {
         .order('name', ascending: true);
   }
 
-  /// حذف جهة اتصال من السحابة
   Future<void> deleteContact(String contactId) async {
     final client = _client;
     final userId = currentUser?.id;
@@ -162,7 +158,6 @@ class CloudSyncClient {
           .delete()
           .eq('id', contactId)
           .eq('user_id', userId);
-      log('CloudSyncClient: Contact $contactId deleted from cloud.');
     } catch (e) {
       log('CloudSyncClient: Failed to delete contact: $e');
     }
@@ -172,7 +167,6 @@ class CloudSyncClient {
   // 💬 3. سجل التراسل الصامت (Messages Vault Cloud Sync)
   // ===========================================================================
 
-  /// نسخ رسالة واردة أو صادرة إلى السحابة
   Future<void> syncMessage({
     required String contactIdentifier,
     required String senderName,
@@ -197,13 +191,12 @@ class CloudSyncClient {
         'timestamp': (timestamp ?? DateTime.now()).toIso8601String(),
         'is_read': isRead,
       });
-      log('CloudSyncClient: Message logged in cloud vault ($platform: $senderName)');
+      log('CloudSyncClient: Message logged in cloud ($platform: $senderName)');
     } catch (e) {
       log('CloudSyncClient: Message vault sync skipped: $e');
     }
   }
 
-  /// جلب أحدث سجل الرسائل من السحابة
   Future<List<Map<String, dynamic>>> fetchRecentMessages({int limit = 50}) async {
     final client = _client;
     final userId = currentUser?.id;
@@ -224,21 +217,18 @@ class CloudSyncClient {
     }
   }
 
-  /// بث لحظي لرسائل محادثة معينة (Realtime Chat Feed)
   Stream<List<Map<String, dynamic>>>? streamMessages({String? contactIdentifier}) {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return null;
 
-    var query = client
+    return client
         .from('messages_vault')
         .stream(primaryKey: ['id'])
-        .eq('user_id', userId);
-
-    return query.order('timestamp', ascending: true);
+        .eq('user_id', userId)
+        .order('timestamp', ascending: true);
   }
 
-  /// تمييز رسائل محادثة كمقروءة في السحابة
   Future<void> markMessagesAsReadInCloud(String contactIdentifier) async {
     final client = _client;
     final userId = currentUser?.id;
@@ -250,17 +240,66 @@ class CloudSyncClient {
           .update({'is_read': true})
           .eq('user_id', userId)
           .eq('contact_identifier', contactIdentifier);
-      log('CloudSyncClient: Messages marked read for $contactIdentifier');
     } catch (e) {
       log('CloudSyncClient: Mark messages as read skipped: $e');
     }
   }
 
   // ===========================================================================
-  // 🚨 4. رادار الاستغاثة والطوارئ (Emergency SOS Radar)
+  // ⏰ 4. ساعة المنبهات وجلسات التركيز (Alarms & Focus Sessions Cloud Sync)
   // ===========================================================================
 
-  /// بث إشارة الاستغاثة الطارئة (SOS) وإحداثيات الموقع
+  /// مزامنة منبه جديد في سحابة Supabase
+  Future<void> syncAlarm({
+    required int hour,
+    required int minute,
+    required String label,
+    bool isActive = true,
+  }) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      await client.from('alarms').insert({
+        'user_id': userId,
+        'hour': hour,
+        'minute': minute,
+        'label': label.trim(),
+        'is_active': isActive,
+      });
+      log('CloudSyncClient: Alarm synced to cloud ($hour:$minute)');
+    } catch (e) {
+      log('CloudSyncClient: Alarm cloud sync skipped: $e');
+    }
+  }
+
+  /// تسجيل جلسة تركيز أو مذاكرة مكتملة في السحابة
+  Future<void> logFocusSession({
+    required int durationMinutes,
+    String sessionType = 'study',
+  }) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      await client.from('focus_sessions').insert({
+        'user_id': userId,
+        'duration_minutes': durationMinutes,
+        'session_type': sessionType,
+        'completed_at': DateTime.now().toIso8601String(),
+      });
+      log('CloudSyncClient: Focus session logged ($durationMinutes mins)');
+    } catch (e) {
+      log('CloudSyncClient: Focus session sync skipped: $e');
+    }
+  }
+
+  // ===========================================================================
+  // 🚨 5. رادار الاستغاثة والطوارئ (Emergency SOS Radar)
+  // ===========================================================================
+
   Future<bool> broadcastEmergencySos({
     required double latitude,
     required double longitude,
@@ -292,10 +331,9 @@ class CloudSyncClient {
   }
 
   // ===========================================================================
-  // 📝 5. المهام والمذكرات (Tasks & Memos Cloud Sync)
+  // 📝 6. المهام والمذكرات (Tasks & Memos Cloud Sync)
   // ===========================================================================
 
-  /// نسخ الملاحظات الصوتية والمفرغة نصياً
   Future<void> backupMemo({
     required String title,
     required String content,
@@ -316,7 +354,6 @@ class CloudSyncClient {
     }
   }
 
-  /// نسخ المهام وجدولتها احتياطياً
   Future<void> backupTask({
     required String title,
     DateTime? dueDate,
@@ -335,6 +372,41 @@ class CloudSyncClient {
       log('CloudSyncClient: Task backed up: $title');
     } catch (e) {
       log('CloudSyncClient: Task backup skipped: $e');
+    }
+  }
+
+  Future<void> updateTaskStatusInCloud({
+    required String taskTitle,
+    required bool isCompleted,
+  }) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      await client
+          .from('tasks')
+          .update({'is_completed': isCompleted})
+          .eq('user_id', userId)
+          .eq('title', taskTitle);
+    } catch (e) {
+      log('CloudSyncClient: Task status cloud update skipped: $e');
+    }
+  }
+
+  Future<void> deleteTaskFromCloud(String taskTitle) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      await client
+          .from('tasks')
+          .delete()
+          .eq('user_id', userId)
+          .eq('title', taskTitle);
+    } catch (e) {
+      log('CloudSyncClient: Delete task from cloud skipped: $e');
     }
   }
 }
