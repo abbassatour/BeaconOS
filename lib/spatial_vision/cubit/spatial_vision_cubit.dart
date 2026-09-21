@@ -13,11 +13,11 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
     CameraService? cameraService,
     HapticManager? hapticManager,
     SoundController? soundController,
-  })  : _repository = repository,
-        _camera = cameraService ?? CameraService.instance,
-        _haptics = hapticManager ?? HapticManager.instance,
-        _sound = soundController ?? SoundController.instance,
-        super(const SpatialVisionState());
+  }) : _repository = repository,
+       _camera = cameraService ?? CameraService.instance,
+       _haptics = hapticManager ?? HapticManager.instance,
+       _sound = soundController ?? SoundController.instance,
+       super(const SpatialVisionState());
 
   final LauncherRepository _repository;
   final CameraService _camera;
@@ -48,7 +48,9 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
   /// تبديل كشاف الهاتف للإضاءة في الأماكن المظلمة
   Future<void> toggleTorch() async {
     final next = !state.isTorchOn;
-    await _repository.dispatchVoiceCommand(next ? 'turn on flashlight' : 'turn off flashlight');
+    await _repository.dispatchVoiceCommand(
+      next ? 'turn on flashlight' : 'turn off flashlight',
+    );
     emit(state.copyWith(isTorchOn: next));
     _repository.speak(next ? 'Flashlight on.' : 'Flashlight off.');
   }
@@ -68,10 +70,12 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
 
       final base64Image = await _camera.captureAsBase64();
       if (base64Image == null || base64Image.isEmpty) {
-        emit(state.copyWith(
-          status: VisionStatus.error,
-          errorMessage: 'Unable to capture frame from camera.',
-        ));
+        emit(
+          state.copyWith(
+            status: VisionStatus.error,
+            errorMessage: 'Unable to capture frame from camera.',
+          ),
+        );
         await _repository.speak('Camera capture failed. Please try again.');
         return;
       }
@@ -89,19 +93,23 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
       await _haptics.successNotification();
       await _sound.playSuccessCue();
 
-      emit(state.copyWith(
-        status: VisionStatus.speaking,
-        lastSpokenResult: spokenResult,
-      ));
+      emit(
+        state.copyWith(
+          status: VisionStatus.speaking,
+          lastSpokenResult: spokenResult,
+        ),
+      );
 
       await _repository.speak(spokenResult);
       emit(state.copyWith(status: VisionStatus.idle));
     } catch (e, st) {
       log('SpatialVisionCubit: Error analyzing scene: $e', stackTrace: st);
-      emit(state.copyWith(
-        status: VisionStatus.error,
-        errorMessage: 'Analysis failed. Please try again.',
-      ));
+      emit(
+        state.copyWith(
+          status: VisionStatus.error,
+          errorMessage: 'Analysis failed. Please try again.',
+        ),
+      );
       await _haptics.errorAlert();
       await _repository.speak('Visual analysis error. Please try again.');
     }

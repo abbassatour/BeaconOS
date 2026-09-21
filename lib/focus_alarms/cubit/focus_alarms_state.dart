@@ -37,19 +37,21 @@ class FocusAlarmsState extends Equatable {
   }) {
     return FocusAlarmsState(
       timerStatus: timerStatus ?? this.timerStatus,
-      selectedDurationMinutes: selectedDurationMinutes ?? this.selectedDurationMinutes,
+      selectedDurationMinutes:
+          selectedDurationMinutes ?? this.selectedDurationMinutes,
       remainingSeconds: remainingSeconds ?? this.remainingSeconds,
       alarms: alarms ?? this.alarms,
-      todayCompletedSessions: todayCompletedSessions ?? this.todayCompletedSessions,
+      todayCompletedSessions:
+          todayCompletedSessions ?? this.todayCompletedSessions,
     );
   }
 
   @override
   List<Object?> get props => [
-        timerStatus,
-        selectedDurationMinutes,
-        remainingSeconds,
-        alarms,
-        todayCompletedSessions,
-      ];
+    timerStatus,
+    selectedDurationMinutes,
+    remainingSeconds,
+    alarms,
+    todayCompletedSessions,
+  ];
 }

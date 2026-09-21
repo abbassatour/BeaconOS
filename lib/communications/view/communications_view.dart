@@ -35,7 +35,9 @@ class _CommunicationsContent extends StatelessWidget {
             final cubit = context.read<CommunicationsCubit>();
 
             if (state.status == CommunicationsStatus.loading) {
-              return const Center(child: CircularProgressIndicator(color: AppTheme.terracotta));
+              return const Center(
+                child: CircularProgressIndicator(color: AppTheme.terracotta),
+              );
             }
 
             return CustomScrollView(
@@ -74,7 +76,10 @@ class _CommunicationsContent extends StatelessWidget {
                         const SizedBox(height: 4),
                         const Text(
                           'Swipe UP ⬆️ or double-tap with two fingers to return to Core.',
-                          style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+                          style: TextStyle(
+                            color: AppTheme.mutedInk,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -88,7 +93,11 @@ class _CommunicationsContent extends StatelessWidget {
                       padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
                       child: Row(
                         children: [
-                          Icon(Icons.shield_rounded, color: AppTheme.errorRed, size: 20),
+                          Icon(
+                            Icons.shield_rounded,
+                            color: AppTheme.errorRed,
+                            size: 20,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'EMERGENCY RADAR CONTACTS',
@@ -123,7 +132,11 @@ class _CommunicationsContent extends StatelessWidget {
                     padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
                     child: Row(
                       children: [
-                        Icon(Icons.mark_chat_unread_rounded, color: AppTheme.terracotta, size: 20),
+                        Icon(
+                          Icons.mark_chat_unread_rounded,
+                          color: AppTheme.terracotta,
+                          size: 20,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'MESSAGING VAULT (TAP TO LISTEN)',
@@ -141,10 +154,16 @@ class _CommunicationsContent extends StatelessWidget {
                 if (state.recentMessages.isEmpty)
                   const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       child: Text(
                         'No unread messages. Your inbox is completely quiet.',
-                        style: TextStyle(color: AppTheme.mutedInk, fontSize: 14),
+                        style: TextStyle(
+                          color: AppTheme.mutedInk,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   )
@@ -180,10 +199,16 @@ class _CommunicationsContent extends StatelessWidget {
                 if (state.regularContacts.isEmpty)
                   const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       child: Text(
                         'No contacts saved yet. Tap + to add.',
-                        style: TextStyle(color: AppTheme.mutedInk, fontSize: 14),
+                        style: TextStyle(
+                          color: AppTheme.mutedInk,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   )
@@ -213,19 +238,20 @@ class _CommunicationsContent extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (_) => AddContactDialog(
-        onSave: ({
-          required name,
-          required phoneNumber,
-          relationship,
-          required isEmergency,
-        }) {
-          cubit.addNewContact(
-            name: name,
-            phoneNumber: phoneNumber,
-            relationship: relationship,
-            isEmergency: isEmergency,
-          );
-        },
+        onSave:
+            ({
+              required name,
+              required phoneNumber,
+              relationship,
+              required isEmergency,
+            }) {
+              cubit.addNewContact(
+                name: name,
+                phoneNumber: phoneNumber,
+                relationship: relationship,
+                isEmergency: isEmergency,
+              );
+            },
       ),
     );
   }
@@ -308,7 +334,10 @@ class _CommunicationsContent extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: AppTheme.carbonInk, fontSize: 14),
         ),
-        trailing: const Icon(Icons.volume_up_rounded, color: AppTheme.terracotta),
+        trailing: const Icon(
+          Icons.volume_up_rounded,
+          color: AppTheme.terracotta,
+        ),
         onTap: () => cubit.readMessageAloud(msg),
       ),
     );

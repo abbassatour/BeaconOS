@@ -1,11 +1,11 @@
 // lib/zero_ui/view/zero_ui_view.dart
 import 'package:beacon_os/core/theme/app_theme.dart';
+import 'package:beacon_os/subscription/view/paywall_page.dart';
 import 'package:beacon_os/zero_ui/cubit/zero_ui_cubit.dart';
 import 'package:beacon_os/zero_ui/cubit/zero_ui_state.dart';
 import 'package:beacon_os/zero_ui/widgets/widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:beacon_os/subscription/view/paywall_page.dart';
 
 class ZeroUiView extends StatelessWidget {
   const ZeroUiView({super.key});
@@ -18,17 +18,15 @@ class ZeroUiView extends StatelessWidget {
       builder: (context, state) {
         final isEyesFree = state.displayMode == DisplayMode.eyesFree;
 
-        // PopScope(canPop: false) يمنع الهاتف من إغلاق الواجهة عند الضغط على زر الرجوع
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, result) {
-            // إذا كان المستخدم في حالة معينة، أعده لحالة الاستعداد بدلاً من إغلاق التطبيق
             if (state.status != ZeroUiStatus.idle) {
               cubit.replayLastResponse();
             }
           },
           child: Scaffold(
-            backgroundColor: AppTheme.pureBlack,
+            backgroundColor: AppTheme.warmPaper,
             body: HapticCanvas(
               onLongPressStart: cubit.onTouchStarted,
               onLongPressEnd: cubit.onTouchReleased,
@@ -50,15 +48,16 @@ class ZeroUiView extends StatelessWidget {
   Widget _buildEyesFreeMode(ZeroUiState state) {
     IconData icon = Icons.touch_app_rounded;
     String status = 'EYES-FREE CANVAS';
-    Color color = AppTheme.iceBlue;
+    Color color = AppTheme.terracotta;
 
     if (state.status == ZeroUiStatus.listening) {
       icon = Icons.mic_rounded;
       status = 'LISTENING...';
+      color = AppTheme.terracotta;
     } else if (state.status == ZeroUiStatus.processing) {
       icon = Icons.hourglass_top_rounded;
       status = 'THINKING...';
-      color = AppTheme.iceBlue.withValues(alpha: 0.7);
+      color = AppTheme.warmAmber;
     } else if (state.status == ZeroUiStatus.sosTriggered) {
       icon = Icons.warning_amber_rounded;
       status = 'SOS ACTIVE';
@@ -87,7 +86,7 @@ class ZeroUiView extends StatelessWidget {
             const Text(
               'Hold anywhere to speak • Swipe down for HUD',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 14),
+              style: TextStyle(color: AppTheme.mutedInk, fontSize: 14),
             ),
           ],
         ),
@@ -109,7 +108,7 @@ class ZeroUiView extends StatelessWidget {
               const Text(
                 'BEACON OS',
                 style: TextStyle(
-                  color: AppTheme.iceBlue,
+                  color: AppTheme.carbonInk,
                   fontWeight: FontWeight.w900,
                   fontSize: 22,
                   letterSpacing: 1.5,
@@ -117,22 +116,36 @@ class ZeroUiView extends StatelessWidget {
               ),
               Row(
                 children: [
-                  // زر الـ PRO للمحكمين
                   TextButton.icon(
                     style: TextButton.styleFrom(
-                      backgroundColor: AppTheme.iceBlue,
-                      foregroundColor: AppTheme.pureBlack,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      backgroundColor: AppTheme.terracotta,
+                      foregroundColor: AppTheme.cardSurface,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       minimumSize: const Size(0, 32),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     icon: const Icon(Icons.workspace_premium_rounded, size: 16),
-                    label: const Text('PRO', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
-                    onPressed: () => Navigator.of(context).push(PaywallPage.route()),
+                    label: const Text(
+                      'PRO',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                      ),
+                    ),
+                    onPressed: () =>
+                        Navigator.of(context).push(PaywallPage.route()),
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.visibility_off_rounded, color: AppTheme.iceBlue),
+                    icon: const Icon(
+                      Icons.visibility_off_rounded,
+                      color: AppTheme.carbonInk,
+                    ),
                     onPressed: cubit.toggleDisplayMode,
                     tooltip: 'Switch to Eyes-Free mode',
                   ),
@@ -154,7 +167,7 @@ class ZeroUiView extends StatelessWidget {
           const Text(
             'Hold screen to speak • Tap transcript to test quick commands',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(color: AppTheme.mutedInk, fontSize: 12),
           ),
         ],
       ),
@@ -168,26 +181,33 @@ class ZeroUiView extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.deepSlate,
+        backgroundColor: AppTheme.cardSurface,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: const BorderSide(color: AppTheme.iceBlue, width: 1.5),
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: AppTheme.softBorder, width: 1.5),
         ),
         title: const Text(
-          'BeaconOS Quick Command Tester',
-          style: TextStyle(color: AppTheme.iceBlue, fontSize: 18, fontWeight: FontWeight.bold),
+          'Quick Command Tester',
+          style: TextStyle(
+            color: AppTheme.carbonInk,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: controller,
-              style: const TextStyle(color: AppTheme.pureWhite),
+              style: const TextStyle(color: AppTheme.carbonInk),
               decoration: const InputDecoration(
                 hintText: 'Type or choose a command below...',
-                hintStyle: TextStyle(color: Colors.white38),
+                hintStyle: TextStyle(color: AppTheme.mutedInk),
                 enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppTheme.iceBlue),
+                  borderSide: BorderSide(color: AppTheme.softBorder),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: AppTheme.terracotta),
                 ),
               ),
             ),
@@ -208,12 +228,13 @@ class ZeroUiView extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.mutedInk)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.iceBlue,
-              foregroundColor: AppTheme.pureBlack,
+              backgroundColor: AppTheme.terracotta,
+              foregroundColor: AppTheme.cardSurface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () {
               final query = controller.text.trim();
@@ -231,8 +252,12 @@ class ZeroUiView extends StatelessWidget {
 
   Widget _buildQuickChip(TextEditingController controller, String text) {
     return ActionChip(
-      backgroundColor: AppTheme.subtleGray,
-      label: Text(text, style: const TextStyle(color: AppTheme.pureWhite, fontSize: 11)),
+      backgroundColor: AppTheme.warmPaper,
+      side: const BorderSide(color: AppTheme.softBorder),
+      label: Text(
+        text,
+        style: const TextStyle(color: AppTheme.carbonInk, fontSize: 11),
+      ),
       onPressed: () => controller.text = text,
     );
   }

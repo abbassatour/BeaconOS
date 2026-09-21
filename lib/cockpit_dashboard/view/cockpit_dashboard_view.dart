@@ -1,0 +1,460 @@
+// lib/cockpit_dashboard/view/cockpit_dashboard_view.dart
+import 'package:beacon_os/cockpit_dashboard/cubit/cockpit_dashboard_cubit.dart';
+import 'package:beacon_os/cockpit_dashboard/cubit/cockpit_dashboard_state.dart';
+import 'package:beacon_os/core/theme/app_theme.dart';
+import 'package:beacon_os/subscription/view/paywall_page.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
+import 'package:launcher_repository/launcher_repository.dart';
+import 'package:local_vault_api/local_vault_api.dart';
+
+class CockpitDashboardView extends StatelessWidget {
+  const CockpitDashboardView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => CockpitDashboardCubit(
+        repository: context.read<LauncherRepository>(),
+      ),
+      child: const _CockpitDashboardContent(),
+    );
+  }
+}
+
+class _CockpitDashboardContent extends StatelessWidget {
+  const _CockpitDashboardContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final dayName = DateFormat('EEEE').format(now).toUpperCase();
+    final fullDate = DateFormat('MMMM d, yyyy').format(now);
+
+    return Scaffold(
+      backgroundColor: AppTheme.warmPaper,
+      body: SafeArea(
+        child: BlocBuilder<CockpitDashboardCubit, CockpitDashboardState>(
+          builder: (context, state) {
+            final cubit = context.read<CockpitDashboardCubit>();
+
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                // 1. شريط الترويسة الرئيسي
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              dayName,
+                              style: const TextStyle(
+                                color: AppTheme.terracotta,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                backgroundColor: AppTheme.cardSurface,
+                                foregroundColor: AppTheme.carbonInk,
+                                side: const BorderSide(color: AppTheme.softBorder),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                minimumSize: const Size(0, 32),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.workspace_premium_rounded,
+                                size: 16,
+                                color: AppTheme.terracotta,
+                              ),
+                              label: const Text(
+                                'PRO',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              onPressed: () =>
+                                  Navigator.of(context).push(PaywallPage.route()),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          fullDate,
+                          style: const TextStyle(
+                            color: AppTheme.carbonInk,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.battery_charging_full_rounded,
+                              size: 16,
+                              color: AppTheme.mutedInk,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              state.batteryStatus,
+                              style: const TextStyle(
+                                color: AppTheme.mutedInk,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 2. بطاقة الإيجاز الصوتي اليومي (Daily Audio Briefing Hero)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: GestureDetector(
+                      onTap: cubit.playDailyBriefing,
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cardSurface,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppTheme.terracotta, width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.terracotta.withValues(alpha: 0.08),
+                              blurRadius: 16,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundColor: AppTheme.terracotta,
+                              child: Icon(
+                                state.isBriefingPlaying
+                                    ? Icons.volume_up_rounded
+                                    : Icons.play_arrow_rounded,
+                                color: AppTheme.cardSurface,
+                                size: 28,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'DAILY BRIEFING',
+                                    style: TextStyle(
+                                      color: AppTheme.terracotta,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Tap to hear your schedule, alarms, and battery overview.',
+                                    style: TextStyle(
+                                      color: AppTheme.carbonInk,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 3. بطاقة المنبه القادم (Next Alarm)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    child: _buildSectionTitle(
+                      'NEXT UPCOMING ALARM',
+                      Icons.access_time_rounded,
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: _buildNextAlarmCard(state.nextAlarm, cubit),
+                  ),
+                ),
+
+                // 4. مهام اليوم ذات الأولوية (Today's Priorities)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                    child: _buildSectionTitle(
+                      'TODAY\'S PRIORITIES (${state.pendingTasks.length})',
+                      Icons.check_circle_outline_rounded,
+                    ),
+                  ),
+                ),
+                if (state.pendingTasks.isEmpty)
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: Text(
+                        'Your day is completely clear. Swipe UP ⬆️ to view the full agenda.',
+                        style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final task = state.pendingTasks[index];
+                          return _buildPriorityTaskTile(task, cubit);
+                        },
+                        childCount: state.pendingTasks.take(3).length,
+                      ),
+                    ),
+                  ),
+
+                // 5. بطاقة آخر ملاحظة سريعة
+                if (state.latestMemo != null) ...[
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                      child: _buildSectionTitle(
+                        'LATEST VOICE MEMO',
+                        Icons.notes_rounded,
+                      ),
+                    ),
+                  ),
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: _buildMemoSnippetCard(state.latestMemo!),
+                    ),
+                  ),
+                ],
+
+                // 6. دليل الاتجاهات الفضائية الأربعة في أسفل الصفحة
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(20, 28, 20, 40),
+                    child: _SpatialNavigationGuideFooter(),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppTheme.mutedInk),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: const TextStyle(
+            color: AppTheme.mutedInk,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.1,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNextAlarmCard(Alarm? alarm, CockpitDashboardCubit cubit) {
+    if (alarm == null) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.cardSurface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.softBorder),
+        ),
+        child: const Text(
+          'No scheduled alarms for today. Swipe LEFT ⬅️ to set an alarm.',
+          style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+        ),
+      );
+    }
+
+    final hourStr = alarm.hour.toString().padLeft(2, '0');
+    final minuteStr = alarm.minute.toString().padLeft(2, '0');
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppTheme.cardSurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppTheme.softBorder, width: 1.2),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$hourStr:$minuteStr',
+                style: const TextStyle(
+                  color: AppTheme.carbonInk,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                alarm.label,
+                style: const TextStyle(color: AppTheme.mutedInk, fontSize: 12),
+              ),
+            ],
+          ),
+          Switch(
+            activeColor: AppTheme.terracotta,
+            value: alarm.isActive,
+            onChanged: (_) => cubit.toggleAlarm(alarm),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriorityTaskTile(Task task, CockpitDashboardCubit cubit) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.cardSurface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.softBorder),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(
+              Icons.circle_outlined,
+              color: AppTheme.terracotta,
+              size: 22,
+            ),
+            onPressed: () => cubit.toggleTask(task),
+          ),
+          Expanded(
+            child: Text(
+              task.title,
+              style: const TextStyle(
+                color: AppTheme.carbonInk,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          if (task.priority == 'high')
+            const Text('🔴', style: TextStyle(fontSize: 10)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMemoSnippetCard(VoiceMemo memo) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.softBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            memo.title,
+            style: const TextStyle(
+              color: AppTheme.carbonInk,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            memo.content,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// بطاقة التوجيه السفلية التي توضح الاتجاهات الأربعة
+class _SpatialNavigationGuideFooter extends StatelessWidget {
+  const _SpatialNavigationGuideFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardSurface.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.softBorder),
+      ),
+      child: const Column(
+        children: [
+          Text(
+            'SPATIAL COCKPIT GESTURES',
+            style: TextStyle(
+              color: AppTheme.mutedInk,
+              fontSize: 11,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+          SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Text('⬆️ Agenda', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.carbonInk)),
+              Text('⬇️ Comms', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.carbonInk)),
+              Text('⬅️ Focus', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.carbonInk)),
+              Text('➡️ Vision', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.carbonInk)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

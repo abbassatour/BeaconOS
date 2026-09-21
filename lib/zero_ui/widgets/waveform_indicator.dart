@@ -27,16 +27,16 @@ class WaveformIndicator extends StatelessWidget {
           height: 60 * scale,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: AppTheme.iceBlue.withValues(alpha: 0.15),
+            color: AppTheme.terracotta.withValues(alpha: 0.12),
             border: Border.all(
-              color: AppTheme.iceBlue,
+              color: AppTheme.terracotta,
               width: 2.5 * scale,
             ),
           ),
           child: const Center(
             child: Icon(
               Icons.mic_rounded,
-              color: AppTheme.iceBlue,
+              color: AppTheme.terracotta,
               size: 28,
             ),
           ),

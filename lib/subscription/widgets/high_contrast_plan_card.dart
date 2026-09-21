@@ -24,11 +24,12 @@ class HighContrastPlanCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppTheme.iceBlue,
+          color: AppTheme.cardSurface,
           borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.terracotta, width: 2),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.iceBlue.withValues(alpha: 0.25),
+              color: AppTheme.terracotta.withValues(alpha: 0.1),
               blurRadius: 18,
               offset: const Offset(0, 6),
             ),
@@ -43,17 +44,24 @@ class HighContrastPlanCard extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    color: AppTheme.pureBlack,
+                    color: AppTheme.carbonInk,
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                Text(
-                  price,
-                  style: const TextStyle(
-                    color: AppTheme.pureBlack,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.terracotta,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    price,
+                    style: const TextStyle(
+                      color: AppTheme.cardSurface,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
@@ -62,8 +70,8 @@ class HighContrastPlanCard extends StatelessWidget {
             Text(
               description,
               style: const TextStyle(
-                color: AppTheme.pureBlack,
-                fontSize: 16,
+                color: AppTheme.mutedInk,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
                 height: 1.4,
               ),

@@ -3,30 +3,25 @@ import 'package:flutter/material.dart';
 
 class AppTheme {
   // ========================================================
-  // 📜 1. باليت "الورق التحريري الهادئ" (Warm Paper) - الثيم الافتراضي
+  // 📜 باليت "الورق التحريري الهادئ" (Warm Paper & Carbon Ink)
+  // الهوية البصرية الرسمية الموحدة لجميع شاشات النظام
   // ========================================================
-  static const Color warmPaper = Color(0xFFFAF7F2);      // سكري عاجي دافئ للخلفية
-  static const Color cardSurface = Color(0xFFFFFFFF);    // أبيض نقي للبطاقات والحقول
-  static const Color carbonInk = Color(0xFF1C1917);      // حبر كربوني فاحم وناعم للقراءة
-  static const Color mutedInk = Color(0xFF78716C);       // رمادي دافئ للنصوص الفرعية
-  static const Color terracotta = Color(0xFFC2410C);     // لون ترابي فخاري أنيق للتفاعل
-  static const Color warmAmber = Color(0xFFD97706);      // كهرماني دافئ للنشاط
-  static const Color softBorder = Color(0xFFE7E2D8);     // فواصل ورقية ناعمة
+  static const Color warmPaper = Color(0xFFFAF7F2); // سكري عاجي دافئ للخلفية
+  static const Color cardSurface = Color(0xFFFFFFFF); // أبيض نقي للبطاقات والحقول
+  static const Color carbonInk = Color(0xFF1C1917); // حبر كربوني فاحم للقراءة
+  static const Color mutedInk = Color(0xFF78716C); // رمادي دافئ للنصوص الثانوية
+  static const Color terracotta = Color(0xFFC2410C); // لون ترابي فخاري للإجراءات الأساسية
+  static const Color warmAmber = Color(0xFFD97706); // كهرماني دافئ للنشاط والمؤقتات
+  static const Color softBorder = Color(0xFFE7E2D8); // فواصل ورقية ناعمة
+  static const Color subtleFill = Color(0xFFF4EFEA); // حشو خفيف للحقول والرقاقات
+  static const Color errorRed = Color(0xFFDC2626); // أحمر الطوارئ والأخطاء
 
-  // ========================================================
-  // 🌌 2. باليت "التباين العالي الليلي" (Ice-Void) - للمكفوفين والـ OLED
-  // ========================================================
+  // ألوان إضافية مساعدة
   static const Color pureBlack = Color(0xFF000000);
   static const Color pureWhite = Color(0xFFFFFFFF);
-  static const Color iceBlue = Color(0xFF38BDF8);
-  static const Color deepSlate = Color(0xFF0F172A);
-  static const Color subtleGray = Color(0xFF1E293B);
-
-  // ألوان مشتركة
-  static const Color errorRed = Color(0xFFDC2626);
 
   // --------------------------------------------------------
-  // الثيم السكري الافتراضي (Warm Paper Theme)
+  // الثيم التحريري الورقي الموحد (Warm Paper Theme)
   // --------------------------------------------------------
   static ThemeData get warmPaperTheme {
     return ThemeData(
@@ -39,6 +34,17 @@ class AppTheme {
         surface: cardSurface,
         onSurface: carbonInk,
         error: errorRed,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: warmPaper,
+        elevation: 0,
+        iconTheme: IconThemeData(color: carbonInk),
+        titleTextStyle: TextStyle(
+          color: carbonInk,
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 1.2,
+        ),
       ),
       textTheme: const TextTheme(
         displayLarge: TextStyle(
@@ -61,46 +67,20 @@ class AppTheme {
           color: mutedInk,
           fontSize: 14,
         ),
-      ),
-    );
-  }
-
-  // --------------------------------------------------------
-  // الثيم الليلي عالي التباين (High-Contrast Dark Theme)
-  // --------------------------------------------------------
-  static ThemeData get highContrastDark {
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: pureBlack,
-      colorScheme: const ColorScheme.dark(
-        primary: iceBlue,
-        onPrimary: pureBlack,
-        surface: pureBlack,
-        onSurface: pureWhite,
-        error: errorRed,
-      ),
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          color: iceBlue,
-          fontSize: 34,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.5,
-        ),
-        headlineMedium: TextStyle(
-          color: pureWhite,
-          fontSize: 22,
-          fontWeight: FontWeight.bold,
-        ),
-        bodyLarge: TextStyle(
-          color: pureWhite,
-          fontSize: 18,
-          height: 1.5,
-        ),
         labelLarge: TextStyle(
-          color: iceBlue,
+          color: terracotta,
           fontSize: 16,
           fontWeight: FontWeight.bold,
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: terracotta,
+          foregroundColor: cardSurface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       ),
     );

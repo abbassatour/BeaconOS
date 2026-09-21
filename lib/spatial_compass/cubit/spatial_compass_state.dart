@@ -4,10 +4,10 @@ import 'package:equatable/equatable.dart';
 /// الاتجاهات المكانية للبوصلة
 enum CompassDirection {
   center, // المركز: اللوحة الصوتية الأم
-  north,  // الأعلى: الأجندة والمهام
-  south,  // الأسفل: الرسائل والتواصل
-  east,   // اليمين: استوديو الرؤية والذكاء
-  west,   // اليسار: المذاكرة والمنبهات
+  north, // الأعلى: الأجندة والمهام
+  south, // الأسفل: الرسائل والتواصل
+  east, // اليمين: استوديو الرؤية والذكاء
+  west, // اليسار: المذاكرة والمنبهات
 }
 
 class SpatialCompassState extends Equatable {
@@ -37,8 +37,8 @@ class SpatialCompassState extends Equatable {
 
   @override
   List<Object?> get props => [
-        currentDirection,
-        previousDirection,
-        isTransitioning,
-      ];
+    currentDirection,
+    previousDirection,
+    isTransitioning,
+  ];
 }

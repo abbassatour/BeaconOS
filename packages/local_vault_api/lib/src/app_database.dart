@@ -58,20 +58,18 @@ class AppDatabase extends _$AppDatabase {
 
   /// تدفق حي لجميع المنبهات مرتبة بالساعة والدقيقة
   Stream<List<Alarm>> watchAllAlarms() =>
-      (select(alarms)
-            ..orderBy([
-              (a) => OrderingTerm.asc(a.hour),
-              (a) => OrderingTerm.asc(a.minute),
-            ]))
+      (select(alarms)..orderBy([
+            (a) => OrderingTerm.asc(a.hour),
+            (a) => OrderingTerm.asc(a.minute),
+          ]))
           .watch();
 
   /// جلب كل المنبهات دفعة واحدة
   Future<List<Alarm>> getAllAlarms() =>
-      (select(alarms)
-            ..orderBy([
-              (a) => OrderingTerm.asc(a.hour),
-              (a) => OrderingTerm.asc(a.minute),
-            ]))
+      (select(alarms)..orderBy([
+            (a) => OrderingTerm.asc(a.hour),
+            (a) => OrderingTerm.asc(a.minute),
+          ]))
           .get();
 
   /// جلب المنبهات النشطة فقط
@@ -83,8 +81,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// تفعيل أو تعطيل المنبه
   Future<void> toggleAlarmStatus(int alarmId, bool isActive) =>
-      (update(alarms)..where((a) => a.id.equals(alarmId)))
-          .write(AlarmsCompanion(isActive: Value(isActive)));
+      (update(alarms)..where((a) => a.id.equals(alarmId))).write(
+        AlarmsCompanion(isActive: Value(isActive)),
+      );
 
   /// تحديث بيانات المنبه كاملاً (الوقت، التسمية، التكرار)
   Future<bool> updateAlarm(Alarm alarm) => update(alarms).replace(alarm);
@@ -115,9 +114,9 @@ class AppDatabase extends _$AppDatabase {
   Future<int> getTodayFocusMinutes() async {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
-    final sessions = await (select(focusSessions)
-          ..where((s) => s.completedAt.isBiggerOrEqualValue(startOfDay)))
-        .get();
+    final sessions = await (select(
+      focusSessions,
+    )..where((s) => s.completedAt.isBiggerOrEqualValue(startOfDay))).get();
     return sessions.fold<int>(0, (sum, s) => sum + s.durationMinutes);
   }
 
@@ -126,11 +125,10 @@ class AppDatabase extends _$AppDatabase {
   // ===========================================================================
 
   Stream<List<Task>> watchAllTasks() =>
-      (select(tasks)
-            ..orderBy([
-              (t) => OrderingTerm.asc(t.isCompleted),
-              (t) => OrderingTerm.asc(t.dueDate),
-            ]))
+      (select(tasks)..orderBy([
+            (t) => OrderingTerm.asc(t.isCompleted),
+            (t) => OrderingTerm.asc(t.dueDate),
+          ]))
           .watch();
 
   Future<List<Task>> getPendingTasks() =>
@@ -145,8 +143,9 @@ class AppDatabase extends _$AppDatabase {
   Future<int> insertTask(TasksCompanion task) => into(tasks).insert(task);
 
   Future<void> toggleTaskCompletion(int taskId, bool isCompleted) =>
-      (update(tasks)..where((t) => t.id.equals(taskId)))
-          .write(TasksCompanion(isCompleted: Value(isCompleted)));
+      (update(tasks)..where((t) => t.id.equals(taskId))).write(
+        TasksCompanion(isCompleted: Value(isCompleted)),
+      );
 
   Future<int> deleteTask(int taskId) =>
       (delete(tasks)..where((t) => t.id.equals(taskId))).go();
@@ -161,10 +160,12 @@ class AppDatabase extends _$AppDatabase {
             ..limit(limit))
           .watch();
 
-  Future<List<VoiceMemo>> getAllMemos() =>
-      (select(voiceMemos)..orderBy([(m) => OrderingTerm.desc(m.createdAt)])).get();
+  Future<List<VoiceMemo>> getAllMemos() => (select(
+    voiceMemos,
+  )..orderBy([(m) => OrderingTerm.desc(m.createdAt)])).get();
 
-  Future<int> insertMemo(VoiceMemosCompanion memo) => into(voiceMemos).insert(memo);
+  Future<int> insertMemo(VoiceMemosCompanion memo) =>
+      into(voiceMemos).insert(memo);
 
   Future<int> deleteMemo(int memoId) =>
       (delete(voiceMemos)..where((m) => m.id.equals(memoId))).go();
@@ -185,11 +186,13 @@ class AppDatabase extends _$AppDatabase {
   Future<Contact?> findContactByNameOrRelation(String query) {
     final clean = query.trim().toLowerCase();
     return (select(contacts)
-          ..where((c) =>
-              c.name.lower().equals(clean) |
-              c.relationship.lower().equals(clean) |
-              c.name.lower().like('%$clean%') |
-              c.relationship.lower().like('%$clean%'))
+          ..where(
+            (c) =>
+                c.name.lower().equals(clean) |
+                c.relationship.lower().equals(clean) |
+                c.name.lower().like('%$clean%') |
+                c.relationship.lower().like('%$clean%'),
+          )
           ..limit(1))
         .getSingleOrNull();
   }
@@ -213,7 +216,9 @@ class AppDatabase extends _$AppDatabase {
             ..limit(limit))
           .get();
 
-  Stream<List<MessagesVaultData>> watchMessagesForContact(String contactIdentifier) =>
+  Stream<List<MessagesVaultData>> watchMessagesForContact(
+    String contactIdentifier,
+  ) =>
       (select(messagesVault)
             ..where((m) => m.contactIdentifier.equals(contactIdentifier))
             ..orderBy([(m) => OrderingTerm.asc(m.timestamp)]))
@@ -226,7 +231,8 @@ class AppDatabase extends _$AppDatabase {
       into(messagesVault).insert(message);
 
   Future<void> markMessagesAsRead(String contactIdentifier) =>
-      (update(messagesVault)..where((m) => m.contactIdentifier.equals(contactIdentifier)))
+      (update(messagesVault)
+            ..where((m) => m.contactIdentifier.equals(contactIdentifier)))
           .write(const MessagesVaultCompanion(isRead: Value(true)));
 
   // ===========================================================================
@@ -240,6 +246,7 @@ class AppDatabase extends _$AppDatabase {
       into(notificationsDigest).insert(notif);
 
   Future<void> markAllNotificationsAsRead() =>
-      (update(notificationsDigest)..where((t) => t.isRead.equals(false)))
-          .write(const NotificationsDigestCompanion(isRead: Value(true)));
+      (update(notificationsDigest)..where((t) => t.isRead.equals(false))).write(
+        const NotificationsDigestCompanion(isRead: Value(true)),
+      );
 }

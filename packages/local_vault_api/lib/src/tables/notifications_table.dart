@@ -6,5 +6,7 @@ class NotificationsDigest extends Table {
   TextColumn get appName => text()(); // مثلاً: WhatsApp, Gmail
   TextColumn get content => text()(); // محتوى الرسالة أو الإشعار
   DateTimeColumn get receivedAt => dateTime().withDefault(currentDateAndTime)();
-  BoolColumn get isRead => boolean().withDefault(const Constant(false))(); // هل لخصها الذكاء الاصطناعي أم لا؟
+  BoolColumn get isRead => boolean().withDefault(
+    const Constant(false),
+  )(); // هل لخصها الذكاء الاصطناعي أم لا؟
 }

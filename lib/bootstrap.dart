@@ -37,7 +37,8 @@ Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 1. تهيئة Supabase بشكل آمن
-  if (ApiConstants.supabaseUrl.isNotEmpty && ApiConstants.supabaseAnonKey.isNotEmpty) {
+  if (ApiConstants.supabaseUrl.isNotEmpty &&
+      ApiConstants.supabaseAnonKey.isNotEmpty) {
     try {
       await Supabase.initialize(
         url: ApiConstants.supabaseUrl,

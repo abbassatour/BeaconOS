@@ -12,11 +12,11 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     HapticManager? hapticManager,
     SoundController? soundController,
     CameraService? cameraService,
-  })  : _repository = repository,
-        _haptics = hapticManager ?? HapticManager.instance,
-        _sound = soundController ?? SoundController.instance,
-        _camera = cameraService ?? CameraService.instance,
-        super(const ZeroUiState()) {
+  }) : _repository = repository,
+       _haptics = hapticManager ?? HapticManager.instance,
+       _sound = soundController ?? SoundController.instance,
+       _camera = cameraService ?? CameraService.instance,
+       super(const ZeroUiState()) {
     _initEngines();
   }
 
@@ -27,7 +27,7 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
 
   Future<void> _initEngines() async {
     await _repository.initializeEngines();
-     // تشغيل الكاميرا بالخلفية
+    // تشغيل الكاميرا بالخلفية
   }
 
   Future<void> onTouchStarted() async {
@@ -37,11 +37,13 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     _haptics.startListeningPulse();
     await _sound.playListeningCue();
 
-    emit(state.copyWith(
-      status: ZeroUiStatus.listening,
-      recognizedText: '',
-      soundLevel: 0,
-    ));
+    emit(
+      state.copyWith(
+        status: ZeroUiStatus.listening,
+        recognizedText: '',
+        soundLevel: 0,
+      ),
+    );
 
     await _repository.startListening(
       onResult: (words, isFinal) {
@@ -62,7 +64,9 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     await Future<void>.delayed(const Duration(milliseconds: 300));
 
     final finalWords = await _repository.stopListening();
-    final query = finalWords.isNotEmpty ? finalWords : state.recognizedText.trim();
+    final query = finalWords.isNotEmpty
+        ? finalWords
+        : state.recognizedText.trim();
 
     // الميزة السحرية: إذا لم ينطق بشيء، نعتبرها طلب رؤية للمحيط
     if (query.isEmpty) {
@@ -93,10 +97,12 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     await _sound.stop();
     await _repository.stopSpeaking();
 
-    emit(state.copyWith(
-      status: ZeroUiStatus.processing,
-      recognizedText: clean,
-    ));
+    emit(
+      state.copyWith(
+        status: ZeroUiStatus.processing,
+        recognizedText: clean,
+      ),
+    );
     await _sound.playProcessingCue();
 
     // التقاط الصورة إذا كان الأمر يتطلب رؤية
@@ -114,10 +120,12 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     await _haptics.successNotification();
     await _sound.playSuccessCue();
 
-    emit(state.copyWith(
-      status: ZeroUiStatus.speaking,
-      responseText: result.spokenResponse,
-    ));
+    emit(
+      state.copyWith(
+        status: ZeroUiStatus.speaking,
+        responseText: result.spokenResponse,
+      ),
+    );
 
     await _repository.speak(result.spokenResponse);
     emit(state.copyWith(status: ZeroUiStatus.idle));

@@ -5,10 +5,10 @@ class Tasks extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get title => text().withLength(min: 1, max: 255)();
   DateTimeColumn get dueDate => dateTime().nullable()();
-  
+
   /// أولوية المهمة: 'high', 'medium', 'low'
   TextColumn get priority => text().withDefault(const Constant('medium'))();
-  
+
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   BoolColumn get isSynced => boolean().withDefault(const Constant(false))();

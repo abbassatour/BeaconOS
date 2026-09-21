@@ -197,7 +197,9 @@ class CloudSyncClient {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchRecentMessages({int limit = 50}) async {
+  Future<List<Map<String, dynamic>>> fetchRecentMessages({
+    int limit = 50,
+  }) async {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return [];
@@ -217,7 +219,9 @@ class CloudSyncClient {
     }
   }
 
-  Stream<List<Map<String, dynamic>>>? streamMessages({String? contactIdentifier}) {
+  Stream<List<Map<String, dynamic>>>? streamMessages({
+    String? contactIdentifier,
+  }) {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return null;
@@ -354,10 +358,7 @@ class CloudSyncClient {
     }
   }
 
-  Future<void> backupTask({
-    required String title,
-    DateTime? dueDate,
-  }) async {
+  Future<void> backupTask({required String title, DateTime? dueDate}) async {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return;

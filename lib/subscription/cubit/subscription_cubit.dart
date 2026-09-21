@@ -5,8 +5,8 @@ import 'package:bloc/bloc.dart';
 
 class SubscriptionCubit extends Cubit<SubscriptionState> {
   SubscriptionCubit({RevenueCatService? rcService})
-      : _rc = rcService ?? RevenueCatService.instance,
-        super(const SubscriptionState()) {
+    : _rc = rcService ?? RevenueCatService.instance,
+      super(const SubscriptionState()) {
     checkSubscriptionStatus();
   }
 
@@ -16,9 +16,11 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
     emit(state.copyWith(status: SubscriptionStatus.loading));
     try {
       final isPro = await _rc.isProUser();
-      emit(state.copyWith(
-        status: isPro ? SubscriptionStatus.pro : SubscriptionStatus.free,
-      ));
+      emit(
+        state.copyWith(
+          status: isPro ? SubscriptionStatus.pro : SubscriptionStatus.free,
+        ),
+      );
     } catch (e) {
       emit(state.copyWith(status: SubscriptionStatus.free));
     }
@@ -30,10 +32,12 @@ class SubscriptionCubit extends Cubit<SubscriptionState> {
     if (success) {
       emit(state.copyWith(status: SubscriptionStatus.pro));
     } else {
-      emit(state.copyWith(
-        status: SubscriptionStatus.free,
-        errorMessage: 'Purchase was cancelled or could not be completed.',
-      ));
+      emit(
+        state.copyWith(
+          status: SubscriptionStatus.free,
+          errorMessage: 'Purchase was cancelled or could not be completed.',
+        ),
+      );
     }
     return success;
   }

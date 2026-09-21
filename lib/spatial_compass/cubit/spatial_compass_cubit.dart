@@ -9,9 +9,9 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   SpatialCompassCubit({
     required LauncherRepository repository,
     HapticManager? hapticManager,
-  })  : _repository = repository,
-        _haptics = hapticManager ?? HapticManager.instance,
-        super(const SpatialCompassState());
+  }) : _repository = repository,
+       _haptics = hapticManager ?? HapticManager.instance,
+       super(const SpatialCompassState());
 
   final LauncherRepository _repository;
   final HapticManager _haptics;
@@ -35,7 +35,8 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
         if (velocityX > velocityThreshold || deltaX > distanceThreshold) {
           // سحب لليمين ➡️ الذهاب للشرق (الذكاء الاصطناعي والرؤية)
           moveTo(CompassDirection.east);
-        } else if (velocityX < -velocityThreshold || deltaX < -distanceThreshold) {
+        } else if (velocityX < -velocityThreshold ||
+            deltaX < -distanceThreshold) {
           // سحب لليسار ⬅️ الذهاب للغرب (المنبهات والمذاكرة)
           moveTo(CompassDirection.west);
         }
@@ -43,7 +44,8 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
         if (velocityY < -velocityThreshold || deltaY < -distanceThreshold) {
           // سحب للأعلى ⬆️ الذهاب للشمال (المهام والأجندة)
           moveTo(CompassDirection.north);
-        } else if (velocityY > velocityThreshold || deltaY > distanceThreshold) {
+        } else if (velocityY > velocityThreshold ||
+            deltaY > distanceThreshold) {
           // سحب للأسفل ⬇️ الذهاب للجنوب (الرسائل ودليل الاتصال)
           moveTo(CompassDirection.south);
         }
@@ -53,13 +55,17 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
       final current = state.currentDirection;
       var shouldReturn = false;
 
-      if (current == CompassDirection.north && (velocityY > velocityThreshold || deltaY > distanceThreshold)) {
+      if (current == CompassDirection.north &&
+          (velocityY > velocityThreshold || deltaY > distanceThreshold)) {
         shouldReturn = true; // سحب للأسفل من الشمال يعود للمركز
-      } else if (current == CompassDirection.south && (velocityY < -velocityThreshold || deltaY < -distanceThreshold)) {
+      } else if (current == CompassDirection.south &&
+          (velocityY < -velocityThreshold || deltaY < -distanceThreshold)) {
         shouldReturn = true; // سحب للأعلى من الجنوب يعود للمركز
-      } else if (current == CompassDirection.east && (velocityX < -velocityThreshold || deltaX < -distanceThreshold)) {
+      } else if (current == CompassDirection.east &&
+          (velocityX < -velocityThreshold || deltaX < -distanceThreshold)) {
         shouldReturn = true; // سحب لليسار من الشرق يعود للمركز
-      } else if (current == CompassDirection.west && (velocityX > velocityThreshold || deltaX > distanceThreshold)) {
+      } else if (current == CompassDirection.west &&
+          (velocityX > velocityThreshold || deltaX > distanceThreshold)) {
         shouldReturn = true; // سحب لليمين من الغرب يعود للمركز
       }
 
@@ -75,11 +81,13 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
 
     await _haptics.successNotification();
 
-    emit(state.copyWith(
-      previousDirection: state.currentDirection,
-      currentDirection: destination,
-      isTransitioning: true,
-    ));
+    emit(
+      state.copyWith(
+        previousDirection: state.currentDirection,
+        currentDirection: destination,
+        isTransitioning: true,
+      ),
+    );
 
     // إعلان صوتي مقتضب باسم الشاشة الجديدة (Accessibility First)
     _announceDirection(destination);

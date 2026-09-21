@@ -10,7 +10,8 @@ class AddContactDialog extends StatefulWidget {
     required String phoneNumber,
     String? relationship,
     required bool isEmergency,
-  }) onSave;
+  })
+  onSave;
 
   @override
   State<AddContactDialog> createState() => _AddContactDialogState();
@@ -99,13 +100,20 @@ class _AddContactDialogState extends State<AddContactDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel', style: TextStyle(color: AppTheme.mutedInk)),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: AppTheme.mutedInk),
+          ),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: _isEmergency ? AppTheme.errorRed : AppTheme.terracotta,
+            backgroundColor: _isEmergency
+                ? AppTheme.errorRed
+                : AppTheme.terracotta,
             foregroundColor: AppTheme.cardSurface,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
           onPressed: () {
             final name = _nameController.text.trim();
@@ -122,7 +130,10 @@ class _AddContactDialogState extends State<AddContactDialog> {
               Navigator.of(context).pop();
             }
           },
-          child: const Text('Save Contact', style: TextStyle(fontWeight: FontWeight.bold)),
+          child: const Text(
+            'Save Contact',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
         ),
       ],
     );

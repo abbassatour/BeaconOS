@@ -18,16 +18,31 @@ class SponsorBlindTile extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppTheme.deepSlate,
+          color: AppTheme.cardSurface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: AppTheme.iceBlue.withValues(alpha: 0.5),
+            color: AppTheme.softBorder,
             width: 1.5,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.carbonInk.withValues(alpha: 0.04),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
-            const Icon(Icons.volunteer_activism_rounded, color: AppTheme.iceBlue, size: 36),
+            const CircleAvatar(
+              radius: 26,
+              backgroundColor: Color(0xFFFFEDD5),
+              child: Icon(
+                Icons.volunteer_activism_rounded,
+                color: AppTheme.terracotta,
+                size: 28,
+              ),
+            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -36,8 +51,8 @@ class SponsorBlindTile extends StatelessWidget {
                   Text(
                     'Sponsor a Blind User',
                     style: TextStyle(
-                      color: AppTheme.iceBlue,
-                      fontSize: 18,
+                      color: AppTheme.carbonInk,
+                      fontSize: 17,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -45,7 +60,7 @@ class SponsorBlindTile extends StatelessWidget {
                   Text(
                     'Pay it forward. Gift unlimited AI spatial vision to someone in need.',
                     style: TextStyle(
-                      color: AppTheme.pureWhite,
+                      color: AppTheme.mutedInk,
                       fontSize: 13,
                       height: 1.4,
                     ),

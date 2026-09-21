@@ -20,17 +20,20 @@ class SpeechEngine {
     Function(double level)? onSoundLevel,
   }) async {
     if (!_isInitialized) await initialize();
-    
+
     // إيقاف أي استماع سابق
     if (_speechToText.isListening) await _speechToText.stop();
 
     await _speechToText.listen(
-      onResult: (result) => onResult(result.recognizedWords, result.finalResult),
+      onResult: (result) =>
+          onResult(result.recognizedWords, result.finalResult),
       onSoundLevelChange: onSoundLevel,
       listenMode: ListenMode.dictation,
       cancelOnError: false,
       partialResults: true,
-      pauseFor: const Duration(seconds: 4), // انتظار 4 ثواني من الصمت لإنهاء الكلام
+      pauseFor: const Duration(
+        seconds: 4,
+      ), // انتظار 4 ثواني من الصمت لإنهاء الكلام
     );
   }
 

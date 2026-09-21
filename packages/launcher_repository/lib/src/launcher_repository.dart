@@ -30,12 +30,12 @@ class LauncherRepository {
     LlmAgent? llmAgent,
     HardwareClient? hardwareClient,
     CloudSyncClient? cloudSyncClient,
-  })  : _db = database ?? AppDatabase(),
-        _speech = speechEngine ?? SpeechEngine(),
-        _tts = ttsEngine ?? TtsEngine(),
-        _llm = llmAgent ?? LlmAgent(openRouterApiKey: ''),
-        _hardware = hardwareClient ?? HardwareClient(),
-        _cloud = cloudSyncClient ?? CloudSyncClient();
+  }) : _db = database ?? AppDatabase(),
+       _speech = speechEngine ?? SpeechEngine(),
+       _tts = ttsEngine ?? TtsEngine(),
+       _llm = llmAgent ?? LlmAgent(openRouterApiKey: ''),
+       _hardware = hardwareClient ?? HardwareClient(),
+       _cloud = cloudSyncClient ?? CloudSyncClient();
 
   final AppDatabase _db;
   final SpeechEngine _speech;
@@ -72,7 +72,10 @@ class LauncherRepository {
     Function(double level)? onSoundLevel,
   }) async {
     await _tts.stop();
-    await _speech.startListening(onResult: onResult, onSoundLevel: onSoundLevel);
+    await _speech.startListening(
+      onResult: onResult,
+      onSoundLevel: onSoundLevel,
+    );
   }
 
   Future<String> stopListening() async {
@@ -131,7 +134,8 @@ class LauncherRepository {
   Future<List<Contact>> getEmergencyContacts() => _db.getEmergencyContacts();
 
   /// البحث الذكي بالاسم أو صلة القرابة (أبي، طبيبي، أمي)
-  Future<Contact?> findContact(String query) => _db.findContactByNameOrRelation(query);
+  Future<Contact?> findContact(String query) =>
+      _db.findContactByNameOrRelation(query);
 
   // ===========================================================================
   // 💬 3. سجل التراسل الصامت (Messages Vault)
@@ -169,7 +173,8 @@ class LauncherRepository {
       _db.watchMessagesForContact(contactIdentifier);
 
   /// جلب الرسائل غير المقروءة لتلخيصها صوتياً
-  Future<List<MessagesVaultData>> getUnreadMessages() => _db.getUnreadMessages();
+  Future<List<MessagesVaultData>> getUnreadMessages() =>
+      _db.getUnreadMessages();
 
   /// تمييز الرسائل كمقروءة
   Future<void> markMessagesAsRead(String contactIdentifier) async {
@@ -207,8 +212,13 @@ class LauncherRepository {
         if (cleanQuery.contains('pm') && hour < 12) hour += 12;
         if (cleanQuery.contains('am') && hour == 12) hour = 0;
 
-        await _hardware.setSystemAlarm(hour: hour, minute: minute, label: 'Beacon Alarm');
-        final timeDisplay = '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+        await _hardware.setSystemAlarm(
+          hour: hour,
+          minute: minute,
+          label: 'Beacon Alarm',
+        );
+        final timeDisplay =
+            '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
         return LauncherCommandResult(
           intent: 'SET_ALARM',
           spokenResponse: 'Alarm has been set for $timeDisplay.',
@@ -229,7 +239,10 @@ class LauncherRepository {
     }
 
     // 3. قفل الشاشة والنوم الهادئ
-    if (cleanQuery.contains('lock screen') || cleanQuery.contains('turn off screen') || cleanQuery == 'sleep' || cleanQuery == 'lock') {
+    if (cleanQuery.contains('lock screen') ||
+        cleanQuery.contains('turn off screen') ||
+        cleanQuery == 'sleep' ||
+        cleanQuery == 'lock') {
       await _hardware.lockScreen();
       return const LauncherCommandResult(
         intent: 'LOCK_SCREEN',
@@ -239,19 +252,25 @@ class LauncherRepository {
 
     // 4. إطلاق التطبيقات
     if (cleanQuery.startsWith('open ') || cleanQuery.startsWith('launch ')) {
-      final targetApp = cleanQuery.replaceFirst(RegExp(r'^(open|launch)\s+'), '').trim();
+      final targetApp = cleanQuery
+          .replaceFirst(RegExp(r'^(open|launch)\s+'), '')
+          .trim();
       final package = _knownAppPackages[targetApp] ?? targetApp;
       final launched = await _hardware.openApp(package);
       return LauncherCommandResult(
         intent: 'OPEN_APP',
-        spokenResponse: launched ? 'Opening $targetApp.' : 'Could not find or launch $targetApp.',
+        spokenResponse: launched
+            ? 'Opening $targetApp.'
+            : 'Could not find or launch $targetApp.',
       );
     }
 
     // 5. الاتصال الهاتفي الذكي بالاسم أو صلة القرابة (مثل: "call dad", "call doctor")
     if (cleanQuery.startsWith('call ') || cleanQuery.startsWith('dial ')) {
-      final target = cleanQuery.replaceFirst(RegExp(r'^(call|dial)\s+'), '').trim();
-      
+      final target = cleanQuery
+          .replaceFirst(RegExp(r'^(call|dial)\s+'), '')
+          .trim();
+
       // فحص هل الاسم أو صلة القرابة مسجلة مسبقاً في دليل الهاتف؟
       final contact = await _db.findContactByNameOrRelation(target);
       final numberToCall = contact != null ? contact.phoneNumber : target;
@@ -260,14 +279,22 @@ class LauncherRepository {
       final called = await _hardware.callPhoneNumber(numberToCall);
       return LauncherCommandResult(
         intent: 'CALL_PHONE',
-        spokenResponse: called ? 'Calling $displayName.' : 'Unable to place a call to $displayName.',
+        spokenResponse: called
+            ? 'Calling $displayName.'
+            : 'Unable to place a call to $displayName.',
         actionPayload: {'name': displayName, 'phoneNumber': numberToCall},
       );
     }
 
     // 6. إضافة جهة اتصال صوتياً (مثال: "save contact dad 0551234567")
-    if (cleanQuery.startsWith('save contact ') || cleanQuery.startsWith('add contact ')) {
-      final raw = userQuery.replaceFirst(RegExp(r'^(save contact|add contact)\s+', caseSensitive: false), '').trim();
+    if (cleanQuery.startsWith('save contact ') ||
+        cleanQuery.startsWith('add contact ')) {
+      final raw = userQuery
+          .replaceFirst(
+            RegExp(r'^(save contact|add contact)\s+', caseSensitive: false),
+            '',
+          )
+          .trim();
       final match = RegExp(r'^(.*?)\s+([0-9\+\-\s]{5,})$').firstMatch(raw);
       if (match != null) {
         final name = match.group(1)!.trim();
@@ -282,7 +309,9 @@ class LauncherRepository {
     }
 
     // 7. قراءة الرسائل غير المقروءة (Headless Messages Digest)
-    if (cleanQuery.contains('read messages') || cleanQuery.contains('check messages') || cleanQuery == 'messages') {
+    if (cleanQuery.contains('read messages') ||
+        cleanQuery.contains('check messages') ||
+        cleanQuery == 'messages') {
       final unread = await _db.getUnreadMessages();
       if (unread.isEmpty) {
         return const LauncherCommandResult(
@@ -290,9 +319,13 @@ class LauncherRepository {
           spokenResponse: 'You have no unread messages.',
         );
       }
-      final buffer = StringBuffer('You have ${unread.length} new message${unread.length > 1 ? 's' : ''}: ');
+      final buffer = StringBuffer(
+        'You have ${unread.length} new message${unread.length > 1 ? 's' : ''}: ',
+      );
       for (var i = 0; i < unread.length && i < 3; i++) {
-        buffer.write('From ${unread[i].senderName}: ${unread[i].messageText}. ');
+        buffer.write(
+          'From ${unread[i].senderName}: ${unread[i].messageText}. ',
+        );
       }
       return LauncherCommandResult(
         intent: 'READ_MESSAGES',
@@ -302,7 +335,9 @@ class LauncherRepository {
     }
 
     // 8. الوقت والتاريخ
-    if (cleanQuery.contains('time') || cleanQuery.contains('clock') || cleanQuery == 'date') {
+    if (cleanQuery.contains('time') ||
+        cleanQuery.contains('clock') ||
+        cleanQuery == 'date') {
       final now = DateTime.now();
       final timeStr = DateFormat('h:mm a, EEEE').format(now);
       return LauncherCommandResult(
@@ -321,15 +356,20 @@ class LauncherRepository {
     }
 
     // 10. قراءة المهام
-    if (cleanQuery.contains('my tasks') || cleanQuery.contains('what are my tasks') || cleanQuery.contains('read tasks')) {
+    if (cleanQuery.contains('my tasks') ||
+        cleanQuery.contains('what are my tasks') ||
+        cleanQuery.contains('read tasks')) {
       final pending = await _db.getPendingTasks();
       if (pending.isEmpty) {
         return const LauncherCommandResult(
           intent: 'READ_TASKS',
-          spokenResponse: 'You have no pending tasks. Your day is completely clear.',
+          spokenResponse:
+              'You have no pending tasks. Your day is completely clear.',
         );
       }
-      final buffer = StringBuffer('You have ${pending.length} pending task${pending.length > 1 ? 's' : ''}: ');
+      final buffer = StringBuffer(
+        'You have ${pending.length} pending task${pending.length > 1 ? 's' : ''}: ',
+      );
       for (var i = 0; i < pending.length; i++) {
         buffer.write('Task ${i + 1}: ${pending[i].title}. ');
       }
@@ -340,8 +380,14 @@ class LauncherRepository {
     }
 
     // 11. حفظ مهمة سريعة
-    if (cleanQuery.startsWith('remind me to') || cleanQuery.startsWith('task:')) {
-      final title = userQuery.replaceFirst(RegExp(r'^(remind me to|task:)\s*', caseSensitive: false), '').trim();
+    if (cleanQuery.startsWith('remind me to') ||
+        cleanQuery.startsWith('task:')) {
+      final title = userQuery
+          .replaceFirst(
+            RegExp(r'^(remind me to|task:)\s*', caseSensitive: false),
+            '',
+          )
+          .trim();
       await _db.insertTask(TasksCompanion.insert(title: title));
       await _cloud.backupTask(title: title);
       return LauncherCommandResult(
@@ -351,10 +397,21 @@ class LauncherRepository {
     }
 
     // 12. حفظ مذكرة سريعة (Note/Memo)
-    if (cleanQuery.startsWith('note:') || cleanQuery.startsWith('take a note') || cleanQuery.startsWith('memo:')) {
-      final content = userQuery.replaceFirst(RegExp(r'^(note:|take a note|memo:)\s*', caseSensitive: false), '').trim();
-      final title = content.length > 25 ? '${content.substring(0, 25)}...' : content;
-      await _db.insertMemo(VoiceMemosCompanion.insert(title: title, content: content));
+    if (cleanQuery.startsWith('note:') ||
+        cleanQuery.startsWith('take a note') ||
+        cleanQuery.startsWith('memo:')) {
+      final content = userQuery
+          .replaceFirst(
+            RegExp(r'^(note:|take a note|memo:)\s*', caseSensitive: false),
+            '',
+          )
+          .trim();
+      final title = content.length > 25
+          ? '${content.substring(0, 25)}...'
+          : content;
+      await _db.insertMemo(
+        VoiceMemosCompanion.insert(title: title, content: content),
+      );
       await _cloud.backupMemo(title: title, content: content);
       return LauncherCommandResult(
         intent: 'SAVE_MEMO',
@@ -371,7 +428,8 @@ class LauncherRepository {
     );
 
     final intent = aiResult['intent'] as String? ?? 'GENERAL_CHAT';
-    final spokenResponse = aiResult['spoken_response'] as String? ?? 'Command processed.';
+    final spokenResponse =
+        aiResult['spoken_response'] as String? ?? 'Command processed.';
 
     final dynamic rawParams = aiResult['parameters'];
     final Map<String, dynamic> params = rawParams is Map
@@ -405,7 +463,9 @@ class LauncherRepository {
           DateTime? dueDate;
           final dueStr = params['due_date'] as String?;
           if (dueStr != null) dueDate = DateTime.tryParse(dueStr);
-          await _db.insertTask(TasksCompanion.insert(title: taskTitle, dueDate: Value(dueDate)));
+          await _db.insertTask(
+            TasksCompanion.insert(title: taskTitle, dueDate: Value(dueDate)),
+          );
           await _cloud.backupTask(title: taskTitle, dueDate: dueDate);
         }
         break;
@@ -413,7 +473,9 @@ class LauncherRepository {
       case 'SAVE_MEMO':
         final memoTitle = params['memo_title'] as String? ?? 'Voice Note';
         final memoContent = params['memo_content'] as String? ?? memoTitle;
-        await _db.insertMemo(VoiceMemosCompanion.insert(title: memoTitle, content: memoContent));
+        await _db.insertMemo(
+          VoiceMemosCompanion.insert(title: memoTitle, content: memoContent),
+        );
         await _cloud.backupMemo(title: memoTitle, content: memoContent);
         break;
 
@@ -460,7 +522,9 @@ class LauncherRepository {
     final emergencyContacts = await _db.getEmergencyContacts();
     if (emergencyContacts.isNotEmpty) {
       final primaryContact = emergencyContacts.first;
-      log('LauncherRepository: Auto-dialing emergency contact: ${primaryContact.name}');
+      log(
+        'LauncherRepository: Auto-dialing emergency contact: ${primaryContact.name}',
+      );
       await _hardware.callPhoneNumber(primaryContact.phoneNumber);
     }
   }
@@ -515,11 +579,7 @@ class LauncherRepository {
   }) async {
     // 1. حفظ في قاعدة البيانات المحلية
     await _db.insertAlarm(
-      AlarmsCompanion.insert(
-        hour: hour,
-        minute: minute,
-        label: Value(label),
-      ),
+      AlarmsCompanion.insert(hour: hour, minute: minute, label: Value(label)),
     );
 
     // 2. تفعيل المنبه الفعلي في نظام أندرويد عبر الجسر الأصلي (Kotlin Bridge)
@@ -553,9 +613,8 @@ class LauncherRepository {
     await _cloud.logFocusSession(durationMinutes: minutes);
   }
 
-
   // أضف هذه الدوال داخل كلاس LauncherRepository في:
-// packages/launcher_repository/lib/src/launcher_repository.dart
+  // packages/launcher_repository/lib/src/launcher_repository.dart
 
   // ===========================================================================
   // 👁️ دوال استوديو الرؤية المكانية (Multimodal Vision Engine)
@@ -570,7 +629,8 @@ class LauncherRepository {
       userCommand: prompt,
       base64Image: base64Image,
     );
-    return result['spoken_response'] as String? ?? 'Could not identify the scene.';
+    return result['spoken_response'] as String? ??
+        'Could not identify the scene.';
   }
 
   /// حفظ النتيجة البصرية كمذكرة صوتية دائمة في بنك الذاكرة والسحابة
@@ -579,10 +639,7 @@ class LauncherRepository {
     required String description,
   }) async {
     await _db.insertMemo(
-      VoiceMemosCompanion.insert(
-        title: title,
-        content: description,
-      ),
+      VoiceMemosCompanion.insert(title: title, content: description),
     );
     await _cloud.backupMemo(title: title, content: description);
   }

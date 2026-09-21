@@ -7,16 +7,18 @@ class HardwareClient {
   HardwareClient();
 
   final Battery _battery = Battery();
-  
+
   // قناة الاتصال مع طبقة أندرويد الأصلية في MainActivity.kt
-  static const MethodChannel _systemChannel = MethodChannel('com.beaconos/system');
+  static const MethodChannel _systemChannel = MethodChannel(
+    'com.beaconos/system',
+  );
 
   /// جلب مستوى البطارية وحالتها كنص مقروء للمستخدم
   Future<String> getBatteryStatus() async {
     try {
       final level = await _battery.batteryLevel;
       final state = await _battery.batteryState;
-      
+
       var stateStr = 'discharging';
       if (state == BatteryState.charging) stateStr = 'charging';
       if (state == BatteryState.full) stateStr = 'fully charged';
@@ -46,19 +48,16 @@ class HardwareClient {
 
   /// ضبط منبه حقيقي في نظام أندرويد دون فتح شاشة الساعة
   Future<bool> setSystemAlarm({
-    required int hour, 
-    required int minute, 
+    required int hour,
+    required int minute,
     String label = 'BeaconOS Alarm',
   }) async {
     try {
-      final result = await _systemChannel.invokeMethod<bool>(
-        'setAlarm',
-        {
-          'hour': hour,
-          'minute': minute,
-          'label': label,
-        },
-      );
+      final result = await _systemChannel.invokeMethod<bool>('setAlarm', {
+        'hour': hour,
+        'minute': minute,
+        'label': label,
+      });
       return result ?? false;
     } catch (e) {
       return false;
@@ -81,10 +80,9 @@ class HardwareClient {
   /// فتح أي تطبيق خارجي مثبت على الهاتف عبر اسم الحزمة (Package Name)
   Future<bool> openApp(String packageName) async {
     try {
-      final result = await _systemChannel.invokeMethod<bool>(
-        'openApp',
-        {'packageName': packageName},
-      );
+      final result = await _systemChannel.invokeMethod<bool>('openApp', {
+        'packageName': packageName,
+      });
       return result ?? false;
     } catch (e) {
       return false;

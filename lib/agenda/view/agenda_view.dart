@@ -35,7 +35,9 @@ class _AgendaContent extends StatelessWidget {
             final cubit = context.read<AgendaCubit>();
 
             if (state.status == AgendaStatus.loading) {
-              return const Center(child: CircularProgressIndicator(color: AppTheme.terracotta));
+              return const Center(
+                child: CircularProgressIndicator(color: AppTheme.terracotta),
+              );
             }
 
             return CustomScrollView(
@@ -67,14 +69,18 @@ class _AgendaContent extends StatelessWidget {
                               ),
                               icon: const Icon(Icons.add_task_rounded),
                               tooltip: 'Add Task',
-                              onPressed: () => _showAddTaskDialog(context, cubit),
+                              onPressed: () =>
+                                  _showAddTaskDialog(context, cubit),
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
                         const Text(
                           'Swipe DOWN ⬇️ or double-tap with two fingers to return to Core.',
-                          style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+                          style: TextStyle(
+                            color: AppTheme.mutedInk,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -87,7 +93,11 @@ class _AgendaContent extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                     child: Row(
                       children: [
-                        const Icon(Icons.radio_button_unchecked_rounded, color: AppTheme.terracotta, size: 20),
+                        const Icon(
+                          Icons.radio_button_unchecked_rounded,
+                          color: AppTheme.terracotta,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'PENDING TASKS (${state.pendingTasks.length})',
@@ -105,10 +115,16 @@ class _AgendaContent extends StatelessWidget {
                 if (state.pendingTasks.isEmpty)
                   const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       child: Text(
                         'Your day is completely clear. No pending tasks.',
-                        style: TextStyle(color: AppTheme.mutedInk, fontSize: 14),
+                        style: TextStyle(
+                          color: AppTheme.mutedInk,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   )
@@ -133,7 +149,11 @@ class _AgendaContent extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                       child: Row(
                         children: [
-                          const Icon(Icons.mic_none_rounded, color: AppTheme.warmAmber, size: 20),
+                          const Icon(
+                            Icons.mic_none_rounded,
+                            color: AppTheme.warmAmber,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             'VOICE & AI NOTES (${state.memos.length})',
@@ -169,7 +189,11 @@ class _AgendaContent extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle_outline_rounded, color: AppTheme.mutedInk, size: 20),
+                          const Icon(
+                            Icons.check_circle_outline_rounded,
+                            color: AppTheme.mutedInk,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             'COMPLETED (${state.completedTasks.length})',
@@ -219,7 +243,9 @@ class _AgendaContent extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isDone ? AppTheme.softBorder : priorityColor.withValues(alpha: 0.5),
+          color: isDone
+              ? AppTheme.softBorder
+              : priorityColor.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -285,7 +311,10 @@ class _AgendaContent extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: AppTheme.mutedInk, fontSize: 13),
         ),
-        trailing: const Icon(Icons.touch_app_rounded, color: AppTheme.warmAmber),
+        trailing: const Icon(
+          Icons.touch_app_rounded,
+          color: AppTheme.warmAmber,
+        ),
         onTap: () => cubit.readMemoAloud(memo),
       ),
     );
@@ -306,7 +335,11 @@ class _AgendaContent extends StatelessWidget {
           ),
           title: const Text(
             'New Task',
-            style: TextStyle(color: AppTheme.carbonInk, fontWeight: FontWeight.w900, fontSize: 20),
+            style: TextStyle(
+              color: AppTheme.carbonInk,
+              fontWeight: FontWeight.w900,
+              fontSize: 20,
+            ),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -327,24 +360,36 @@ class _AgendaContent extends StatelessWidget {
                   labelStyle: TextStyle(color: AppTheme.mutedInk),
                 ),
                 items: const [
-                  DropdownMenuItem(value: 'high', child: Text('High Priority 🔴')),
-                  DropdownMenuItem(value: 'medium', child: Text('Medium Priority 🟡')),
+                  DropdownMenuItem(
+                    value: 'high',
+                    child: Text('High Priority 🔴'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'medium',
+                    child: Text('Medium Priority 🟡'),
+                  ),
                   DropdownMenuItem(value: 'low', child: Text('Low Priority ⚪')),
                 ],
-                onChanged: (val) => setDialogState(() => priority = val ?? 'medium'),
+                onChanged: (val) =>
+                    setDialogState(() => priority = val ?? 'medium'),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel', style: TextStyle(color: AppTheme.mutedInk)),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: AppTheme.mutedInk),
+              ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.terracotta,
                 foregroundColor: AppTheme.cardSurface,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               onPressed: () {
                 final text = titleController.text.trim();
@@ -353,7 +398,10 @@ class _AgendaContent extends StatelessWidget {
                   Navigator.of(ctx).pop();
                 }
               },
-              child: const Text('Create Task', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Create Task',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),

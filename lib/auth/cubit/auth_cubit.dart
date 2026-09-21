@@ -5,8 +5,8 @@ import 'package:cloud_sync_api/cloud_sync_api.dart';
 
 class AuthCubit extends Cubit<AuthState> {
   AuthCubit({CloudSyncClient? cloudSyncClient})
-      : _cloud = cloudSyncClient ?? CloudSyncClient(),
-        super(const AuthState()) {
+    : _cloud = cloudSyncClient ?? CloudSyncClient(),
+      super(const AuthState()) {
     checkCurrentAuth();
   }
 
@@ -24,26 +24,36 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> signIn({required String email, required String password}) async {
     emit(state.copyWith(status: AuthStatus.loading));
     try {
-      final res = await _cloud.signInWithEmail(email: email, password: password);
+      final res = await _cloud.signInWithEmail(
+        email: email,
+        password: password,
+      );
       emit(state.copyWith(status: AuthStatus.authenticated, user: res?.user));
     } catch (e) {
-      emit(state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: 'Invalid credentials or connection error.',
-      ));
+      emit(
+        state.copyWith(
+          status: AuthStatus.error,
+          errorMessage: 'Invalid credentials or connection error.',
+        ),
+      );
     }
   }
 
   Future<void> signUp({required String email, required String password}) async {
     emit(state.copyWith(status: AuthStatus.loading));
     try {
-      final res = await _cloud.signUpWithEmail(email: email, password: password);
+      final res = await _cloud.signUpWithEmail(
+        email: email,
+        password: password,
+      );
       emit(state.copyWith(status: AuthStatus.authenticated, user: res?.user));
     } catch (e) {
-      emit(state.copyWith(
-        status: AuthStatus.error,
-        errorMessage: 'Could not create account. Please check your details.',
-      ));
+      emit(
+        state.copyWith(
+          status: AuthStatus.error,
+          errorMessage: 'Could not create account. Please check your details.',
+        ),
+      );
     }
   }
 

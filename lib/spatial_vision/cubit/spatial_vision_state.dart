@@ -5,9 +5,9 @@ enum VisionStatus { idle, capturing, analyzing, speaking, error }
 
 enum VisionMode {
   surroundings, // المحيط والعوائق
-  textReader,   // قراءة المستندات واللافتات
-  currency,     // قراءة النقود والعملات
-  productExpiry // اسم المنتج وتاريخ الصلاحية
+  textReader, // قراءة المستندات واللافتات
+  currency, // قراءة النقود والعملات
+  productExpiry, // اسم المنتج وتاريخ الصلاحية
 }
 
 class SpatialVisionState extends Equatable {
@@ -46,10 +46,10 @@ class SpatialVisionState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        activeMode,
-        lastSpokenResult,
-        isTorchOn,
-        errorMessage,
-      ];
+    status,
+    activeMode,
+    lastSpokenResult,
+    isTorchOn,
+    errorMessage,
+  ];
 }

@@ -28,19 +28,21 @@ class _PaywallView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.pureBlack,
+      backgroundColor: AppTheme.warmPaper,
       appBar: AppBar(
-        backgroundColor: AppTheme.pureBlack,
+        backgroundColor: AppTheme.warmPaper,
         elevation: 0,
-        iconTheme: const IconThemeData(color: AppTheme.iceBlue),
+        iconTheme: const IconThemeData(color: AppTheme.carbonInk),
       ),
       body: BlocConsumer<SubscriptionCubit, SubscriptionState>(
         listener: (context, state) {
           if (state.status == SubscriptionStatus.pro) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('BeaconOS Pro Unlocked! Thank you for your support.'),
-                backgroundColor: AppTheme.iceBlue,
+                content: Text(
+                  'BeaconOS Pro Unlocked! Thank you for your support.',
+                ),
+                backgroundColor: AppTheme.terracotta,
               ),
             );
             Navigator.of(context).pop();
@@ -48,7 +50,9 @@ class _PaywallView extends StatelessWidget {
         },
         builder: (context, state) {
           if (state.status == SubscriptionStatus.loading) {
-            return const Center(child: CircularProgressIndicator(color: AppTheme.iceBlue));
+            return const Center(
+              child: CircularProgressIndicator(color: AppTheme.terracotta),
+            );
           }
 
           return SingleChildScrollView(
@@ -59,7 +63,7 @@ class _PaywallView extends StatelessWidget {
                 const Text(
                   'LIMITLESS\nVISION',
                   style: TextStyle(
-                    color: AppTheme.pureWhite,
+                    color: AppTheme.carbonInk,
                     fontSize: 44,
                     fontWeight: FontWeight.w900,
                     height: 1.1,
@@ -68,28 +72,41 @@ class _PaywallView extends StatelessWidget {
                 const SizedBox(height: 16),
                 const Text(
                   'Unlock unlimited real-time AI spatial guidance, fast-lane processing, and offline priority.',
-                  style: TextStyle(color: Colors.white70, fontSize: 16, height: 1.5),
+                  style: TextStyle(
+                    color: AppTheme.mutedInk,
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
                 ),
                 const SizedBox(height: 36),
                 HighContrastPlanCard(
                   title: 'BeaconOS Pro',
                   price: '\$9.99 / mo',
-                  description: 'Unlimited Gemini multimodal vision, zero-latency execution, and 24/7 radar.',
+                  description:
+                      'Unlimited Gemini multimodal vision, zero-latency execution, and 24/7 radar.',
                   onTap: () => context.read<SubscriptionCubit>().purchasePro(),
                 ),
                 const SizedBox(height: 24),
                 const Center(
-                  child: Text('— OR —', style: TextStyle(color: Colors.white38, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    '— OR —',
+                    style: TextStyle(
+                      color: AppTheme.mutedInk,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 24),
                 SponsorBlindTile(
                   onTap: () => context.read<SubscriptionCubit>().purchasePro(),
                 ),
                 const SizedBox(height: 32),
-                const Text(
-                  'Secured by RevenueCat Sandbox. Test without real charges.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white24, fontSize: 12),
+                const Center(
+                  child: Text(
+                    'Secured by RevenueCat Sandbox. Test without real charges.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppTheme.mutedInk, fontSize: 12),
+                  ),
                 ),
               ],
             ),

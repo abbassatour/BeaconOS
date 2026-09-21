@@ -2,6 +2,7 @@
 import 'package:equatable/equatable.dart';
 
 enum ZeroUiStatus { idle, listening, processing, speaking, sosTriggered, error }
+
 enum DisplayMode { eyesFree, visualHud }
 
 class ZeroUiState extends Equatable {
@@ -41,11 +42,11 @@ class ZeroUiState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        displayMode,
-        recognizedText,
-        responseText,
-        soundLevel,
-        errorMessage,
-      ];
+    status,
+    displayMode,
+    recognizedText,
+    responseText,
+    soundLevel,
+    errorMessage,
+  ];
 }

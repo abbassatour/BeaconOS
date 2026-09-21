@@ -31,7 +31,7 @@ class CompassTransitionLayout extends StatelessWidget {
       case CompassDirection.east:
         return const Offset(-1, 0); // تحريك المركز لليسار ليظهر الشرق
       case CompassDirection.west:
-        return const Offset(1, 0);  // تحريك المركز لليمين ليظهر الغرب
+        return const Offset(1, 0); // تحريك المركز لليمين ليظهر الغرب
     }
   }
 

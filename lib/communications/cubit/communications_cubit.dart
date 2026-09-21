@@ -10,9 +10,9 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
   CommunicationsCubit({
     required LauncherRepository repository,
     HapticManager? hapticManager,
-  })  : _repository = repository,
-        _haptics = hapticManager ?? HapticManager.instance,
-        super(const CommunicationsState()) {
+  }) : _repository = repository,
+       _haptics = hapticManager ?? HapticManager.instance,
+       super(const CommunicationsState()) {
     _initStreams();
   }
 
@@ -27,17 +27,21 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
     _contactsSubscription = _repository.watchContacts().listen(
       (contactsList) async {
         final messages = await _repository.getUnreadMessages();
-        emit(state.copyWith(
-          status: CommunicationsStatus.success,
-          contacts: contactsList,
-          recentMessages: messages,
-        ));
+        emit(
+          state.copyWith(
+            status: CommunicationsStatus.success,
+            contacts: contactsList,
+            recentMessages: messages,
+          ),
+        );
       },
       onError: (Object error) {
-        emit(state.copyWith(
-          status: CommunicationsStatus.error,
-          errorMessage: error.toString(),
-        ));
+        emit(
+          state.copyWith(
+            status: CommunicationsStatus.error,
+            errorMessage: error.toString(),
+          ),
+        );
       },
     );
   }

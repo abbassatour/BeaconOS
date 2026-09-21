@@ -26,7 +26,7 @@ class _SpatialVisionContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.pureBlack,
+      backgroundColor: AppTheme.warmPaper,
       body: SafeArea(
         child: BlocBuilder<SpatialVisionCubit, SpatialVisionState>(
           builder: (context, state) {
@@ -47,7 +47,7 @@ class _SpatialVisionContent extends StatelessWidget {
                           Text(
                             'AI VISION STUDIO',
                             style: TextStyle(
-                              color: AppTheme.iceBlue,
+                              color: AppTheme.carbonInk,
                               fontSize: 22,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.5,
@@ -56,16 +56,27 @@ class _SpatialVisionContent extends StatelessWidget {
                           SizedBox(height: 2),
                           Text(
                             'Swipe LEFT ⬅️ to return to Core',
-                            style: TextStyle(color: Colors.white54, fontSize: 12),
+                            style: TextStyle(
+                              color: AppTheme.mutedInk,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
                       IconButton.filledTonal(
                         style: IconButton.styleFrom(
-                          backgroundColor: state.isTorchOn ? AppTheme.iceBlue : AppTheme.deepSlate,
-                          foregroundColor: state.isTorchOn ? AppTheme.pureBlack : AppTheme.iceBlue,
+                          backgroundColor: state.isTorchOn
+                              ? AppTheme.warmAmber
+                              : AppTheme.softBorder,
+                          foregroundColor: state.isTorchOn
+                              ? AppTheme.cardSurface
+                              : AppTheme.carbonInk,
                         ),
-                        icon: Icon(state.isTorchOn ? Icons.flash_on_rounded : Icons.flash_off_rounded),
+                        icon: Icon(
+                          state.isTorchOn
+                              ? Icons.flash_on_rounded
+                              : Icons.flash_off_rounded,
+                        ),
                         tooltip: 'Toggle Flashlight',
                         onPressed: cubit.toggleTorch,
                       ),
@@ -75,7 +86,10 @@ class _SpatialVisionContent extends StatelessWidget {
 
                 // 2. خيارات أوضاع الفحص الأربعة (Vision Modes)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     physics: const BouncingScrollPhysics(),
@@ -125,7 +139,7 @@ class _SpatialVisionContent extends StatelessWidget {
                             _getStatusTitle(state),
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              color: AppTheme.iceBlue,
+                              color: AppTheme.carbonInk,
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.2,
@@ -136,7 +150,10 @@ class _SpatialVisionContent extends StatelessWidget {
                             state.isBusy
                                 ? 'Gemini 2.0 Flash is inspecting scene...'
                                 : 'Tap anywhere on screen to scan',
-                            style: const TextStyle(color: Colors.white54, fontSize: 13),
+                            style: const TextStyle(
+                              color: AppTheme.mutedInk,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -150,9 +167,19 @@ class _SpatialVisionContent extends StatelessWidget {
                     margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: AppTheme.deepSlate,
+                      color: AppTheme.cardSurface,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppTheme.iceBlue.withValues(alpha: 0.4), width: 1.2),
+                      border: Border.all(
+                        color: AppTheme.softBorder,
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.carbonInk.withValues(alpha: 0.05),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,12 +189,16 @@ class _SpatialVisionContent extends StatelessWidget {
                           children: [
                             const Row(
                               children: [
-                                Icon(Icons.remove_red_eye_rounded, color: AppTheme.iceBlue, size: 18),
+                                Icon(
+                                  Icons.remove_red_eye_rounded,
+                                  color: AppTheme.terracotta,
+                                  size: 18,
+                                ),
                                 SizedBox(width: 8),
                                 Text(
                                   'SCENE DESCRIPTION',
                                   style: TextStyle(
-                                    color: AppTheme.iceBlue,
+                                    color: AppTheme.terracotta,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 1.1,
@@ -178,12 +209,20 @@ class _SpatialVisionContent extends StatelessWidget {
                             Row(
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.volume_up_rounded, color: AppTheme.iceBlue, size: 20),
+                                  icon: const Icon(
+                                    Icons.volume_up_rounded,
+                                    color: AppTheme.terracotta,
+                                    size: 20,
+                                  ),
                                   tooltip: 'Replay Description',
                                   onPressed: cubit.replayDescription,
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.bookmark_add_rounded, color: AppTheme.iceBlue, size: 20),
+                                  icon: const Icon(
+                                    Icons.bookmark_add_rounded,
+                                    color: AppTheme.terracotta,
+                                    size: 20,
+                                  ),
                                   tooltip: 'Save to Notes',
                                   onPressed: cubit.saveScanResultAsNote,
                                 ),
@@ -195,7 +234,7 @@ class _SpatialVisionContent extends StatelessWidget {
                         Text(
                           state.lastSpokenResult,
                           style: const TextStyle(
-                            color: AppTheme.pureWhite,
+                            color: AppTheme.carbonInk,
                             fontSize: 15,
                             height: 1.45,
                           ),
@@ -220,13 +259,18 @@ class _SpatialVisionContent extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
-        avatar: Icon(icon, color: isSelected ? AppTheme.pureBlack : AppTheme.iceBlue, size: 18),
+        avatar: Icon(
+          icon,
+          color: isSelected ? AppTheme.cardSurface : AppTheme.terracotta,
+          size: 18,
+        ),
         label: Text(title),
         selected: isSelected,
-        selectedColor: AppTheme.iceBlue,
-        backgroundColor: AppTheme.deepSlate,
+        selectedColor: AppTheme.terracotta,
+        backgroundColor: AppTheme.cardSurface,
+        side: const BorderSide(color: AppTheme.softBorder, width: 1.2),
         labelStyle: TextStyle(
-          color: isSelected ? AppTheme.pureBlack : Colors.white70,
+          color: isSelected ? AppTheme.cardSurface : AppTheme.carbonInk,
           fontWeight: FontWeight.bold,
           fontSize: 12,
         ),
@@ -244,15 +288,15 @@ class _SpatialVisionContent extends StatelessWidget {
       height: isBusy ? 160 : 130,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppTheme.iceBlue.withValues(alpha: isBusy ? 0.2 : 0.08),
+        color: AppTheme.terracotta.withValues(alpha: isBusy ? 0.15 : 0.06),
         border: Border.all(
-          color: AppTheme.iceBlue,
+          color: AppTheme.terracotta,
           width: isBusy ? 3.0 : 1.8,
         ),
         boxShadow: [
           if (isBusy)
             BoxShadow(
-              color: AppTheme.iceBlue.withValues(alpha: 0.35),
+              color: AppTheme.terracotta.withValues(alpha: 0.25),
               blurRadius: 28,
               spreadRadius: 4,
             ),
@@ -261,7 +305,7 @@ class _SpatialVisionContent extends StatelessWidget {
       child: Center(
         child: Icon(
           isBusy ? Icons.camera_rounded : Icons.center_focus_strong_rounded,
-          color: AppTheme.iceBlue,
+          color: AppTheme.terracotta,
           size: isBusy ? 54 : 46,
         ),
       ),

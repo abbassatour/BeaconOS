@@ -7,7 +7,8 @@ class LlmAgent {
   LlmAgent({required this.openRouterApiKey});
 
   final String openRouterApiKey;
-  static const String _endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+  static const String _endpoint =
+      'https://openrouter.ai/api/v1/chat/completions';
 
   String _getSystemPrompt() {
     final now = DateTime.now();
@@ -52,9 +53,17 @@ Rules for spoken_response:
         messages.add({
           'role': 'user',
           'content': [
-            {'type': 'text', 'text': userCommand.isEmpty ? 'What is in front of me?' : userCommand},
-            {'type': 'image_url', 'image_url': {'url': 'data:image/jpeg;base64,$base64Image'}}
-          ]
+            {
+              'type': 'text',
+              'text': userCommand.isEmpty
+                  ? 'What is in front of me?'
+                  : userCommand,
+            },
+            {
+              'type': 'image_url',
+              'image_url': {'url': 'data:image/jpeg;base64,$base64Image'},
+            },
+          ],
         });
       } else {
         messages.add({'role': 'user', 'content': userCommand});
@@ -95,7 +104,9 @@ Rules for spoken_response:
         if (parsed is Map) {
           final safeMap = Map<String, dynamic>.from(parsed);
           if (safeMap['parameters'] is Map) {
-            safeMap['parameters'] = Map<String, dynamic>.from(safeMap['parameters'] as Map);
+            safeMap['parameters'] = Map<String, dynamic>.from(
+              safeMap['parameters'] as Map,
+            );
           } else {
             safeMap['parameters'] = <String, dynamic>{};
           }
@@ -108,14 +119,19 @@ Rules for spoken_response:
           'parameters': <String, dynamic>{},
         };
       } else {
-        log('LlmAgent Server Error: [Status ${response.statusCode}] Body: ${response.body}');
-        throw Exception('OpenRouter API Error: ${response.statusCode} - ${response.body}');
+        log(
+          'LlmAgent Server Error: [Status ${response.statusCode}] Body: ${response.body}',
+        );
+        throw Exception(
+          'OpenRouter API Error: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e, st) {
       log('LlmAgent Exception caught: $e', stackTrace: st);
       return <String, dynamic>{
         'intent': 'ERROR',
-        'spoken_response': "I'm sorry, I encountered a connection error. Please try again.",
+        'spoken_response':
+            "I'm sorry, I encountered a connection error. Please try again.",
         'parameters': <String, dynamic>{},
       };
     }

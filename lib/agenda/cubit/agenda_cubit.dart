@@ -10,9 +10,9 @@ class AgendaCubit extends Cubit<AgendaState> {
   AgendaCubit({
     required LauncherRepository repository,
     HapticManager? hapticManager,
-  })  : _repository = repository,
-        _haptics = hapticManager ?? HapticManager.instance,
-        super(const AgendaState()) {
+  }) : _repository = repository,
+       _haptics = hapticManager ?? HapticManager.instance,
+       super(const AgendaState()) {
     _initSubscriptions();
   }
 
@@ -25,17 +25,21 @@ class AgendaCubit extends Cubit<AgendaState> {
     emit(state.copyWith(status: AgendaStatus.loading));
 
     _tasksSub = _repository.watchTasks().listen((taskList) {
-      emit(state.copyWith(
-        status: AgendaStatus.success,
-        tasks: taskList,
-      ));
+      emit(
+        state.copyWith(
+          status: AgendaStatus.success,
+          tasks: taskList,
+        ),
+      );
     });
 
     _memosSub = _repository.watchMemos().listen((memoList) {
-      emit(state.copyWith(
-        status: AgendaStatus.success,
-        memos: memoList,
-      ));
+      emit(
+        state.copyWith(
+          status: AgendaStatus.success,
+          memos: memoList,
+        ),
+      );
     });
   }
 
@@ -51,9 +55,13 @@ class AgendaCubit extends Cubit<AgendaState> {
   Future<void> readTaskAloud(Task task) async {
     await _haptics.successNotification();
     final priorityText = 'Priority ${task.priority}.';
-    final dueText = task.dueDate != null ? 'Due on ${task.dueDate!.month}/${task.dueDate!.day}.' : 'No deadline.';
+    final dueText = task.dueDate != null
+        ? 'Due on ${task.dueDate!.month}/${task.dueDate!.day}.'
+        : 'No deadline.';
     final statusText = task.isCompleted ? 'Completed.' : 'Pending.';
-    await _repository.speak('${task.title}. $priorityText $dueText $statusText');
+    await _repository.speak(
+      '${task.title}. $priorityText $dueText $statusText',
+    );
   }
 
   /// إضافة مهمة جديدة وتأكيدها صوتياً وسحابياً
@@ -81,7 +89,9 @@ class AgendaCubit extends Cubit<AgendaState> {
   /// نطق محتوى المذكرة الصوتية
   Future<void> readMemoAloud(VoiceMemo memo) async {
     await _haptics.successNotification();
-    await _repository.speak('Note titled: ${memo.title}. Content: ${memo.content}');
+    await _repository.speak(
+      'Note titled: ${memo.title}. Content: ${memo.content}',
+    );
   }
 
   /// حذف مذكرة

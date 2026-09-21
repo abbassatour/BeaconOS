@@ -62,14 +62,18 @@ class _FocusAlarmsContent extends StatelessWidget {
                               ),
                               icon: const Icon(Icons.alarm_add_rounded),
                               tooltip: 'Add Alarm',
-                              onPressed: () => _showAddAlarmDialog(context, cubit),
+                              onPressed: () =>
+                                  _showAddAlarmDialog(context, cubit),
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
                         const Text(
                           'Swipe RIGHT ➡️ or tap with two fingers to return to Core.',
-                          style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+                          style: TextStyle(
+                            color: AppTheme.mutedInk,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -90,7 +94,11 @@ class _FocusAlarmsContent extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                     child: Row(
                       children: [
-                        const Icon(Icons.access_time_rounded, color: AppTheme.terracotta, size: 20),
+                        const Icon(
+                          Icons.access_time_rounded,
+                          color: AppTheme.terracotta,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'SCHEDULED ALARMS (${state.alarms.length})',
@@ -108,10 +116,16 @@ class _FocusAlarmsContent extends StatelessWidget {
                 if (state.alarms.isEmpty)
                   const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       child: Text(
                         'No alarms scheduled. Tap + to set a silent system alarm.',
-                        style: TextStyle(color: AppTheme.mutedInk, fontSize: 14),
+                        style: TextStyle(
+                          color: AppTheme.mutedInk,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   )
@@ -137,7 +151,11 @@ class _FocusAlarmsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildTimerCard(BuildContext context, FocusAlarmsState state, FocusAlarmsCubit cubit) {
+  Widget _buildTimerCard(
+    BuildContext context,
+    FocusAlarmsState state,
+    FocusAlarmsCubit cubit,
+  ) {
     final minutes = (state.remainingSeconds ~/ 60).toString().padLeft(2, '0');
     final seconds = (state.remainingSeconds % 60).toString().padLeft(2, '0');
 
@@ -170,7 +188,10 @@ class _FocusAlarmsContent extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppTheme.warmPaper,
                   borderRadius: BorderRadius.circular(10),
@@ -227,17 +248,30 @@ class _FocusAlarmsContent extends StatelessWidget {
               Expanded(
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: state.isTimerRunning ? AppTheme.warmAmber : AppTheme.terracotta,
+                    backgroundColor: state.isTimerRunning
+                        ? AppTheme.warmAmber
+                        : AppTheme.terracotta,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                  icon: Icon(state.isTimerRunning ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                  icon: Icon(
+                    state.isTimerRunning
+                        ? Icons.pause_rounded
+                        : Icons.play_arrow_rounded,
+                  ),
                   label: Text(
                     state.isTimerRunning ? 'Pause Session' : 'Start Focus',
-                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
                   ),
-                  onPressed: state.isTimerRunning ? cubit.pauseTimer : cubit.startTimer,
+                  onPressed: state.isTimerRunning
+                      ? cubit.pauseTimer
+                      : cubit.startTimer,
                 ),
               ),
               if (state.timerStatus != TimerStatus.idle) ...[
@@ -295,7 +329,11 @@ class _FocusAlarmsContent extends StatelessWidget {
               onChanged: (_) => cubit.toggleAlarm(alarm),
             ),
             IconButton(
-              icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.mutedInk, size: 20),
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppTheme.mutedInk,
+                size: 20,
+              ),
               onPressed: () => cubit.deleteAlarm(alarm),
             ),
           ],

@@ -19,37 +19,44 @@ class LiveTranscriptCard extends StatelessWidget {
     final isSpeaking = state.status == ZeroUiStatus.speaking;
 
     String header = 'READY';
-    Color headerColor = AppTheme.subtleGray;
+    Color headerColor = AppTheme.mutedInk;
 
     if (isListening) {
       header = 'LISTENING...';
-      headerColor = AppTheme.iceBlue;
+      headerColor = AppTheme.terracotta;
     } else if (isProcessing) {
       header = 'PROCESSING...';
-      headerColor = AppTheme.iceBlue.withValues(alpha: 0.6);
+      headerColor = AppTheme.warmAmber;
     } else if (isSpeaking) {
       header = 'BEACON OS';
-      headerColor = AppTheme.pureWhite;
+      headerColor = AppTheme.carbonInk;
     }
 
     final displayText = isListening
         ? (state.recognizedText.isEmpty
-            ? 'Speak now, holding anywhere...'
-            : state.recognizedText)
+              ? 'Speak now, holding anywhere...'
+              : state.recognizedText)
         : (state.responseText.isEmpty
-            ? 'Hold anywhere to speak.\nSwipe up to replay.'
-            : state.responseText);
+              ? 'Hold anywhere to speak.\nSwipe up to replay.'
+              : state.responseText);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppTheme.deepSlate,
-        borderRadius: BorderRadius.circular(18),
+        color: AppTheme.cardSurface,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: headerColor.withValues(alpha: 0.5),
+          color: isListening ? AppTheme.terracotta : AppTheme.softBorder,
           width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.carbonInk.withValues(alpha: 0.04),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,7 +75,12 @@ class LiveTranscriptCard extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 header,
-                style: textTheme.labelLarge?.copyWith(color: headerColor),
+                style: textTheme.labelLarge?.copyWith(
+                  color: headerColor,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  letterSpacing: 1.1,
+                ),
               ),
             ],
           ),
@@ -77,7 +89,7 @@ class LiveTranscriptCard extends StatelessWidget {
             displayText,
             style: textTheme.bodyLarge?.copyWith(
               fontWeight: isListening ? FontWeight.bold : FontWeight.normal,
-              color: isListening ? AppTheme.iceBlue : AppTheme.pureWhite,
+              color: isListening ? AppTheme.terracotta : AppTheme.carbonInk,
             ),
           ),
         ],
