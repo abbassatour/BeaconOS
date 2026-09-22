@@ -1,6 +1,7 @@
 // lib/settings/view/settings_floor_view.dart
 import 'package:beacon_os/auth/view/login_page.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
+import 'package:beacon_os/core/theme/cubit/theme_cubit.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_cubit.dart';
 import 'package:beacon_os/subscription/view/paywall_page.dart';
 import 'package:cloud_sync_api/cloud_sync_api.dart';
@@ -19,7 +20,6 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
   double _speechRate = 0.5; // السرعة الافتراضية
   bool _hapticsEnabled = true;
   bool _soundCuesEnabled = true;
-  bool _isHighContrastOled = false;
 
   @override
   Widget build(BuildContext context) {
@@ -28,8 +28,13 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
     final cloudSync = CloudSyncClient();
     final userEmail = cloudSync.currentUser?.email ?? 'Guest / Offline Vault';
 
+    // 🌟 قراءة حالة الثيم والألوان ديناميكياً
+    final themeMode = context.watch<ThemeCubit>().state;
+    final isHighContrast = themeMode == AppThemeMode.highContrastOled;
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: AppTheme.warmPaper,
+      backgroundColor: context.scaffoldBg, // يتغير ديناميكياً
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
@@ -44,18 +49,18 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
+                        Row(
                           children: [
                             Icon(
                               Icons.elevator_rounded,
-                              color: AppTheme.terracotta,
+                              color: colors.primary,
                               size: 20,
                             ),
-                            SizedBox(width: 8),
+                            const SizedBox(width: 8),
                             Text(
                               'FLOOR 2 • ENGINE ROOM',
                               style: TextStyle(
-                                color: AppTheme.terracotta,
+                                color: colors.primary,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.5,
@@ -66,10 +71,10 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                         // زر النزول السريع للطابق الأرضي
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.cardSurface,
-                            foregroundColor: AppTheme.carbonInk,
+                            backgroundColor: colors.surface,
+                            foregroundColor: colors.onSurface,
                             elevation: 0,
-                            side: const BorderSide(color: AppTheme.softBorder),
+                            side: BorderSide(color: colors.outline),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 6,
@@ -94,20 +99,20 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'SYSTEM SETTINGS',
                       style: TextStyle(
-                        color: AppTheme.carbonInk,
+                        color: colors.onSurface,
                         fontSize: 28,
                         fontWeight: FontWeight.w900,
                         letterSpacing: -0.5,
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
+                    Text(
                       'Pinch out or swipe DOWN ⬇️ to return to Today Cockpit.',
                       style: TextStyle(
-                        color: AppTheme.mutedInk,
+                        color: colors.onSurfaceVariant,
                         fontSize: 13,
                       ),
                     ),
@@ -116,7 +121,7 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
               ),
             ),
 
-            // 2. مختبر سرعة النطق والصوت للكفيف (Speech Tuning)
+            // 2. مختبر سرعة النطق والصوت للكفيف
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -124,6 +129,7 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                   vertical: 8,
                 ),
                 child: _buildCardContainer(
+                  context: context,
                   title: 'SPEECH & TTS ENGINE',
                   icon: Icons.record_voice_over_rounded,
                   child: Column(
@@ -132,18 +138,18 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'Speech Reading Rate',
                             style: TextStyle(
-                              color: AppTheme.carbonInk,
+                              color: colors.onSurface,
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
                             ),
                           ),
                           Text(
                             '${(_speechRate * 2).toStringAsFixed(1)}x Speed',
-                            style: const TextStyle(
-                              color: AppTheme.terracotta,
+                            style: TextStyle(
+                              color: colors.primary,
                               fontWeight: FontWeight.w900,
                               fontSize: 14,
                             ),
@@ -155,8 +161,8 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                         min: 0.25,
                         max: 1.0,
                         divisions: 6,
-                        activeColor: AppTheme.terracotta,
-                        inactiveColor: AppTheme.softBorder,
+                        activeColor: colors.primary,
+                        inactiveColor: colors.outline,
                         onChanged: (val) {
                           setState(() => _speechRate = val);
                         },
@@ -165,16 +171,16 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                       Center(
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppTheme.softBorder),
-                            foregroundColor: AppTheme.carbonInk,
+                            side: BorderSide(color: colors.outline),
+                            foregroundColor: colors.onSurface,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.play_circle_outline_rounded,
                             size: 18,
-                            color: AppTheme.terracotta,
+                            color: colors.primary,
                           ),
                           label: const Text('Test Voice Sample'),
                           onPressed: () {
@@ -190,7 +196,7 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
               ),
             ),
 
-            // 3. لغة الاهتزازات والتغذية الحسية (Tactile Haptics)
+            // 3. لغة الاهتزازات والتغذية الحسية
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -198,48 +204,49 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                   vertical: 8,
                 ),
                 child: _buildCardContainer(
+                  context: context,
                   title: 'TACTILE HAPTICS & AUDIO CUES',
                   icon: Icons.vibration_rounded,
                   child: Column(
                     children: [
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text(
+                        title: Text(
                           'Haptic Pulses',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.carbonInk,
+                            color: colors.onSurface,
                           ),
                         ),
-                        subtitle: const Text(
+                        subtitle: Text(
                           'Tactile clicks when holding or tapping.',
                           style: TextStyle(
-                            color: AppTheme.mutedInk,
+                            color: colors.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
-                        activeColor: AppTheme.terracotta,
+                        activeColor: colors.primary,
                         value: _hapticsEnabled,
                         onChanged: (v) => setState(() => _hapticsEnabled = v),
                       ),
-                      const Divider(color: AppTheme.softBorder),
+                      Divider(color: colors.outline),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text(
+                        title: Text(
                           'Sound Feedback Cues',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.carbonInk,
+                            color: colors.onSurface,
                           ),
                         ),
-                        subtitle: const Text(
+                        subtitle: Text(
                           'Chimes for listening, success, and alerts.',
                           style: TextStyle(
-                            color: AppTheme.mutedInk,
+                            color: colors.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
-                        activeColor: AppTheme.terracotta,
+                        activeColor: colors.primary,
                         value: _soundCuesEnabled,
                         onChanged: (v) => setState(() => _soundCuesEnabled = v),
                       ),
@@ -249,7 +256,7 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
               ),
             ),
 
-            // 4. الثيم المزدوج (High-Contrast OLED vs Warm Paper)
+            // 4. الثيم المزدوج 🌟 (التبديل بين الثيمين)
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -257,25 +264,27 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                   vertical: 8,
                 ),
                 child: _buildCardContainer(
+                  context: context,
                   title: 'DISPLAY & ACCESSIBILITY',
                   icon: Icons.contrast_rounded,
                   child: SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: const Text(
+                    title: Text(
                       'High-Contrast OLED (Ice-Void)',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: AppTheme.carbonInk,
+                        color: colors.onSurface,
                       ),
                     ),
-                    subtitle: const Text(
+                    subtitle: Text(
                       'Pure black background with cyan highlights for low vision.',
-                      style: TextStyle(color: AppTheme.mutedInk, fontSize: 12),
+                      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
                     ),
-                    activeColor: AppTheme.terracotta,
-                    value: _isHighContrastOled,
+                    activeColor: colors.primary,
+                    value: isHighContrast, // القيمة الديناميكية
                     onChanged: (v) {
-                      setState(() => _isHighContrastOled = v);
+                      // استدعاء تغيير الثيم الفوري!
+                      context.read<ThemeCubit>().toggleTheme(isHighContrast: v);
                       repository.speak(
                         v
                             ? 'Ice Void high contrast enabled.'
@@ -287,7 +296,7 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
               ),
             ),
 
-            // 5. خزينة الحساب والمزامنة (Cloud Vault & Auth)
+            // 5. خزينة الحساب والمزامنة
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -295,6 +304,7 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                   vertical: 8,
                 ),
                 child: _buildCardContainer(
+                  context: context,
                   title: 'CLOUD VAULT & ACCOUNT',
                   icon: Icons.cloud_done_rounded,
                   child: Column(
@@ -303,10 +313,10 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'Account Email',
                             style: TextStyle(
-                              color: AppTheme.mutedInk,
+                              color: colors.onSurfaceVariant,
                               fontSize: 13,
                             ),
                           ),
@@ -316,13 +326,13 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.warmPaper,
+                              color: context.scaffoldBg,
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Text(
+                            child: Text(
                               'Encrypted',
                               style: TextStyle(
-                                color: AppTheme.terracotta,
+                                color: colors.primary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -333,8 +343,8 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                       const SizedBox(height: 4),
                       Text(
                         userEmail,
-                        style: const TextStyle(
-                          color: AppTheme.carbonInk,
+                        style: TextStyle(
+                          color: colors.onSurface,
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
                         ),
@@ -344,8 +354,8 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppTheme.errorRed),
-                            foregroundColor: AppTheme.errorRed,
+                            side: BorderSide(color: colors.error),
+                            foregroundColor: colors.error,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -368,7 +378,7 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
               ),
             ),
 
-            // 6. التراخيص والكفالة (Monetization)
+            // 6. التراخيص والكفالة
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -376,37 +386,38 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                   vertical: 8,
                 ),
                 child: _buildCardContainer(
+                  context: context,
                   title: 'SUBSCRIPTION & SPONSORSHIP',
                   icon: Icons.workspace_premium_rounded,
                   child: Column(
                     children: [
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFFFFEDD5),
+                        leading: CircleAvatar(
+                          backgroundColor: colors.primary.withValues(alpha: 0.1),
                           child: Icon(
                             Icons.star_rounded,
-                            color: AppTheme.terracotta,
+                            color: colors.primary,
                           ),
                         ),
-                        title: const Text(
+                        title: Text(
                           'BeaconOS Pro & Sponsorship',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.carbonInk,
+                            color: colors.onSurface,
                           ),
                         ),
-                        subtitle: const Text(
+                        subtitle: Text(
                           'Gift unlimited vision to a blind user or unlock Pro.',
                           style: TextStyle(
-                            color: AppTheme.mutedInk,
+                            color: colors.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
-                        trailing: const Icon(
+                        trailing: Icon(
                           Icons.arrow_forward_ios_rounded,
                           size: 14,
-                          color: AppTheme.mutedInk,
+                          color: colors.onSurfaceVariant,
                         ),
                         onTap: () =>
                             Navigator.of(context).push(PaywallPage.route()),
@@ -425,19 +436,22 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
   }
 
   Widget _buildCardContainer({
+    required BuildContext context,
     required String title,
     required IconData icon,
     required Widget child,
   }) {
+    final colors = context.colors;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.cardSurface,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.softBorder, width: 1.2),
+        border: Border.all(color: colors.outline, width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.carbonInk.withValues(alpha: 0.04),
+            color: colors.onSurface.withValues(alpha: 0.04),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -448,12 +462,12 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: AppTheme.terracotta),
+              Icon(icon, size: 16, color: colors.primary),
               const SizedBox(width: 8),
               Text(
                 title,
-                style: const TextStyle(
-                  color: AppTheme.terracotta,
+                style: TextStyle(
+                  color: colors.primary,
                   fontSize: 11,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.2,

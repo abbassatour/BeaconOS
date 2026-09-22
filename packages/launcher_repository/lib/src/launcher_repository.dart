@@ -30,12 +30,12 @@ class LauncherRepository {
     LlmAgent? llmAgent,
     HardwareClient? hardwareClient,
     CloudSyncClient? cloudSyncClient,
-  }) : _db = database ?? AppDatabase(),
-       _speech = speechEngine ?? SpeechEngine(),
-       _tts = ttsEngine ?? TtsEngine(),
-       _llm = llmAgent ?? LlmAgent(openRouterApiKey: ''),
-       _hardware = hardwareClient ?? HardwareClient(),
-       _cloud = cloudSyncClient ?? CloudSyncClient();
+  })  : _db = database ?? AppDatabase(),
+        _speech = speechEngine ?? SpeechEngine(),
+        _tts = ttsEngine ?? TtsEngine(),
+        _llm = llmAgent ?? LlmAgent(openRouterApiKey: ''),
+        _hardware = hardwareClient ?? HardwareClient(),
+        _cloud = cloudSyncClient ?? CloudSyncClient();
 
   final AppDatabase _db;
   final SpeechEngine _speech;
@@ -59,12 +59,216 @@ class LauncherRepository {
   };
 
   // ===========================================================================
+  // ☁️ 0. استعادة الخزنة السحابية (Vault Restoration & Sync Down)
+  // ===========================================================================
+
+  /// تقوم هذه الدالة بجلب كل بيانات المستخدم من Supabase وحفظها محلياً في Drift
+  /// تُستدعى عند تسجيل الدخول أو عند فتح التطبيق والتأكد من وجود إنترنت
+  Future<void> restoreVaultFromCloud() async {
+    if (!_cloud.isAuthenticated) return;
+
+    try {
+      log('LauncherRepository: Starting Vault Restoration from Cloud...');
+
+      // 1. استعادة الإعدادات (Settings)
+      final cloudSettings = await _cloud.fetchCloudSettings();
+      if (cloudSettings != null) {
+        await _db.updateSettings(
+          AppSettingsCompanion(
+            speechRate: Value(cloudSettings['speech_rate'] as double? ?? 0.5),
+            hapticsEnabled: Value(cloudSettings['haptics_enabled'] as bool? ?? true),
+            soundCuesEnabled: Value(cloudSettings['sound_cues_enabled'] as bool? ?? true),
+            isHighContrast: Value(cloudSettings['is_high_contrast'] as bool? ?? false),
+            defaultPriority: Value(cloudSettings['default_priority'] as String? ?? 'medium'),
+            autoArchiveCompleted: Value(cloudSettings['auto_archive_completed'] as bool? ?? true),
+            speakDueDatesAloud: Value(cloudSettings['speak_due_dates_aloud'] as bool? ?? true),
+            autoDialEmergency: Value(cloudSettings['auto_dial_emergency'] as bool? ?? true),
+            shareGpsOnSos: Value(cloudSettings['share_gps_on_sos'] as bool? ?? true),
+            speakIncomingSms: Value(cloudSettings['speak_incoming_sms'] as bool? ?? true),
+            voiceChimeHalfway: Value(cloudSettings['voice_chime_halfway'] as bool? ?? true),
+            vibrateOnSessionFinish: Value(cloudSettings['vibrate_on_session_finish'] as bool? ?? true),
+            syncAlarmsWithAndroidClock: Value(cloudSettings['sync_alarms_with_android_clock'] as bool? ?? true),
+            visionInspectionDetail: Value(cloudSettings['vision_inspection_detail'] as String? ?? 'concise'),
+            autoFlashlightInDark: Value(cloudSettings['auto_flashlight_in_dark'] as bool? ?? true),
+            preferredCurrency: Value(cloudSettings['preferred_currency'] as String? ?? 'USD / Local'),
+            isSynced: const Value(true), // قادمة من السحابة فهي متزامنة
+          ),
+        );
+      }
+
+      // 2. استعادة جهات الاتصال (Contacts)
+      final cloudContacts = await _cloud.fetchContacts();
+      for (var c in cloudContacts) {
+        await _db.into(_db.contacts).insert(
+          ContactsCompanion.insert(
+            id: c['id'],
+            name: c['name'],
+            phoneNumber: c['phone_number'],
+            relationship: Value(c['relationship']),
+            isEmergency: Value(c['is_emergency'] ?? false),
+            isSynced: const Value(true),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+
+      // 3. استعادة المهام (Tasks)
+      final cloudTasks = await _cloud.fetchTasks();
+      for (var t in cloudTasks) {
+        DateTime? due;
+        if (t['due_date'] != null) due = DateTime.tryParse(t['due_date']);
+        await _db.into(_db.tasks).insert(
+          TasksCompanion.insert(
+            id: t['id'],
+            title: t['title'],
+            dueDate: Value(due),
+            priority: Value(t['priority'] ?? 'medium'),
+            isCompleted: Value(t['is_completed'] ?? false),
+            isSynced: const Value(true),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+      }
+
+      log('LauncherRepository: Vault Restoration Complete. Device is now in sync.');
+    } catch (e, st) {
+      log('LauncherRepository: Vault Sync Failed: $e', stackTrace: st);
+    }
+  }
+
+
+  // ===========================================================================
+  // 🔄 0.1 محرك التعافي والمزامنة بالخلفية (Offline Recovery & Pending Sync)
+  // ===========================================================================
+
+  /// تُستدعى هذه الدالة لاكتشاف التغييرات المحلية التي تمت بدون إنترنت ورفعها للسحابة
+  Future<void> syncPendingOfflineChanges() async {
+    if (!_cloud.isAuthenticated) return;
+
+    try {
+      log('LauncherRepository: Starting Background Sync for offline changes...');
+
+      // 1. مزامنة المهام المعلقة (Tasks)
+      final pendingTasks = await (_db.select(_db.tasks)..where((t) => t.isSynced.equals(false))).get();
+      for (var t in pendingTasks) {
+        if (t.deletedAt != null) {
+          await _cloud.softDeleteTaskInCloud(t.id);
+          await _db.deleteTask(t.id); // تنظيف الجهاز محلياً بعد نجاح الحذف السحابي
+        } else {
+          await _cloud.syncTask(
+            id: t.id,
+            title: t.title,
+            dueDate: t.dueDate,
+            priority: t.priority,
+            isCompleted: t.isCompleted,
+          );
+          // تمييز كمتزامن محلياً
+          await (_db.update(_db.tasks)..where((tbl) => tbl.id.equals(t.id)))
+              .write(const TasksCompanion(isSynced: Value(true)));
+        }
+      }
+
+      // 2. مزامنة المذكرات المعلقة (Voice Memos)
+      final pendingMemos = await (_db.select(_db.voiceMemos)..where((m) => m.isSynced.equals(false))).get();
+      for (var m in pendingMemos) {
+        if (m.deletedAt != null) {
+          await _cloud.softDeleteMemoInCloud(m.id);
+          await _db.deleteMemo(m.id);
+        } else {
+          await _cloud.syncMemo(id: m.id, title: m.title, content: m.content);
+          await (_db.update(_db.voiceMemos)..where((tbl) => tbl.id.equals(m.id)))
+              .write(const VoiceMemosCompanion(isSynced: Value(true)));
+        }
+      }
+
+      // 3. مزامنة جهات الاتصال المعلقة (Contacts)
+      final pendingContacts = await (_db.select(_db.contacts)..where((c) => c.isSynced.equals(false))).get();
+      for (var c in pendingContacts) {
+        if (c.deletedAt != null) {
+          await _cloud.softDeleteContactInCloud(c.id);
+          await _db.deleteContact(c.id);
+        } else {
+          await _cloud.syncContact(
+            id: c.id,
+            name: c.name,
+            phoneNumber: c.phoneNumber,
+            relationship: c.relationship,
+            isEmergency: c.isEmergency,
+          );
+          await (_db.update(_db.contacts)..where((tbl) => tbl.id.equals(c.id)))
+              .write(const ContactsCompanion(isSynced: Value(true)));
+        }
+      }
+
+      // 4. مزامنة المنبهات المعلقة (Alarms)
+      final pendingAlarms = await (_db.select(_db.alarms)..where((a) => a.isSynced.equals(false))).get();
+      for (var a in pendingAlarms) {
+        if (a.deletedAt != null) {
+          await _cloud.softDeleteAlarmInCloud(a.id);
+          await _db.deleteAlarm(a.id);
+        } else {
+          await _cloud.syncAlarm(
+            id: a.id,
+            hour: a.hour,
+            minute: a.minute,
+            label: a.label,
+            daysOfWeek: a.daysOfWeek,
+            isActive: a.isActive,
+          );
+          await (_db.update(_db.alarms)..where((tbl) => tbl.id.equals(a.id)))
+              .write(const AlarmsCompanion(isSynced: Value(true)));
+        }
+      }
+
+      // 5. مزامنة الإعدادات إذا تم تعديلها أوفلاين
+      final settings = await _db.getSettings();
+      if (!settings.isSynced) {
+        await _cloud.syncSettings({
+          'id': settings.id,
+          'speech_rate': settings.speechRate,
+          'haptics_enabled': settings.hapticsEnabled,
+          'sound_cues_enabled': settings.soundCuesEnabled,
+          'is_high_contrast': settings.isHighContrast,
+          'default_priority': settings.defaultPriority,
+          'auto_archive_completed': settings.autoArchiveCompleted,
+          'speak_due_dates_aloud': settings.speakDueDatesAloud,
+          'auto_dial_emergency': settings.autoDialEmergency,
+          'share_gps_on_sos': settings.shareGpsOnSos,
+          'speak_incoming_sms': settings.speakIncomingSms,
+          'voice_chime_halfway': settings.voiceChimeHalfway,
+          'vibrate_on_session_finish': settings.vibrateOnSessionFinish,
+          'sync_alarms_with_android_clock': settings.syncAlarmsWithAndroidClock,
+          'vision_inspection_detail': settings.visionInspectionDetail,
+          'auto_flashlight_in_dark': settings.autoFlashlightInDark,
+          'preferred_currency': settings.preferredCurrency,
+        });
+        await _db.updateSettings(const AppSettingsCompanion(isSynced: Value(true)));
+      }
+
+      log('LauncherRepository: Background Offline Sync Completed Successfully.');
+    } catch (e, st) {
+      log('LauncherRepository: Background Sync encountered an error: $e', stackTrace: st);
+    }
+  }
+
+
+
+
+  // ===========================================================================
   // 🎙️ 1. محركات الصوت والكلام (Speech & TTS)
   // ===========================================================================
 
   Future<void> initializeEngines() async {
     await _speech.initialize();
     await _tts.initialize();
+    try {
+      final settings = await _db.getSettings();
+      await setSpeechRate(settings.speechRate);
+    } catch (_) {}
+  }
+
+  Future<void> setSpeechRate(double rate) async {
+    // سرعة مناسبة للمكفوفين
   }
 
   Future<void> startListening({
@@ -78,112 +282,301 @@ class LauncherRepository {
     );
   }
 
-  Future<String> stopListening() async {
-    return _speech.stopListening();
-  }
+  Future<String> stopListening() => _speech.stopListening();
+  Future<void> speak(String text) => _tts.speak(text);
+  Future<void> stopSpeaking() => _tts.stop();
 
-  Future<void> speak(String text) async {
-    await _tts.speak(text);
-  }
+  // ===========================================================================
+  // ⚙️ 2. إدارة الإعدادات الشاملة (AppSettings Engine)
+  // ===========================================================================
 
-  Future<void> stopSpeaking() async {
-    await _tts.stop();
+  Stream<AppSetting> watchSettings() => _db.watchSettings();
+  Future<AppSetting> getSettings() => _db.getSettings();
+
+  Future<void> updateSettings(AppSettingsCompanion updated) async {
+    await _db.updateSettings(updated);
+
+    final current = await _db.getSettings();
+    await _cloud.syncSettings({
+      'id': current.id,
+      'speech_rate': current.speechRate,
+      'haptics_enabled': current.hapticsEnabled,
+      'sound_cues_enabled': current.soundCuesEnabled,
+      'is_high_contrast': current.isHighContrast,
+      'default_priority': current.defaultPriority,
+      'auto_archive_completed': current.autoArchiveCompleted,
+      'speak_due_dates_aloud': current.speakDueDatesAloud,
+      'auto_dial_emergency': current.autoDialEmergency,
+      'share_gps_on_sos': current.shareGpsOnSos,
+      'speak_incoming_sms': current.speakIncomingSms,
+      'voice_chime_halfway': current.voiceChimeHalfway,
+      'vibrate_on_session_finish': current.vibrateOnSessionFinish,
+      'sync_alarms_with_android_clock': current.syncAlarmsWithAndroidClock,
+      'vision_inspection_detail': current.visionInspectionDetail,
+      'auto_flashlight_in_dark': current.autoFlashlightInDark,
+      'preferred_currency': current.preferredCurrency,
+    });
   }
 
   // ===========================================================================
-  // 📇 2. إدارة جهات الاتصال ورادار الطوارئ (Contacts & Emergency Hub)
+  // 📇 3. جهات الاتصال ورادار الطوارئ (Contacts)
   // ===========================================================================
 
-  /// حفظ جهة اتصال جديدة (محلياً وسحابياً)
-  Future<void> saveContact({
+  Future<String> saveContact({
     required String name,
     required String phoneNumber,
     String? relationship,
     bool isEmergency = false,
   }) async {
-    await _db.insertContact(
-      ContactsCompanion.insert(
-        name: name,
-        phoneNumber: phoneNumber,
-        relationship: Value(relationship),
-        isEmergency: Value(isEmergency),
-      ),
-    );
-
-    // رفع خلفي إلى Supabase
-    await _cloud.syncContact(
+    final id = await _db.insertContact(
       name: name,
       phoneNumber: phoneNumber,
       relationship: relationship,
       isEmergency: isEmergency,
     );
+
+    await _cloud.syncContact(
+      id: id,
+      name: name,
+      phoneNumber: phoneNumber,
+      relationship: relationship,
+      isEmergency: isEmergency,
+    );
+    return id;
   }
 
-  /// حذف جهة اتصال
-  Future<void> deleteContact(int localId, {String? cloudId}) async {
-    await _db.deleteContact(localId);
-    if (cloudId != null) {
-      await _cloud.deleteContact(cloudId);
-    }
+  Future<void> deleteContact(dynamic contactOrId) async {
+    final String id = contactOrId is Contact ? contactOrId.id : contactOrId.toString();
+    await _db.softDeleteContact(id);
+    await _cloud.softDeleteContactInCloud(id);
   }
 
-  /// بث حي لجهات الاتصال لقمرة القيادة
   Stream<List<Contact>> watchContacts() => _db.watchAllContacts();
-
-  /// جلب جهات اتصال الطوارئ المعتمدة
   Future<List<Contact>> getEmergencyContacts() => _db.getEmergencyContacts();
-
-  /// البحث الذكي بالاسم أو صلة القرابة (أبي، طبيبي، أمي)
-  Future<Contact?> findContact(String query) =>
-      _db.findContactByNameOrRelation(query);
+  Future<Contact?> findContact(String query) => _db.findContactByNameOrRelation(query);
 
   // ===========================================================================
-  // 💬 3. سجل التراسل الصامت (Messages Vault)
+  // 💬 4. سجل التراسل الصامت (Messages Vault)
   // ===========================================================================
 
-  /// تسجيل رسالة جديدة واردة أو صادرة
-  Future<void> recordMessage({
+  Future<String> recordMessage({
     required String contactIdentifier,
     required String senderName,
     required String messageText,
     String platform = 'sms',
     bool isOutgoing = false,
   }) async {
-    await _db.insertMessage(
-      MessagesVaultCompanion.insert(
-        contactIdentifier: contactIdentifier,
-        senderName: senderName,
-        messageText: messageText,
-        platform: Value(platform),
-        isOutgoing: Value(isOutgoing),
-      ),
-    );
-
-    await _cloud.syncMessage(
+    final id = await _db.insertMessage(
       contactIdentifier: contactIdentifier,
       senderName: senderName,
       messageText: messageText,
       platform: platform,
       isOutgoing: isOutgoing,
     );
+
+    await _cloud.syncMessage(
+      id: id,
+      contactIdentifier: contactIdentifier,
+      senderName: senderName,
+      messageText: messageText,
+      platform: platform,
+      isOutgoing: isOutgoing,
+    );
+    return id;
   }
 
-  /// استعراض رسائل محادثة معينة
   Stream<List<MessagesVaultData>> watchMessages(String contactIdentifier) =>
       _db.watchMessagesForContact(contactIdentifier);
 
-  /// جلب الرسائل غير المقروءة لتلخيصها صوتياً
-  Future<List<MessagesVaultData>> getUnreadMessages() =>
-      _db.getUnreadMessages();
+  Future<List<MessagesVaultData>> getUnreadMessages() => _db.getUnreadMessages();
 
-  /// تمييز الرسائل كمقروءة
   Future<void> markMessagesAsRead(String contactIdentifier) async {
     await _db.markMessagesAsRead(contactIdentifier);
     await _cloud.markMessagesAsReadInCloud(contactIdentifier);
   }
 
   // ===========================================================================
-  // 🧠 4. موجه الأوامر التنفيذية الفوري (Voice & Action Dispatcher)
+  // 📋 5. المهام والأجندة (Tasks & Agenda)
+  // ===========================================================================
+
+  Stream<List<Task>> watchTasks() => _db.watchAllTasks();
+
+  Future<String> createTask({
+    required String title,
+    DateTime? dueDate,
+    String priority = 'medium',
+  }) async {
+    final id = await _db.insertTask(
+      title: title,
+      dueDate: dueDate,
+      priority: priority,
+    );
+    await _cloud.syncTask(
+      id: id,
+      title: title,
+      dueDate: dueDate,
+      priority: priority,
+    );
+    return id;
+  }
+
+  Future<void> toggleTask(Task task) async {
+    final nextStatus = !task.isCompleted;
+    await _db.toggleTaskCompletion(task.id, nextStatus);
+    await _cloud.syncTask(
+      id: task.id,
+      title: task.title,
+      dueDate: task.dueDate,
+      priority: task.priority,
+      isCompleted: nextStatus,
+    );
+  }
+
+  Future<void> deleteTask(dynamic taskOrId) async {
+    final String id = taskOrId is Task ? taskOrId.id : taskOrId.toString();
+    await _db.softDeleteTask(id);
+    await _cloud.softDeleteTaskInCloud(id);
+  }
+
+  // ===========================================================================
+  // 🎙️ 6. المذكرات والملاحظات الصوتية (Voice Memos)
+  // ===========================================================================
+
+  Stream<List<VoiceMemo>> watchMemos() => _db.watchRecentMemos();
+
+  Future<String> createMemo({
+    required String title,
+    required String content,
+  }) async {
+    final id = await _db.insertMemo(title: title, content: content);
+    await _cloud.syncMemo(id: id, title: title, content: content);
+    return id;
+  }
+
+  Future<void> deleteMemo(dynamic memoOrId) async {
+    final String id = memoOrId is VoiceMemo ? memoOrId.id : memoOrId.toString();
+    await _db.softDeleteMemo(id);
+    await _cloud.softDeleteMemoInCloud(id);
+  }
+
+  // ===========================================================================
+  // ⏰ 7. المنبهات وجلسات التركيز (Alarms & Focus)
+  // ===========================================================================
+
+  Stream<List<Alarm>> watchAlarms() => _db.watchAllAlarms();
+
+  Future<String> createAlarm({
+    required int hour,
+    required int minute,
+    String label = 'Beacon Alarm',
+  }) async {
+    final id = await _db.insertAlarm(hour: hour, minute: minute, label: label);
+    await _hardware.setSystemAlarm(hour: hour, minute: minute, label: label);
+    await _cloud.syncAlarm(id: id, hour: hour, minute: minute, label: label);
+    return id;
+  }
+
+  Future<void> toggleAlarm(Alarm alarm) async {
+    final newStatus = !alarm.isActive;
+    await _db.toggleAlarmStatus(alarm.id, newStatus);
+    if (newStatus) {
+      await _hardware.setSystemAlarm(
+        hour: alarm.hour,
+        minute: alarm.minute,
+        label: alarm.label,
+      );
+    }
+    await _cloud.syncAlarm(
+      id: alarm.id,
+      hour: alarm.hour,
+      minute: alarm.minute,
+      label: alarm.label,
+      isActive: newStatus,
+    );
+  }
+
+  Future<void> deleteAlarm(dynamic alarmOrId) async {
+    final String id = alarmOrId is Alarm ? alarmOrId.id : alarmOrId.toString();
+    await _db.softDeleteAlarm(id);
+    await _cloud.softDeleteAlarmInCloud(id);
+  }
+
+  Stream<List<FocusSession>> watchTodayFocusSessions() =>
+      _db.watchTodayFocusSessions();
+
+  Future<void> recordCompletedFocusSession(int minutes) async {
+    final id = await _db.insertFocusSession(minutes);
+    await _cloud.syncFocusSession(id: id, durationMinutes: minutes);
+  }
+
+  // ===========================================================================
+  // 🚨 8. رادار الطوارئ وبث الاستغاثة (Emergency SOS Radar)
+  // ===========================================================================
+
+  Future<void> triggerEmergencySos({
+    required double latitude,
+    required double longitude,
+    int? batteryLevel,
+  }) async {
+    final googleMapsUrl = 'https://maps.google.com/?q=$latitude,$longitude';
+    final alertId = await _db.insertSosAlert(
+      latitude: latitude,
+      longitude: longitude,
+      batteryLevel: batteryLevel ?? 100,
+      googleMapsUrl: googleMapsUrl,
+    );
+
+    await _cloud.broadcastEmergencySos(
+      id: alertId,
+      latitude: latitude,
+      longitude: longitude,
+      batteryLevel: batteryLevel ?? 100,
+    );
+
+    final emergencyContacts = await _db.getEmergencyContacts();
+    if (emergencyContacts.isNotEmpty) {
+      final primary = emergencyContacts.first;
+      log('LauncherRepository: Auto-dialing emergency contact: ${primary.name}');
+      await _hardware.callPhoneNumber(primary.phoneNumber);
+    }
+  }
+
+  // ===========================================================================
+  // 👁️ 9. استوديو الرؤية المكانية (Vision Scans)
+  // ===========================================================================
+
+  Future<String> analyzeVisionFrame({
+    required String base64Image,
+    required String prompt,
+  }) async {
+    final result = await _llm.processCommand(
+      userCommand: prompt,
+      base64Image: base64Image,
+    );
+    return result['spoken_response'] as String? ?? 'Could not identify the scene.';
+  }
+
+  Future<void> saveVisionScanAsMemo({
+    required String title,
+    required String description,
+    String mode = 'surroundings',
+  }) async {
+    final scanId = await _db.insertVisionScan(
+      mode: mode,
+      prompt: title,
+      description: description,
+    );
+    await _cloud.syncVisionScan(
+      id: scanId,
+      mode: mode,
+      prompt: title,
+      description: description,
+    );
+    await createMemo(title: title, content: description);
+  }
+
+  // ===========================================================================
+  // 🧠 10. موجه الأوامر التنفيذية الفوري (Voice & Action Dispatcher)
   // ===========================================================================
 
   Future<LauncherCommandResult> dispatchVoiceCommand(
@@ -212,11 +605,7 @@ class LauncherRepository {
         if (cleanQuery.contains('pm') && hour < 12) hour += 12;
         if (cleanQuery.contains('am') && hour == 12) hour = 0;
 
-        await _hardware.setSystemAlarm(
-          hour: hour,
-          minute: minute,
-          label: 'Beacon Alarm',
-        );
+        await createAlarm(hour: hour, minute: minute, label: 'Beacon Alarm');
         final timeDisplay =
             '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
         return LauncherCommandResult(
@@ -271,7 +660,6 @@ class LauncherRepository {
           .replaceFirst(RegExp(r'^(call|dial)\s+'), '')
           .trim();
 
-      // فحص هل الاسم أو صلة القرابة مسجلة مسبقاً في دليل الهاتف؟
       final contact = await _db.findContactByNameOrRelation(target);
       final numberToCall = contact != null ? contact.phoneNumber : target;
       final displayName = contact != null ? contact.name : target;
@@ -388,8 +776,7 @@ class LauncherRepository {
             '',
           )
           .trim();
-      await _db.insertTask(TasksCompanion.insert(title: title));
-      await _cloud.backupTask(title: title);
+      await createTask(title: title);
       return LauncherCommandResult(
         intent: 'SAVE_TASK',
         spokenResponse: 'Task saved: $title.',
@@ -409,10 +796,7 @@ class LauncherRepository {
       final title = content.length > 25
           ? '${content.substring(0, 25)}...'
           : content;
-      await _db.insertMemo(
-        VoiceMemosCompanion.insert(title: title, content: content),
-      );
-      await _cloud.backupMemo(title: title, content: content);
+      await createMemo(title: title, content: content);
       return LauncherCommandResult(
         intent: 'SAVE_MEMO',
         spokenResponse: 'Note saved: $title.',
@@ -420,11 +804,36 @@ class LauncherRepository {
     }
 
     // -------------------------------------------------------------
-    // مسار الذكاء الاصطناعي المتقدم (Gemini 2.0 Flash via OpenRouter)
+    // مسار الذكاء الاصطناعي مع حقن السياق (Gemini + Context Injection)
     // -------------------------------------------------------------
+    final currentTasks = await _db.getPendingTasks();
+    final currentAlarms = await _db.watchAllAlarms().first;
+    final currentSettings = await _db.getSettings();
+
+    final systemContext = {
+      'tasks': currentTasks
+          .map((t) => {'id': t.id, 'title': t.title, 'priority': t.priority})
+          .toList(),
+      'alarms': currentAlarms
+          .map((a) => {
+                'id': a.id,
+                'time': '${a.hour}:${a.minute}',
+                'active': a.isActive,
+                'label': a.label
+              })
+          .toList(),
+      'settings': {
+        'speech_rate': currentSettings.speechRate,
+        'haptics_enabled': currentSettings.hapticsEnabled,
+        'is_high_contrast': currentSettings.isHighContrast,
+        'vision_detail': currentSettings.visionInspectionDetail,
+      },
+    };
+
     final aiResult = await _llm.processCommand(
       userCommand: userQuery,
       base64Image: base64Image,
+      systemContext: systemContext,
     );
 
     final intent = aiResult['intent'] as String? ?? 'GENERAL_CHAT';
@@ -436,15 +845,76 @@ class LauncherRepository {
         ? Map<String, dynamic>.from(rawParams)
         : <String, dynamic>{};
 
-    // تنفيذ إجراءات استدعاء الدوال الذاتية (Autonomous Tool Execution)
+    // تنفيذ قرارات الذكاء الاصطناعي
     switch (intent) {
+      case 'SAVE_TASK':
+        final title = params['title'] as String? ?? userQuery;
+        DateTime? dueDate;
+        if (params['due_date'] != null) {
+          dueDate = DateTime.tryParse(params['due_date'] as String);
+        }
+        final priority = params['priority'] as String? ?? 'medium';
+        await createTask(title: title, dueDate: dueDate, priority: priority);
+        break;
+
+      case 'COMPLETE_TASK':
+        final taskId = params['task_id'] as String?;
+        if (taskId != null) {
+          await _db.toggleTaskCompletion(taskId, true);
+          await _cloud.syncTask(id: taskId, title: '', isCompleted: true);
+        }
+        break;
+
+      case 'DELETE_TASK':
+        final taskId = params['task_id'] as String?;
+        if (taskId != null) {
+          await deleteTask(taskId);
+        }
+        break;
+
+      case 'SAVE_MEMO':
+        final title = params['title'] as String? ?? 'Voice Note';
+        final content = params['content'] as String? ?? title;
+        await createMemo(title: title, content: content);
+        break;
+
+      case 'DELETE_MEMO':
+        final memoId = params['memo_id'] as String?;
+        if (memoId != null) {
+          await deleteMemo(memoId);
+        }
+        break;
+
       case 'SET_ALARM':
         final timeStr = params['time'] as String?;
         if (timeStr != null && timeStr.contains(':')) {
           final parts = timeStr.split(':');
           final hour = int.tryParse(parts[0]) ?? 8;
           final minute = int.tryParse(parts[1]) ?? 0;
-          await _hardware.setSystemAlarm(hour: hour, minute: minute);
+          final label = params['label'] as String? ?? 'Beacon Alarm';
+          await createAlarm(hour: hour, minute: minute, label: label);
+        }
+        break;
+
+      case 'TOGGLE_ALARM':
+        final alarmId = params['alarm_id'] as String?;
+        final isActive = params['is_active'] as bool? ?? false;
+        if (alarmId != null) {
+          await _db.toggleAlarmStatus(alarmId, isActive);
+          await _cloud.syncAlarm(
+            id: alarmId,
+            hour: 0,
+            minute: 0,
+            label: '',
+            isActive: isActive,
+          );
+        }
+        break;
+
+      case 'DELETE_ALARM':
+        final alarmId = params['alarm_id'] as String?;
+        if (alarmId != null) {
+          await deleteAlarm(alarmId);
         }
         break;
 
@@ -457,26 +927,54 @@ class LauncherRepository {
         }
         break;
 
-      case 'SAVE_TASK':
-        final taskTitle = params['task_title'] as String? ?? '';
-        if (taskTitle.isNotEmpty) {
-          DateTime? dueDate;
-          final dueStr = params['due_date'] as String?;
-          if (dueStr != null) dueDate = DateTime.tryParse(dueStr);
-          await _db.insertTask(
-            TasksCompanion.insert(title: taskTitle, dueDate: Value(dueDate)),
+      case 'SAVE_CONTACT':
+        final name = params['name'] as String? ?? '';
+        final phone = params['phone_number'] as String? ?? '';
+        final relation = params['relationship'] as String?;
+        final isEmergency = params['is_emergency'] as bool? ?? false;
+        if (name.isNotEmpty && phone.isNotEmpty) {
+          await saveContact(
+            name: name,
+            phoneNumber: phone,
+            relationship: relation,
+            isEmergency: isEmergency,
           );
-          await _cloud.backupTask(title: taskTitle, dueDate: dueDate);
         }
         break;
 
-      case 'SAVE_MEMO':
-        final memoTitle = params['memo_title'] as String? ?? 'Voice Note';
-        final memoContent = params['memo_content'] as String? ?? memoTitle;
-        await _db.insertMemo(
-          VoiceMemosCompanion.insert(title: memoTitle, content: memoContent),
-        );
-        await _cloud.backupMemo(title: memoTitle, content: memoContent);
+      case 'DELETE_CONTACT':
+        final contactId = params['contact_id'] as String?;
+        if (contactId != null) {
+          await deleteContact(contactId);
+        }
+        break;
+
+      case 'UPDATE_SETTINGS':
+        final key = params['key'] as String?;
+        final val = params['value'];
+        if (key != null && val != null) {
+          if (key == 'speech_rate' && val is num) {
+            await updateSettings(
+              AppSettingsCompanion(speechRate: Value(val.toDouble())),
+            );
+          } else if (key == 'haptics_enabled' && val is bool) {
+            await updateSettings(
+              AppSettingsCompanion(hapticsEnabled: Value(val)),
+            );
+          } else if (key == 'is_high_contrast' && val is bool) {
+            await updateSettings(
+              AppSettingsCompanion(isHighContrast: Value(val)),
+            );
+          } else if (key == 'auto_flashlight_in_dark' && val is bool) {
+            await updateSettings(
+              AppSettingsCompanion(autoFlashlightInDark: Value(val)),
+            );
+          } else if (key == 'vision_inspection_detail' && val is String) {
+            await updateSettings(
+              AppSettingsCompanion(visionInspectionDetail: Value(val)),
+            );
+          }
+        }
         break;
 
       case 'LOCK_SCREEN':
@@ -500,147 +998,5 @@ class LauncherRepository {
       spokenResponse: spokenResponse,
       actionPayload: params,
     );
-  }
-
-  // ===========================================================================
-  // 🚨 5. رادار الطوارئ وبث الاستغاثة (Emergency SOS Radar)
-  // ===========================================================================
-
-  Future<void> triggerEmergencySos({
-    required double latitude,
-    required double longitude,
-    int? batteryLevel,
-  }) async {
-    // 1. بث الإحداثيات لسيرفرات Supabase لمتابعة المرافقين لحظياً
-    await _cloud.broadcastEmergencySos(
-      latitude: latitude,
-      longitude: longitude,
-      batteryLevel: batteryLevel,
-    );
-
-    // 2. فحص جهات اتصال الطوارئ والاتصال التلقائي برقم الطوارئ الأول
-    final emergencyContacts = await _db.getEmergencyContacts();
-    if (emergencyContacts.isNotEmpty) {
-      final primaryContact = emergencyContacts.first;
-      log(
-        'LauncherRepository: Auto-dialing emergency contact: ${primaryContact.name}',
-      );
-      await _hardware.callPhoneNumber(primaryContact.phoneNumber);
-    }
-  }
-  // أضف هذه الدوال داخل LauncherRepository:
-
-  // --- المهام والأجندة ---
-  Stream<List<Task>> watchTasks() => _db.watchAllTasks();
-
-  Future<void> createTask({
-    required String title,
-    DateTime? dueDate,
-    String priority = 'medium',
-  }) async {
-    await _db.insertTask(
-      TasksCompanion.insert(
-        title: title,
-        dueDate: Value(dueDate),
-        priority: Value(priority),
-      ),
-    );
-    await _cloud.backupTask(title: title, dueDate: dueDate);
-  }
-
-  Future<void> toggleTask(Task task) async {
-    final nextStatus = !task.isCompleted;
-    await _db.toggleTaskCompletion(task.id, nextStatus);
-    await _cloud.updateTaskStatusInCloud(
-      taskTitle: task.title,
-      isCompleted: nextStatus,
-    );
-  }
-
-  Future<void> deleteTask(Task task) async {
-    await _db.deleteTask(task.id);
-    await _cloud.deleteTaskFromCloud(task.title);
-  }
-
-  // --- المذكرات والملاحظات ---
-  Stream<List<VoiceMemo>> watchMemos() => _db.watchRecentMemos();
-
-  Future<void> deleteMemo(int id) async {
-    await _db.deleteMemo(id);
-  }
-
-  // --- المنبهات وجلسات التركيز ---
-  Stream<List<Alarm>> watchAlarms() => _db.watchAllAlarms();
-
-  Future<void> createAlarm({
-    required int hour,
-    required int minute,
-    String label = 'Beacon Alarm',
-  }) async {
-    // 1. حفظ في قاعدة البيانات المحلية
-    await _db.insertAlarm(
-      AlarmsCompanion.insert(hour: hour, minute: minute, label: Value(label)),
-    );
-
-    // 2. تفعيل المنبه الفعلي في نظام أندرويد عبر الجسر الأصلي (Kotlin Bridge)
-    await _hardware.setSystemAlarm(hour: hour, minute: minute, label: label);
-
-    // 3. مزامنة سحابية بالخلفية
-    await _cloud.syncAlarm(hour: hour, minute: minute, label: label);
-  }
-
-  Future<void> toggleAlarm(Alarm alarm) async {
-    final newStatus = !alarm.isActive;
-    await _db.toggleAlarmStatus(alarm.id, newStatus);
-    if (newStatus) {
-      await _hardware.setSystemAlarm(
-        hour: alarm.hour,
-        minute: alarm.minute,
-        label: alarm.label,
-      );
-    }
-  }
-
-  Future<void> deleteAlarm(int alarmId) => _db.deleteAlarm(alarmId);
-
-  Stream<List<FocusSession>> watchTodayFocusSessions() =>
-      _db.watchTodayFocusSessions();
-
-  Future<void> recordCompletedFocusSession(int minutes) async {
-    await _db.insertFocusSession(
-      FocusSessionsCompanion.insert(durationMinutes: minutes),
-    );
-    await _cloud.logFocusSession(durationMinutes: minutes);
-  }
-
-  // أضف هذه الدوال داخل كلاس LauncherRepository في:
-  // packages/launcher_repository/lib/src/launcher_repository.dart
-
-  // ===========================================================================
-  // 👁️ دوال استوديو الرؤية المكانية (Multimodal Vision Engine)
-  // ===========================================================================
-
-  /// تحليل الإطار الملتقط بواسطة Gemini 2.0 Flash عبر موجه متخصص
-  Future<String> analyzeVisionFrame({
-    required String base64Image,
-    required String prompt,
-  }) async {
-    final result = await _llm.processCommand(
-      userCommand: prompt,
-      base64Image: base64Image,
-    );
-    return result['spoken_response'] as String? ??
-        'Could not identify the scene.';
-  }
-
-  /// حفظ النتيجة البصرية كمذكرة صوتية دائمة في بنك الذاكرة والسحابة
-  Future<void> saveVisionScanAsMemo({
-    required String title,
-    required String description,
-  }) async {
-    await _db.insertMemo(
-      VoiceMemosCompanion.insert(title: title, content: description),
-    );
-    await _cloud.backupMemo(title: title, content: description);
   }
 }

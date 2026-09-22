@@ -1,5 +1,6 @@
 // lib/spatial_compass/cubit/spatial_compass_cubit.dart
 import 'dart:developer';
+import 'package:beacon_os/core/audio/sound_controller.dart';
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
 import 'package:bloc/bloc.dart';
@@ -9,46 +10,38 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   SpatialCompassCubit({
     required LauncherRepository repository,
     HapticManager? hapticManager,
-  }) : _repository = repository,
-       _haptics = hapticManager ?? HapticManager.instance,
-       super(const SpatialCompassState());
+    SoundController? soundController,
+  })  : _repository = repository,
+        _haptics = hapticManager ?? HapticManager.instance,
+        _sound = soundController ?? SoundController.instance,
+        super(const SpatialCompassState());
 
   final LauncherRepository _repository;
   final HapticManager _haptics;
+  final SoundController _sound;
 
   // ===========================================================================
   // 🏢 1. التحكم الرأسي بالطوابق (Z-Axis Vertical Control)
   // ===========================================================================
 
-  /// الصعود للطابق الثاني مع البقاء في نفس الاتجاه الأفقي المتطابق
   Future<void> goToSettingsFloor() async {
     if (state.isSettingsFloor) return;
 
-    await _haptics.emergencyAlarmPulse(); // نبضة مصعد حسية مميزة
-    emit(state.copyWith(currentFloor: 1));
+    await _haptics.emergencyAlarmPulse(); // نبضة حسية مميزة
+    await _sound.playElevatorUp();        // صوت الصعود فقط (بدون نطق)
 
-    // إعلان صوتي فوري للغرفة المقابلة في الطابق الثاني
-    _announceLocation(
-      direction: state.currentDirection,
-      isSettingsFloor: true,
-    );
+    emit(state.copyWith(currentFloor: 1));
   }
 
-  /// النزول للطابق الأرضي إلى نفس الغرفة المقابلة
   Future<void> returnToGroundFloor() async {
     if (!state.isSettingsFloor) return;
 
     await _haptics.successNotification();
-    emit(state.copyWith(currentFloor: 0));
+    await _sound.playElevatorDown();      // صوت النزول فقط (بدون نطق)
 
-    // إعلان صوتي فوري للغرفة الأساسية في الطابق الأرضي
-    _announceLocation(
-      direction: state.currentDirection,
-      isSettingsFloor: false,
-    );
+    emit(state.copyWith(currentFloor: 0));
   }
 
-  /// تبديل الطابق الرأسي (زر أو إيماءة المصعد)
   void toggleFloor() {
     if (state.isSettingsFloor) {
       returnToGroundFloor();
@@ -61,39 +54,32 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   // 🧭 2. التنقل الأفقي المتطابق (XY-Axis Horizontal Navigation)
   // ===========================================================================
 
-  /// معالجة إيماءات السحب بالأصبع الواحد (تعمل بنفس التطابق في كلا الطابقين)
   void handleSwipeGesture({
     required double velocityX,
     required double velocityY,
     required double deltaX,
     required double deltaY,
   }) {
-    const velocityThreshold = 250.0;
-    const distanceThreshold = 40.0;
+    const velocityThreshold = 150.0; 
+    const distanceThreshold = 20.0;  
+    
     final isHorizontal = deltaX.abs() > deltaY.abs();
 
     if (state.isAtCenter) {
       if (isHorizontal) {
-        // سحب لليسار ⬅️ = الانتقال شرقاً (غرفة الرؤية / إعدادات الرؤية)
         if (velocityX < -velocityThreshold || deltaX < -distanceThreshold) {
           moveTo(CompassDirection.east);
-        }
-        // سحب لليمين ➡️ = الانتقال غرباً (غرفة التركيز والمنبهات / إعدادات التركيز)
-        else if (velocityX > velocityThreshold || deltaX > distanceThreshold) {
+        } else if (velocityX > velocityThreshold || deltaX > distanceThreshold) {
           moveTo(CompassDirection.west);
         }
       } else {
-        // سحب للأعلى ⬆️ = الانتقال جنوباً (غرفة التواصل والرسائل / إعدادات الطوارئ)
         if (velocityY < -velocityThreshold || deltaY < -distanceThreshold) {
           moveTo(CompassDirection.south);
-        }
-        // سحب للأسفل ⬇️ = الانتقال شمالاً (غرفة الأجندة / إعدادات المهام)
-        else if (velocityY > velocityThreshold || deltaY > distanceThreshold) {
+        } else if (velocityY > velocityThreshold || deltaY > distanceThreshold) {
           moveTo(CompassDirection.north);
         }
       }
     } else {
-      // العودة للمركز الحالي عبر السحب في الاتجاه المعاكس
       final current = state.currentDirection;
       var shouldReturn = false;
 
@@ -117,11 +103,30 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
     }
   }
 
-  /// الانتقال إلى اتجاه محدد داخل نفس الطابق
   Future<void> moveTo(CompassDirection destination) async {
     if (state.currentDirection == destination) return;
 
     await _haptics.successNotification();
+
+    // تشغيل الصوت المكاني المناسب فقط (بدون نطق اسم الصفحة)
+    final isSettings = state.isSettingsFloor;
+    switch (destination) {
+      case CompassDirection.north:
+        await _sound.playSwipeNorth(isSettingsFloor: isSettings);
+        break;
+      case CompassDirection.south:
+        await _sound.playSwipeSouth(isSettingsFloor: isSettings);
+        break;
+      case CompassDirection.east:
+        await _sound.playSwipeEast(isSettingsFloor: isSettings);
+        break;
+      case CompassDirection.west:
+        await _sound.playSwipeWest(isSettingsFloor: isSettings);
+        break;
+      case CompassDirection.center:
+        await _sound.playReturnCenter(isSettingsFloor: isSettings);
+        break;
+    }
 
     emit(
       state.copyWith(
@@ -130,67 +135,49 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
         isTransitioning: false,
       ),
     );
-
-    _announceLocation(
-      direction: destination,
-      isSettingsFloor: state.isSettingsFloor,
-    );
   }
 
-  /// العودة لمركز الطابق الحالي
   Future<void> returnToCenter() async {
     if (state.isAtCenter) return;
     await moveTo(CompassDirection.center);
   }
 
   // ===========================================================================
-  // 🔊 3. النظام الصوتي الموجه للمكفوفين (Spatial Audio Announcements)
+  // 🔊 3. النظام الصوتي الموجه للمكفوفين (On-Demand Contextual TTS)
   // ===========================================================================
 
-  void _announceLocation({
-    required CompassDirection direction,
-    required bool isSettingsFloor,
-  }) {
-    final announcement = _buildAnnouncementText(
-      direction: direction,
-      isSettingsFloor: isSettingsFloor,
+  /// تُستدعى هذه الدالة فقط عندما ينقر المستخدم بإصبعين على الشاشة لمعرفة مكانه
+  Future<void> announceCurrentLocation() async {
+    final announcement = _buildQuickAnnouncementText(
+      direction: state.currentDirection,
+      isSettingsFloor: state.isSettingsFloor,
     );
 
+    // إسكات أي نطق سابق فوراً، ونطق الموقع الحالي
+    await _repository.stopSpeaking();
     _repository.speak(announcement);
-    log('SpatialCompass: Announced -> "$announcement"');
+    log('SpatialCompass: Context Requested -> "$announcement"');
   }
 
-  String _buildAnnouncementText({
+  String _buildQuickAnnouncementText({
     required CompassDirection direction,
     required bool isSettingsFloor,
   }) {
     if (isSettingsFloor) {
-      // إعلانات الطابق الثاني (غرف المحركات والإعدادات)
       switch (direction) {
-        case CompassDirection.center:
-          return 'Floor Two: System Core and Preferences.';
-        case CompassDirection.north:
-          return 'Floor Two: Agenda and Task Preferences.';
-        case CompassDirection.south:
-          return 'Floor Two: Emergency Radar and Communications Settings.';
-        case CompassDirection.east:
-          return 'Floor Two: AI Vision Engine and Inspector Settings.';
-        case CompassDirection.west:
-          return 'Floor Two: Focus Intervals and Alarm Tuning.';
+        case CompassDirection.center: return 'Core Settings';
+        case CompassDirection.north:  return 'Agenda Settings';
+        case CompassDirection.south:  return 'Comms Settings';
+        case CompassDirection.east:   return 'Vision Settings';
+        case CompassDirection.west:   return 'Focus Settings';
       }
     } else {
-      // إعلانات الطابق الأرضي (غرف الحياة اليومية والعمليات)
       switch (direction) {
-        case CompassDirection.center:
-          return 'Today Cockpit.';
-        case CompassDirection.north:
-          return 'Agenda and Tasks.';
-        case CompassDirection.south:
-          return 'Communications and Messages.';
-        case CompassDirection.east:
-          return 'AI Spatial Vision Studio.';
-        case CompassDirection.west:
-          return 'Focus study cycles and Alarms.';
+        case CompassDirection.center: return 'Cockpit';
+        case CompassDirection.north:  return 'Agenda';
+        case CompassDirection.south:  return 'Comms';
+        case CompassDirection.east:   return 'Vision';
+        case CompassDirection.west:   return 'Focus';
       }
     }
   }

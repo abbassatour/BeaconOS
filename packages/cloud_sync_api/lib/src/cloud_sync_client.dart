@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// عميل المزامنة السحابية وبث الرادار لمنظومة BeaconOS عبر Supabase.
+/// يدعم معمارية UUID والحذف الناعم والبث اللحظي (Realtime Streams).
 class CloudSyncClient {
   CloudSyncClient();
 
@@ -18,19 +19,11 @@ class CloudSyncClient {
   // 🔐 1. المصادقة وإدارة الجلسة (Auth & Session Management)
   // ===========================================================================
 
-  /// هل المستخدم مسجل دخوله حالياً؟
   User? get currentUser => _client?.auth.currentUser;
-
-  /// هل المستخدم في وضع الحساب السحابي الموثق؟
   bool get isAuthenticated => currentUser != null;
-
-  /// معرف المستخدم النشط أو مستخدم محلي إن كان أوفلاين
   String get activeUserId => currentUser?.id ?? 'local_guest_user';
-
-  /// تدفق لحالة تسجيل الدخول آنياً
   Stream<AuthState>? get authStateChanges => _client?.auth.onAuthStateChange;
 
-  /// تسجيل الدخول بالبريد وكلمة المرور
   Future<AuthResponse?> signInWithEmail({
     required String email,
     required String password,
@@ -48,7 +41,6 @@ class CloudSyncClient {
     }
   }
 
-  /// إنشاء حساب جديد
   Future<AuthResponse?> signUpWithEmail({
     required String email,
     required String password,
@@ -66,7 +58,6 @@ class CloudSyncClient {
     }
   }
 
-  /// الدخول السريع كضيف (ضروري للتشغيل الفوري للمكفوفين بدون كتابة)
   Future<AuthResponse?> signInAnonymously() async {
     try {
       final response = await _client?.auth.signInAnonymously();
@@ -78,7 +69,6 @@ class CloudSyncClient {
     }
   }
 
-  /// تسجيل الخروج
   Future<void> signOut() async {
     try {
       await _client?.auth.signOut();
@@ -89,26 +79,66 @@ class CloudSyncClient {
   }
 
   // ===========================================================================
-  // 📇 2. مزامنة جهات الاتصال (Contacts Cloud Sync)
+  // ⚙️ 2. مزامنة الإعدادات الشاملة (App Settings Sync)
+  // ===========================================================================
+
+  Future<void> syncSettings(Map<String, dynamic> settingsData) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      final payload = Map<String, dynamic>.from(settingsData)..['user_id'] = userId;
+      await client.from('app_settings').upsert(payload);
+      log('CloudSyncClient: Settings synced to cloud.');
+    } catch (e) {
+      log('CloudSyncClient: Settings sync skipped/failed: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchCloudSettings() async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return null;
+
+    try {
+      final res = await client
+          .from('app_settings')
+          .select()
+          .eq('user_id', userId)
+          .maybeSingle();
+      return res;
+    } catch (e) {
+      log('CloudSyncClient: Failed to fetch cloud settings: $e');
+      return null;
+    }
+  }
+
+  // ===========================================================================
+  // 📇 3. جهات الاتصال ورادار الطوارئ (Contacts - Complete with Streams)
   // ===========================================================================
 
   Future<void> syncContact({
+    required String id,
     required String name,
     required String phoneNumber,
     String? relationship,
     bool isEmergency = false,
+    DateTime? deletedAt,
   }) async {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return;
 
     try {
-      await client.from('contacts').insert({
+      await client.from('contacts').upsert({
+        'id': id,
         'user_id': userId,
         'name': name.trim(),
         'phone_number': phoneNumber.trim(),
         'relationship': relationship?.trim(),
         'is_emergency': isEmergency,
+        'deleted_at': deletedAt?.toIso8601String(),
       });
       log('CloudSyncClient: Contact synced to cloud: $name');
     } catch (e) {
@@ -126,6 +156,7 @@ class CloudSyncClient {
           .from('contacts')
           .select()
           .eq('user_id', userId)
+          .filter('deleted_at', 'is', null) // استثناء المحذوف
           .order('name', ascending: true);
 
       return List<Map<String, dynamic>>.from(response);
@@ -147,7 +178,23 @@ class CloudSyncClient {
         .order('name', ascending: true);
   }
 
-  Future<void> deleteContact(String contactId) async {
+  /// حذف ناعم في السحابة مع الاحتفاظ بالسجل للمزامنة
+  Future<void> softDeleteContactInCloud(String contactId) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      await client.from('contacts').update({
+        'deleted_at': DateTime.now().toIso8601String(),
+      }).eq('id', contactId).eq('user_id', userId);
+    } catch (e) {
+      log('CloudSyncClient: Failed to soft delete contact: $e');
+    }
+  }
+
+  /// حذف نهائي قطعي (إذا لزم الأمر)
+  Future<void> hardDeleteContact(String contactId) async {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return;
@@ -159,15 +206,16 @@ class CloudSyncClient {
           .eq('id', contactId)
           .eq('user_id', userId);
     } catch (e) {
-      log('CloudSyncClient: Failed to delete contact: $e');
+      log('CloudSyncClient: Failed to hard delete contact: $e');
     }
   }
 
   // ===========================================================================
-  // 💬 3. سجل التراسل الصامت (Messages Vault Cloud Sync)
+  // 💬 4. سجل التراسل الصامت (Messages Vault - Complete with Streams)
   // ===========================================================================
 
   Future<void> syncMessage({
+    required String id,
     required String contactIdentifier,
     required String senderName,
     required String messageText,
@@ -175,13 +223,15 @@ class CloudSyncClient {
     bool isOutgoing = false,
     DateTime? timestamp,
     bool isRead = false,
+    DateTime? deletedAt,
   }) async {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return;
 
     try {
-      await client.from('messages_vault').insert({
+      await client.from('messages_vault').upsert({
+        'id': id,
         'user_id': userId,
         'contact_identifier': contactIdentifier.trim(),
         'sender_name': senderName.trim(),
@@ -190,6 +240,7 @@ class CloudSyncClient {
         'is_outgoing': isOutgoing,
         'timestamp': (timestamp ?? DateTime.now()).toIso8601String(),
         'is_read': isRead,
+        'deleted_at': deletedAt?.toIso8601String(),
       });
       log('CloudSyncClient: Message logged in cloud ($platform: $senderName)');
     } catch (e) {
@@ -197,9 +248,7 @@ class CloudSyncClient {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchRecentMessages({
-    int limit = 50,
-  }) async {
+  Future<List<Map<String, dynamic>>> fetchRecentMessages({int limit = 50}) async {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return [];
@@ -209,6 +258,7 @@ class CloudSyncClient {
           .from('messages_vault')
           .select()
           .eq('user_id', userId)
+          .filter('deleted_at', 'is', null)
           .order('timestamp', ascending: false)
           .limit(limit);
 
@@ -219,9 +269,7 @@ class CloudSyncClient {
     }
   }
 
-  Stream<List<Map<String, dynamic>>>? streamMessages({
-    String? contactIdentifier,
-  }) {
+  Stream<List<Map<String, dynamic>>>? streamMessages() {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return null;
@@ -250,49 +298,201 @@ class CloudSyncClient {
   }
 
   // ===========================================================================
-  // ⏰ 4. ساعة المنبهات وجلسات التركيز (Alarms & Focus Sessions Cloud Sync)
+  // 📋 5. المهام والأجندة (Tasks Sync with Streams)
   // ===========================================================================
 
-  /// مزامنة منبه جديد في سحابة Supabase
+  Future<void> syncTask({
+    required String id,
+    required String title,
+    DateTime? dueDate,
+    String priority = 'medium',
+    bool isCompleted = false,
+    DateTime? deletedAt,
+  }) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      await client.from('tasks').upsert({
+        'id': id,
+        'user_id': userId,
+        'title': title.trim(),
+        'due_date': dueDate?.toIso8601String(),
+        'priority': priority,
+        'is_completed': isCompleted,
+        'deleted_at': deletedAt?.toIso8601String(),
+      });
+      log('CloudSyncClient: Task synced: $title');
+    } catch (e) {
+      log('CloudSyncClient: Task sync skipped: $e');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTasks() async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return [];
+
+    try {
+      final response = await client
+          .from('tasks')
+          .select()
+          .eq('user_id', userId)
+          .filter('deleted_at', 'is', null)
+          .order('due_date', ascending: true);
+
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>>? streamTasks() {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return null;
+
+    return client
+        .from('tasks')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('due_date', ascending: true);
+  }
+
+  Future<void> softDeleteTaskInCloud(String taskId) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      await client.from('tasks').update({
+        'deleted_at': DateTime.now().toIso8601String(),
+      }).eq('id', taskId).eq('user_id', userId);
+    } catch (e) {
+      log('CloudSyncClient: Soft delete task error: $e');
+    }
+  }
+
+  // ===========================================================================
+  // 🎙️ 6. المذكرات الصوتية (Voice Memos Sync with Streams)
+  // ===========================================================================
+
+  Future<void> syncMemo({
+    required String id,
+    required String title,
+    required String content,
+    DateTime? deletedAt,
+  }) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      await client.from('voice_memos').upsert({
+        'id': id,
+        'user_id': userId,
+        'title': title.trim(),
+        'content': content.trim(),
+        'deleted_at': deletedAt?.toIso8601String(),
+      });
+      log('CloudSyncClient: Memo synced: $title');
+    } catch (e) {
+      log('CloudSyncClient: Memo sync skipped: $e');
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>>? streamMemos() {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return null;
+
+    return client
+        .from('voice_memos')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('created_at', ascending: false);
+  }
+
+  Future<void> softDeleteMemoInCloud(String memoId) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      await client.from('voice_memos').update({
+        'deleted_at': DateTime.now().toIso8601String(),
+      }).eq('id', memoId).eq('user_id', userId);
+    } catch (e) {
+      log('CloudSyncClient: Soft delete memo error: $e');
+    }
+  }
+
+  // ===========================================================================
+  // ⏰ 7. المنبهات وجلسات التركيز (Alarms & Focus Sync)
+  // ===========================================================================
+
   Future<void> syncAlarm({
+    required String id,
     required int hour,
     required int minute,
     required String label,
     bool isActive = true,
+    String daysOfWeek = 'daily',
+    DateTime? deletedAt,
   }) async {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return;
 
     try {
-      await client.from('alarms').insert({
+      await client.from('alarms').upsert({
+        'id': id,
         'user_id': userId,
         'hour': hour,
         'minute': minute,
         'label': label.trim(),
+        'days_of_week': daysOfWeek,
         'is_active': isActive,
+        'deleted_at': deletedAt?.toIso8601String(),
       });
-      log('CloudSyncClient: Alarm synced to cloud ($hour:$minute)');
+      log('CloudSyncClient: Alarm synced: $hour:$minute');
     } catch (e) {
-      log('CloudSyncClient: Alarm cloud sync skipped: $e');
+      log('CloudSyncClient: Alarm sync skipped: $e');
     }
   }
 
-  /// تسجيل جلسة تركيز أو مذاكرة مكتملة في السحابة
-  Future<void> logFocusSession({
+  Future<void> softDeleteAlarmInCloud(String alarmId) async {
+    final client = _client;
+    final userId = currentUser?.id;
+    if (client == null || userId == null) return;
+
+    try {
+      await client.from('alarms').update({
+        'deleted_at': DateTime.now().toIso8601String(),
+      }).eq('id', alarmId).eq('user_id', userId);
+    } catch (e) {
+      log('CloudSyncClient: Soft delete alarm error: $e');
+    }
+  }
+
+  Future<void> syncFocusSession({
+    required String id,
     required int durationMinutes,
     String sessionType = 'study',
+    DateTime? completedAt,
   }) async {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return;
 
     try {
-      await client.from('focus_sessions').insert({
+      await client.from('focus_sessions').upsert({
+        'id': id,
         'user_id': userId,
         'duration_minutes': durationMinutes,
         'session_type': sessionType,
-        'completed_at': DateTime.now().toIso8601String(),
+        'completed_at': (completedAt ?? DateTime.now()).toIso8601String(),
       });
       log('CloudSyncClient: Focus session logged ($durationMinutes mins)');
     } catch (e) {
@@ -301,32 +501,34 @@ class CloudSyncClient {
   }
 
   // ===========================================================================
-  // 🚨 5. رادار الاستغاثة والطوارئ (Emergency SOS Radar)
+  // 🚨 8. رادار الاستغاثة والطوارئ (SOS Radar Sync)
   // ===========================================================================
 
   Future<bool> broadcastEmergencySos({
+    required String id,
     required double latitude,
     required double longitude,
-    int? batteryLevel,
-    String? userId,
+    int batteryLevel = 100,
+    String status = 'active',
   }) async {
     final client = _client;
+    final userId = currentUser?.id ?? 'guest_offline_user';
     if (client == null) return false;
 
     try {
       final googleMapsUrl = 'https://maps.google.com/?q=$latitude,$longitude';
-      final activeUser = userId ?? currentUser?.id ?? 'offline_user';
-
       await client.from('sos_alerts').insert({
-        'user_id': activeUser,
+        'id': id,
+        'user_id': userId,
         'latitude': latitude,
         'longitude': longitude,
-        'battery_level': batteryLevel ?? 100,
-        'status': 'active',
+        'battery_level': batteryLevel,
+        'status': status,
         'google_maps_url': googleMapsUrl,
+        'triggered_at': DateTime.now().toIso8601String(),
       });
 
-      log('CloudSyncClient: Emergency SOS broadcasted successfully.');
+      log('CloudSyncClient: Emergency SOS alert broadcasted to cloud radar.');
       return true;
     } catch (e, st) {
       log('CloudSyncClient: Failed to broadcast SOS: $e', stackTrace: st);
@@ -335,79 +537,30 @@ class CloudSyncClient {
   }
 
   // ===========================================================================
-  // 📝 6. المهام والمذكرات (Tasks & Memos Cloud Sync)
+  // 👁️ 9. الفحوصات البصرية الذكية (Vision Scans Sync)
   // ===========================================================================
 
-  Future<void> backupMemo({
-    required String title,
-    required String content,
+  Future<void> syncVisionScan({
+    required String id,
+    required String mode,
+    required String prompt,
+    required String description,
   }) async {
     final client = _client;
     final userId = currentUser?.id;
     if (client == null || userId == null) return;
 
     try {
-      await client.from('voice_memos').insert({
+      await client.from('vision_scans').upsert({
+        'id': id,
         'user_id': userId,
-        'title': title.trim(),
-        'content': content.trim(),
+        'mode': mode,
+        'prompt': prompt,
+        'description': description,
       });
-      log('CloudSyncClient: Memo backed up: $title');
+      log('CloudSyncClient: Vision scan backed up.');
     } catch (e) {
-      log('CloudSyncClient: Memo backup skipped: $e');
-    }
-  }
-
-  Future<void> backupTask({required String title, DateTime? dueDate}) async {
-    final client = _client;
-    final userId = currentUser?.id;
-    if (client == null || userId == null) return;
-
-    try {
-      await client.from('tasks').insert({
-        'user_id': userId,
-        'title': title.trim(),
-        'due_date': dueDate?.toIso8601String(),
-        'is_completed': false,
-      });
-      log('CloudSyncClient: Task backed up: $title');
-    } catch (e) {
-      log('CloudSyncClient: Task backup skipped: $e');
-    }
-  }
-
-  Future<void> updateTaskStatusInCloud({
-    required String taskTitle,
-    required bool isCompleted,
-  }) async {
-    final client = _client;
-    final userId = currentUser?.id;
-    if (client == null || userId == null) return;
-
-    try {
-      await client
-          .from('tasks')
-          .update({'is_completed': isCompleted})
-          .eq('user_id', userId)
-          .eq('title', taskTitle);
-    } catch (e) {
-      log('CloudSyncClient: Task status cloud update skipped: $e');
-    }
-  }
-
-  Future<void> deleteTaskFromCloud(String taskTitle) async {
-    final client = _client;
-    final userId = currentUser?.id;
-    if (client == null || userId == null) return;
-
-    try {
-      await client
-          .from('tasks')
-          .delete()
-          .eq('user_id', userId)
-          .eq('title', taskTitle);
-    } catch (e) {
-      log('CloudSyncClient: Delete task from cloud skipped: $e');
+      log('CloudSyncClient: Vision scan sync skipped: $e');
     }
   }
 }

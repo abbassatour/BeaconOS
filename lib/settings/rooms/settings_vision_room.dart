@@ -1,218 +1,211 @@
 // lib/settings/rooms/settings_vision_room.dart
 import 'package:beacon_os/core/theme/app_theme.dart';
+import 'package:beacon_os/settings/cubit/settings_cubit.dart';
+import 'package:beacon_os/settings/cubit/settings_state.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:launcher_repository/launcher_repository.dart';
 
-class SettingsVisionRoom extends StatefulWidget {
+class SettingsVisionRoom extends StatelessWidget {
   const SettingsVisionRoom({super.key});
-
-  @override
-  State<SettingsVisionRoom> createState() => _SettingsVisionRoomState();
-}
-
-class _SettingsVisionRoomState extends State<SettingsVisionRoom> {
-  bool _autoFlashlightInDark = true;
-  String _inspectionDetail = 'concise';
-  String _preferredCurrency = 'USD / Local';
 
   @override
   Widget build(BuildContext context) {
     final compassCubit = context.read<SpatialCompassCubit>();
-    final repository = context.read<LauncherRepository>();
+    final settingsCubit = context.read<SettingsCubit>();
 
     return Scaffold(
       backgroundColor: AppTheme.warmPaper,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: BlocBuilder<SettingsCubit, SettingsState>(
+          builder: (context, state) {
+            return CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Icon(
-                              Icons.remove_red_eye_rounded,
-                              color: AppTheme.terracotta,
-                              size: 20,
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.remove_red_eye_rounded,
+                                  color: AppTheme.terracotta,
+                                  size: 20,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'FLOOR 2 • VISION ENGINE',
+                                  style: TextStyle(
+                                    color: AppTheme.terracotta,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.5,
+                                  ),
+                                ),
+                              ],
                             ),
-                            SizedBox(width: 8),
-                            Text(
-                              'FLOOR 2 • VISION ENGINE',
-                              style: TextStyle(
-                                color: AppTheme.terracotta,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.5,
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.cardSurface,
+                                foregroundColor: AppTheme.carbonInk,
+                                elevation: 0,
+                                side: const BorderSide(color: AppTheme.softBorder),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
+                              icon: const Icon(
+                                Icons.arrow_downward_rounded,
+                                size: 16,
+                              ),
+                              label: const Text(
+                                'Vision',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onPressed: compassCubit.returnToGroundFloor,
                             ),
                           ],
                         ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.cardSurface,
-                            foregroundColor: AppTheme.carbonInk,
-                            elevation: 0,
-                            side: const BorderSide(color: AppTheme.softBorder),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'AI VISION TUNING',
+                          style: TextStyle(
+                            color: AppTheme.carbonInk,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
                           ),
-                          icon: const Icon(
-                            Icons.arrow_downward_rounded,
-                            size: 16,
-                          ),
-                          label: const Text(
-                            'Vision',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: compassCubit.returnToGroundFloor,
+                        ),
+                        const Text(
+                          'Configure Gemini camera analysis and description style',
+                          style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'AI VISION TUNING',
-                      style: TextStyle(
-                        color: AppTheme.carbonInk,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const Text(
-                      'Configure Gemini camera analysis and description style',
-                      style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardSurface,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppTheme.softBorder, width: 1.2),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'SCENE VERBOSITY',
-                        style: TextStyle(
-                          color: AppTheme.terracotta,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: _inspectionDetail,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'concise',
-                            child: Text(
-                              'Concise (1-2 sentences, obstacles first)',
-                            ),
-                          ),
-                          DropdownMenuItem(
-                            value: 'detailed',
-                            child: Text(
-                              'Deep Inspection (Full scene breakdown)',
-                            ),
-                          ),
-                        ],
-                        onChanged: (val) {
-                          setState(() => _inspectionDetail = val ?? 'concise');
-                          repository.speak(
-                            'Vision verbosity set to $_inspectionDetail.',
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text(
-                          'Auto-Torch in Dark Environments',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: const Text(
-                          'Automatically activates flashlight if exposure is low.',
-                          style: TextStyle(
-                            color: AppTheme.mutedInk,
-                            fontSize: 12,
-                          ),
-                        ),
-                        activeColor: AppTheme.terracotta,
-                        value: _autoFlashlightInDark,
-                        onChanged: (v) =>
-                            setState(() => _autoFlashlightInDark = v),
-                      ),
-                      const Divider(color: AppTheme.softBorder),
-                      const Text(
-                        'CURRENCY DETECTOR REGION',
-                        style: TextStyle(
-                          color: AppTheme.terracotta,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
-                        value: _preferredCurrency,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                        ),
-                        items: const [
-                          DropdownMenuItem(
-                            value: 'USD / Local',
-                            child: Text('Auto-Detect / USD & Local'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'EUR',
-                            child: Text('Euro (€)'),
-                          ),
-                          DropdownMenuItem(
-                            value: 'SAR / EGP',
-                            child: Text('Middle East (SAR / EGP / AED)'),
-                          ),
-                        ],
-                        onChanged: (val) => setState(
-                          () => _preferredCurrency = val ?? 'USD / Local',
-                        ),
-                      ),
-                    ],
                   ),
                 ),
-              ),
-            ),
-          ],
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardSurface,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppTheme.softBorder, width: 1.2),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'SCENE VERBOSITY',
+                            style: TextStyle(
+                              color: AppTheme.terracotta,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: state.visionInspectionDetail,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'concise',
+                                child: Text(
+                                  'Concise (1-2 sentences, obstacles first)',
+                                ),
+                              ),
+                              DropdownMenuItem(
+                                value: 'detailed',
+                                child: Text(
+                                  'Deep Inspection (Full scene breakdown)',
+                                ),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                settingsCubit.setVisionInspectionDetail(val);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text(
+                              'Auto-Torch in Dark Environments',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: const Text(
+                              'Automatically activates flashlight if exposure is low.',
+                              style: TextStyle(
+                                color: AppTheme.mutedInk,
+                                fontSize: 12,
+                              ),
+                            ),
+                            activeColor: AppTheme.terracotta,
+                            value: state.autoFlashlightInDark,
+                            onChanged: (v) => settingsCubit.toggleAutoFlashlight(v),
+                          ),
+                          const Divider(color: AppTheme.softBorder),
+                          const Text(
+                            'CURRENCY DETECTOR REGION',
+                            style: TextStyle(
+                              color: AppTheme.terracotta,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: state.preferredCurrency,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'USD / Local',
+                                child: Text('Auto-Detect / USD & Local'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'EUR',
+                                child: Text('Euro (€)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'SAR / EGP',
+                                child: Text('Middle East (SAR / EGP / AED)'),
+                              ),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                settingsCubit.setPreferredCurrency(val);
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

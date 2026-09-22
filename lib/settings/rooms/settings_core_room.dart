@@ -1,7 +1,7 @@
 // lib/settings/rooms/settings_core_room.dart
 import 'package:beacon_os/auth/view/login_page.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
-import 'package:beacon_os/spatial_compass/cubit/spatial_compass_cubit.dart';
+import 'package:beacon_os/core/theme/cubit/theme_cubit.dart';
 import 'package:beacon_os/subscription/view/paywall_page.dart';
 import 'package:cloud_sync_api/cloud_sync_api.dart';
 import 'package:flutter/material.dart';
@@ -22,113 +22,97 @@ class _SettingsCoreRoomState extends State<SettingsCoreRoom> {
 
   @override
   Widget build(BuildContext context) {
-    final compassCubit = context.read<SpatialCompassCubit>();
     final repository = context.read<LauncherRepository>();
     final cloudSync = CloudSyncClient();
     final userEmail = cloudSync.currentUser?.email ?? 'Guest / Offline Mode';
 
+    // 🌟 قراءة حالة الثيم والألوان ديناميكياً
+    final themeMode = context.watch<ThemeCubit>().state;
+    final isHighContrast = themeMode == AppThemeMode.highContrastOled;
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: AppTheme.warmPaper,
+      backgroundColor: context.scaffoldBg, // خلفية متغيرة ديناميكياً
       body: SafeArea(
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                // 🛠️ تم زيادة الـ Padding العلوي من 16 إلى 60 لتجنب التداخل مع البوصلة العلوية
+                padding: const EdgeInsets.fromLTRB(20, 60, 20, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(
-                              Icons.tune_rounded,
-                              color: AppTheme.terracotta,
-                              size: 20,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'FLOOR 2 • CENTER ENGINE',
-                              style: TextStyle(
-                                color: AppTheme.terracotta,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.5,
-                              ),
-                            ),
-                          ],
-                        ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.cardSurface,
-                            foregroundColor: AppTheme.carbonInk,
-                            elevation: 0,
-                            side: const BorderSide(color: AppTheme.softBorder),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          icon: const Icon(
-                            Icons.arrow_downward_rounded,
-                            size: 16,
-                          ),
-                          label: const Text(
-                            'Cockpit',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          onPressed: compassCubit.returnToGroundFloor,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
+                    Text(
                       'CORE & SYSTEM',
                       style: TextStyle(
-                        color: AppTheme.carbonInk,
+                        color: colors.onSurface,
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const Text(
+                    const SizedBox(height: 4),
+                    Text(
                       'Pinch out to return to Cockpit • Swipe across for room settings',
-                      style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+                      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
                     ),
                   ],
                 ),
               ),
             ),
+
+            // 1. الثيم المزدوج (التبديل بين الفاتح والداكن)
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: _buildCard(
+                  context: context,
+                  title: 'DISPLAY & ACCESSIBILITY',
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      'High-Contrast OLED (Ice-Void)',
+                      style: TextStyle(fontWeight: FontWeight.bold, color: colors.onSurface),
+                    ),
+                    subtitle: Text(
+                      'Pure black background with cyan highlights for low vision.',
+                      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
+                    ),
+                    activeColor: colors.primary,
+                    value: isHighContrast,
+                    onChanged: (v) {
+                      context.read<ThemeCubit>().toggleTheme(isHighContrast: v);
+                      repository.speak(
+                        v ? 'Ice Void high contrast enabled.' : 'Warm paper theme restored.',
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+
+            // 2. سرعة النطق
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: _buildCard(
+                  context: context,
                   title: 'VOICE & TTS SPEED',
                   child: Column(
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'Speech Reading Rate',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                            style: TextStyle(fontWeight: FontWeight.bold, color: colors.onSurface),
                           ),
                           Text(
                             '${(_speechRate * 2).toStringAsFixed(1)}x',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.w900,
-                              color: AppTheme.terracotta,
+                              color: colors.primary,
                             ),
                           ),
                         ],
@@ -138,23 +122,21 @@ class _SettingsCoreRoomState extends State<SettingsCoreRoom> {
                         min: 0.25,
                         max: 1.0,
                         divisions: 6,
-                        activeColor: AppTheme.terracotta,
-                        inactiveColor: AppTheme.softBorder,
+                        activeColor: colors.primary,
+                        inactiveColor: colors.outline,
                         onChanged: (v) => setState(() => _speechRate = v),
                       ),
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppTheme.softBorder),
+                          side: BorderSide(color: colors.outline),
+                          foregroundColor: colors.onSurface,
                         ),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.play_circle_outline_rounded,
-                          color: AppTheme.terracotta,
+                          color: colors.primary,
                           size: 18,
                         ),
-                        label: const Text(
-                          'Test Voice Sample',
-                          style: TextStyle(color: AppTheme.carbonInk),
-                        ),
+                        label: const Text('Test Voice Sample'),
                         onPressed: () => repository.speak(
                           'Speech speed set to ${(_speechRate * 2).toStringAsFixed(1)} times.',
                         ),
@@ -164,34 +146,34 @@ class _SettingsCoreRoomState extends State<SettingsCoreRoom> {
                 ),
               ),
             ),
+
+            // 3. الاهتزازات
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: _buildCard(
+                  context: context,
                   title: 'HAPTICS & FEEDBACK',
                   child: Column(
                     children: [
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text(
+                        title: Text(
                           'Tactile Haptic Pulses',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: colors.onSurface),
                         ),
-                        activeColor: AppTheme.terracotta,
+                        activeColor: colors.primary,
                         value: _hapticsEnabled,
                         onChanged: (v) => setState(() => _hapticsEnabled = v),
                       ),
-                      const Divider(color: AppTheme.softBorder),
+                      Divider(color: colors.outline),
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: const Text(
+                        title: Text(
                           'Audio Cues & Chimes',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: colors.onSurface),
                         ),
-                        activeColor: AppTheme.terracotta,
+                        activeColor: colors.primary,
                         value: _soundCuesEnabled,
                         onChanged: (v) => setState(() => _soundCuesEnabled = v),
                       ),
@@ -200,22 +182,23 @@ class _SettingsCoreRoomState extends State<SettingsCoreRoom> {
                 ),
               ),
             ),
+
+            // 4. الحساب السحابي
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 8,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                 child: _buildCard(
+                  context: context,
                   title: 'CLOUD VAULT ACCOUNT',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         userEmail,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 16,
+                          color: colors.onSurface,
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -224,19 +207,15 @@ class _SettingsCoreRoomState extends State<SettingsCoreRoom> {
                           Expanded(
                             child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(
-                                  color: AppTheme.errorRed,
-                                ),
-                                foregroundColor: AppTheme.errorRed,
+                                side: BorderSide(color: colors.error),
+                                foregroundColor: colors.error,
                               ),
                               icon: const Icon(Icons.logout_rounded, size: 16),
                               label: const Text('Sign Out'),
                               onPressed: () async {
                                 await cloudSync.signOut();
                                 if (context.mounted) {
-                                  Navigator.of(
-                                    context,
-                                  ).pushReplacement(LoginPage.route());
+                                  Navigator.of(context).pushReplacement(LoginPage.route());
                                 }
                               },
                             ),
@@ -245,14 +224,12 @@ class _SettingsCoreRoomState extends State<SettingsCoreRoom> {
                           Expanded(
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.terracotta,
-                                foregroundColor: Colors.white,
+                                backgroundColor: colors.primary,
+                                foregroundColor: colors.surface,
                               ),
                               icon: const Icon(Icons.star_rounded, size: 16),
                               label: const Text('Pro / Sponsor'),
-                              onPressed: () => Navigator.of(
-                                context,
-                              ).push(PaywallPage.route()),
+                              onPressed: () => Navigator.of(context).push(PaywallPage.route()),
                             ),
                           ),
                         ],
@@ -269,21 +246,22 @@ class _SettingsCoreRoomState extends State<SettingsCoreRoom> {
     );
   }
 
-  Widget _buildCard({required String title, required Widget child}) {
+  Widget _buildCard({required BuildContext context, required String title, required Widget child}) {
+    final colors = context.colors;
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppTheme.cardSurface,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppTheme.softBorder, width: 1.2),
+        border: Border.all(color: colors.outline, width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: AppTheme.terracotta,
+            style: TextStyle(
+              color: colors.primary,
               fontSize: 11,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,

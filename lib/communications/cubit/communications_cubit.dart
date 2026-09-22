@@ -23,7 +23,6 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
   void _initStreams() {
     emit(state.copyWith(status: CommunicationsStatus.loading));
 
-    // استماع حي لتعديلات جهات الاتصال من Drift
     _contactsSubscription = _repository.watchContacts().listen(
       (contactsList) async {
         final messages = await _repository.getUnreadMessages();
@@ -46,14 +45,12 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
     );
   }
 
-  /// الاتصال الفوري بجهة اتصال مع نطق الاسم وتأكيد اهتزازي
   Future<void> callContact(Contact contact) async {
     await _haptics.successNotification();
     await _repository.speak('Calling ${contact.name}');
     await _repository.dispatchVoiceCommand('call ${contact.phoneNumber}');
   }
 
-  /// نطق محتوى الرسالة صوتياً للكفيف بمجرد لمسها
   Future<void> readMessageAloud(MessagesVaultData message) async {
     await _haptics.successNotification();
     final announcement =
@@ -61,7 +58,6 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
     await _repository.speak(announcement);
   }
 
-  /// إضافة جهة اتصال جديدة (للمرافق عبر واجهة الإدخال أو بالصوت)
   Future<void> addNewContact({
     required String name,
     required String phoneNumber,
@@ -83,10 +79,11 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
     }
   }
 
-  /// حذف جهة اتصال
-  Future<void> deleteContact(int id) async {
+  /// حذف جهة اتصال باستخدام معرّف الـ UUID الجديد
+  Future<void> deleteContact(String id) async {
     await _repository.deleteContact(id);
     await _haptics.successNotification();
+    await _repository.speak('Contact deleted.');
   }
 
   @override

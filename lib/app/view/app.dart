@@ -1,6 +1,7 @@
 // lib/app/view/app.dart
 import 'package:beacon_os/auth/view/login_page.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
+import 'package:beacon_os/core/theme/cubit/theme_cubit.dart'; // استدعاء الـ Cubit
 import 'package:beacon_os/spatial_compass/view/spatial_compass_page.dart';
 import 'package:cloud_sync_api/cloud_sync_api.dart';
 import 'package:flutter/material.dart';
@@ -20,13 +21,26 @@ class App extends StatelessWidget {
     final cloudSync = CloudSyncClient();
     final bool isLoggedIn = cloudSync.currentUser != null;
 
-    return RepositoryProvider.value(
-      value: _launcherRepository,
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.warmPaperTheme,
-        // يدخل مباشرة لبوصلة النظام الفضائية
-        home: isLoggedIn ? const SpatialCompassPage() : const LoginPage(),
+    return MultiRepositoryProvider(
+      providers: [
+        RepositoryProvider.value(value: _launcherRepository),
+      ],
+      // 1. تغليف التطبيق بـ ThemeCubit
+      child: BlocProvider(
+        create: (_) => ThemeCubit(),
+        // 2. الاستماع لتغيرات الثيم
+        child: BlocBuilder<ThemeCubit, AppThemeMode>(
+          builder: (context, themeMode) {
+            return MaterialApp(
+              debugShowCheckedModeBanner: false,
+              // 3. تحديد الثيم ديناميكياً بناءً على الحالة
+              theme: themeMode == AppThemeMode.highContrastOled
+                  ? AppTheme.highContrastOledTheme
+                  : AppTheme.warmPaperTheme,
+              home: isLoggedIn ? const SpatialCompassPage() : const LoginPage(),
+            );
+          },
+        ),
       ),
     );
   }

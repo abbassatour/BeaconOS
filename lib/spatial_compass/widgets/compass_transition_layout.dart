@@ -39,8 +39,8 @@ class CompassTransitionLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedSlide(
       offset: _getTargetOffset(),
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.fastOutSlowIn,
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutExpo,
       child: Stack(
         children: [
           // 🔘 المركز: قمرة اليوم

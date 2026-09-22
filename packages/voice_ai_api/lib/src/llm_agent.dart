@@ -10,43 +10,79 @@ class LlmAgent {
   static const String _endpoint =
       'https://openrouter.ai/api/v1/chat/completions';
 
-  String _getSystemPrompt() {
+  String _getSystemPrompt({Map<String, dynamic>? systemContext}) {
     final now = DateTime.now();
+    final contextJson = systemContext != null
+        ? jsonEncode(systemContext)
+        : '{"tasks":[], "alarms":[], "settings":{}}';
+
     return '''
 You are BeaconOS, an invisible Voice-First operating system for visually impaired users and digital minimalists.
 Current System Time: ${now.toIso8601String()}
 
-You MUST output your response ONLY as a valid JSON object. No markdown, no explanations outside the JSON.
+CURRENT SYSTEM CONTEXT (ACTIVE DATABASE RECORDS):
+$contextJson
 
-Determine the user's intent and return a JSON in this exact format:
+You MUST output your response ONLY as a valid JSON object. No markdown, no commentary outside the JSON.
+
+Available Intents & Database Actions:
+- "SAVE_TASK": Add a new task.
+- "COMPLETE_TASK": Mark an existing task as completed (Match task_id from context).
+- "DELETE_TASK": Soft-delete a task (Match task_id from context).
+- "UPDATE_TASK": Change due date, priority, or title of an existing task.
+- "SAVE_MEMO": Save a voice note.
+- "DELETE_MEMO": Delete a voice memo (Match memo_id from context).
+- "SET_ALARM": Create a new alarm clock time.
+- "TOGGLE_ALARM": Enable or disable an alarm (Match alarm_id from context).
+- "DELETE_ALARM": Delete an alarm (Match alarm_id from context).
+- "CALL_CONTACT": Dial a phone contact.
+- "SAVE_CONTACT": Save a new contact.
+- "DELETE_CONTACT": Remove a contact (Match contact_id from context).
+- "UPDATE_SETTINGS": Change an OS preference (speech rate, haptics, theme, auto-flashlight, vision detail, etc.).
+- "FLASHLIGHT": Toggle camera torch.
+- "LOCK_SCREEN": Put screen to sleep.
+- "OPEN_APP": Launch external Android app.
+- "VISUAL_QUERY": User is asking about their surroundings or camera view.
+- "GENERAL_CHAT": General conversational answer.
+
+Output format:
 {
-  "intent": "SAVE_TASK" | "SAVE_MEMO" | "READ_NOTIFICATIONS" | "SET_ALARM" | "CALL_CONTACT" | "LOCK_SCREEN" | "FLASHLIGHT" | "OPEN_APP" | "GENERAL_CHAT" | "VISUAL_QUERY",
-  "spoken_response": "The exact short sentence BeaconOS will speak out loud to the user.",
+  "intent": "<ONE_OF_THE_ABOVE_INTENTS>",
+  "spoken_response": "1-2 short, crisp, natural sentences to read aloud to the user.",
   "parameters": {
-     // For SAVE_TASK: "task_title" (string), "due_date" (ISO 8601 string if explicitly mentioned, else null)
-     // For SAVE_MEMO: "memo_title" (string), "memo_content" (string)
-     // For SET_ALARM: "time" (HH:MM format)
+     // For SAVE_TASK: "title" (string), "due_date" (ISO 8601 or null), "priority" ("high"|"medium"|"low")
+     // For COMPLETE_TASK: "task_id" (string matching context)
+     // For DELETE_TASK: "task_id" (string matching context)
+     // For UPDATE_TASK: "task_id" (string), "title" (optional string), "due_date" (optional ISO 8601), "priority" (optional string)
+     // For SAVE_MEMO: "title" (string), "content" (string)
+     // For DELETE_MEMO: "memo_id" (string matching context)
+     // For SET_ALARM: "time" ("HH:MM"), "label" (string)
+     // For TOGGLE_ALARM: "alarm_id" (string), "is_active" (boolean)
+     // For DELETE_ALARM: "alarm_id" (string)
      // For CALL_CONTACT: "contact_name" (string)
+     // For SAVE_CONTACT: "name" (string), "phone_number" (string), "relationship" (optional string), "is_emergency" (boolean)
+     // For DELETE_CONTACT: "contact_id" (string)
+     // For UPDATE_SETTINGS: "key" ("speech_rate"|"haptics_enabled"|"sound_cues_enabled"|"is_high_contrast"|"vision_inspection_detail"|"auto_flashlight_in_dark"), "value" (dynamic)
      // For FLASHLIGHT: "enable" (boolean)
      // For OPEN_APP: "app_name" (string)
-     // For VISUAL_QUERY, GENERAL_CHAT, READ_NOTIFICATIONS, LOCK_SCREEN: null
+     // For VISUAL_QUERY, GENERAL_CHAT: {}
   }
 }
 
-Rules for spoken_response:
-1. Extremely concise (1-2 short sentences max).
-2. Professional, supportive, and direct.
-3. If intent is VISUAL_QUERY, acknowledge they want to see something and that you are analyzing it.
+Rules:
+1. When user asks to complete, edit, or delete a task/alarm/memo, fuzzy-match the title against CURRENT SYSTEM CONTEXT to find the exact "task_id", "alarm_id", or "memo_id".
+2. Keep spoken_response strictly to 1 or 2 concise, clear sentences. Never use asterisks or markdown in spoken_response.
 ''';
   }
 
   Future<Map<String, dynamic>> processCommand({
     required String userCommand,
     String? base64Image,
+    Map<String, dynamic>? systemContext,
   }) async {
     try {
       final messages = <Map<String, dynamic>>[
-        {'role': 'system', 'content': _getSystemPrompt()},
+        {'role': 'system', 'content': _getSystemPrompt(systemContext: systemContext)},
       ];
 
       if (base64Image != null && base64Image.isNotEmpty) {
@@ -55,9 +91,7 @@ Rules for spoken_response:
           'content': [
             {
               'type': 'text',
-              'text': userCommand.isEmpty
-                  ? 'What is in front of me?'
-                  : userCommand,
+              'text': userCommand.isEmpty ? 'What is in front of me?' : userCommand,
             },
             {
               'type': 'image_url',
@@ -78,9 +112,7 @@ Rules for spoken_response:
           'X-Title': 'BeaconOS',
         },
         body: jsonEncode({
-          // النموذج الأساسي الأكثر سرعة وكفاءة
           'model': 'google/gemini-2.0-flash-001',
-          // قائمة الإخفاق التلقائي (Automatic Failover) المعتمدة على OpenRouter
           'models': [
             'google/gemini-2.0-flash-001',
             'google/gemini-2.5-flash',
@@ -94,7 +126,6 @@ Rules for spoken_response:
         final data = jsonDecode(response.body);
         String content = data['choices'][0]['message']['content'] as String;
 
-        // تنظيف أي وسوم markdown إضافية
         content = content
             .replaceAll(RegExp(r'```json\n?'), '')
             .replaceAll(RegExp(r'```'), '')
@@ -119,15 +150,11 @@ Rules for spoken_response:
           'parameters': <String, dynamic>{},
         };
       } else {
-        log(
-          'LlmAgent Server Error: [Status ${response.statusCode}] Body: ${response.body}',
-        );
-        throw Exception(
-          'OpenRouter API Error: ${response.statusCode} - ${response.body}',
-        );
+        log('LlmAgent Error: [${response.statusCode}] ${response.body}');
+        throw Exception('OpenRouter API Error: ${response.statusCode}');
       }
     } catch (e, st) {
-      log('LlmAgent Exception caught: $e', stackTrace: st);
+      log('LlmAgent Exception: $e', stackTrace: st);
       return <String, dynamic>{
         'intent': 'ERROR',
         'spoken_response':

@@ -5,6 +5,7 @@ import 'package:beacon_os/cockpit_dashboard/view/cockpit_dashboard_view.dart';
 import 'package:beacon_os/communications/view/communications_view.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
 import 'package:beacon_os/focus_alarms/view/focus_alarms_view.dart';
+import 'package:beacon_os/settings/cubit/settings_cubit.dart';
 import 'package:beacon_os/settings/rooms/settings_agenda_room.dart';
 import 'package:beacon_os/settings/rooms/settings_comms_room.dart';
 import 'package:beacon_os/settings/rooms/settings_core_room.dart';
@@ -25,8 +26,15 @@ class SpatialCompassPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final repository = context.read<LauncherRepository>();
 
-    return BlocProvider(
-      create: (context) => SpatialCompassCubit(repository: repository),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => SpatialCompassCubit(repository: repository),
+        ),
+        BlocProvider(
+          create: (context) => SettingsCubit(repository: repository),
+        ),
+      ],
       child: const _SpatialCompassBody(),
     );
   }
@@ -42,6 +50,10 @@ class _SpatialCompassBody extends StatefulWidget {
 class _SpatialCompassBodyState extends State<_SpatialCompassBody> {
   Offset _scaleStartFocalPoint = Offset.zero;
   Offset _scaleEndFocalPoint = Offset.zero;
+  
+  // 🔥 (جديد) تتبع حركة السحب لحظة بلحظة
+  Offset _dragOffset = Offset.zero; 
+
   double _minScale = 1.0;
   double _maxScale = 1.0;
   bool _isTwoFingerGesture = false;
@@ -68,13 +80,10 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody> {
     if (_activePointers == 2 && _multiTouchStartTime != null) {
       final tapDuration = DateTime.now().difference(_multiTouchStartTime!);
 
+      // النطق عند النقر السريع بإصبعين
       if (!_hasTwoFingerMoved && tapDuration.inMilliseconds < 300) {
         _multiTouchStartTime = null;
-        if (cubit.state.isSettingsFloor) {
-          cubit.returnToGroundFloor();
-        } else {
-          cubit.returnToCenter();
-        }
+        cubit.announceCurrentLocation();
       }
     }
 
@@ -121,6 +130,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody> {
                   onScaleStart: (details) {
                     _scaleStartFocalPoint = details.focalPoint;
                     _scaleEndFocalPoint = details.focalPoint;
+                    _dragOffset = Offset.zero;
                     _minScale = 1.0;
                     _maxScale = 1.0;
                     _isTwoFingerGesture = details.pointerCount >= 2;
@@ -131,41 +141,33 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody> {
                       _isTwoFingerGesture = true;
                       if (details.scale < _minScale) _minScale = details.scale;
                       if (details.scale > _maxScale) _maxScale = details.scale;
+                    } else if (!_isTwoFingerGesture) {
+                      // 🔥 (السحر اللحظي): تحديث الواجهة فوراً مع حركة الإصبع
+                      setState(() {
+                        _dragOffset = details.focalPoint - _scaleStartFocalPoint;
+                      });
                     }
                   },
                   onScaleEnd: (details) {
                     final delta = _scaleEndFocalPoint - _scaleStartFocalPoint;
 
-                    // =========================================================
-                    // 1. الانتقال الرأسي (التقريب والتبعيد Z-Axis)
-                    // =========================================================
                     if (_isTwoFingerGesture) {
-                      // التقريب (Zoom In: مباعدة الأصابع لتكبير المشهد والدخول فيه)
                       final isZoomIn = _maxScale > 1.15 || delta.dy < -50;
-
-                      // التبعيد (Zoom Out: ضم الأصابع لتصغير المشهد والابتعاد للخارج)
                       final isZoomOut = _minScale < 0.88 || delta.dy > 50;
 
-                      log(
-                        '⚡ Floor Gesture: isZoomIn=$isZoomIn, isZoomOut=$isZoomOut, isSettingsFloor=${state.isSettingsFloor}',
-                      );
-
-                      // التقريب = الدخول لإعدادات نفس الصفحة الحالية
                       if (isZoomIn && !state.isSettingsFloor) {
                         cubit.goToSettingsFloor();
-                      }
-                      // التبعيد = الرجوع والصعود للطابق الأول
-                      else if (isZoomOut && state.isSettingsFloor) {
+                      } else if (isZoomOut && state.isSettingsFloor) {
                         cubit.returnToGroundFloor();
                       }
 
                       _isTwoFingerGesture = false;
+                      
+                      // إرجاع حركة الإصبع لمكانها
+                      setState(() => _dragOffset = Offset.zero);
                       return;
                     }
 
-                    // =========================================================
-                    // 2. التنقل الأفقي المتطابق بين الغرف (Swipe XY-Axis)
-                    // =========================================================
                     final vx = details.velocity.pixelsPerSecond.dx;
                     final vy = details.velocity.pixelsPerSecond.dy;
 
@@ -175,73 +177,81 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody> {
                       deltaX: delta.dx,
                       deltaY: delta.dy,
                     );
+
+                    // 🔥 إرجاع الشاشة بمرونة فور رفع الإصبع لبدء الانيميشن الأصلي
+                    setState(() => _dragOffset = Offset.zero);
                   },
-                  child: Stack(
-                    children: [
-                      // =======================================================
-                      // ⚙️ طبقة العمق (طابق الإعدادات في الخلفية):
-                      // تخرج من العمق (0.75 -> 1.0) عند التقريب للدخول فيها
-                      // وتنكمش وتبتعد للعمق (1.0 -> 0.75) عند التبعيد للخروج
-                      // =======================================================
-                      AnimatedScale(
-                        scale: state.isSettingsFloor ? 1.0 : 0.75,
-                        duration: const Duration(milliseconds: 360),
-                        curve: Curves.easeInOutCubic,
-                        child: AnimatedOpacity(
-                          opacity: state.isSettingsFloor ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 260),
-                          curve: Curves.easeInOut,
-                          child: IgnorePointer(
-                            ignoring: !state.isSettingsFloor,
-                            child: CompassTransitionLayout(
-                              direction: state.currentDirection,
-                              centerChild: const SettingsCoreRoom(),
-                              northChild: const SettingsAgendaRoom(),
-                              southChild: const SettingsCommsRoom(),
-                              westChild: const SettingsFocusRoom(),
-                              eastChild: const SettingsVisionRoom(),
+                  
+                  // 🔥 التغليف الحركي (Physical Feedback)
+                  child: AnimatedContainer(
+                    // إذا كان الإصبع على الشاشة، تتحرك الشاشة فوراً (0ms)
+                    // وإذا رُفع الإصبع، ترتد الشاشة لمكانها بسلاسة (250ms)
+                    duration: _dragOffset == Offset.zero 
+                        ? const Duration(milliseconds: 250) 
+                        : Duration.zero,
+                    curve: Curves.easeOutExpo,
+                    transform: Matrix4.translationValues(
+                      _dragOffset.dx * 0.45, // احتكاك بنسبة 45% لتعطي إحساس الوزن
+                      _dragOffset.dy * 0.45,
+                      0,
+                    ),
+                    child: Stack(
+                      children: [
+                        // طبقة الإعدادات بالخلفية
+                        AnimatedScale(
+                          scale: state.isSettingsFloor ? 1.0 : 0.75,
+                          duration: const Duration(milliseconds: 360),
+                          curve: Curves.easeInOutCubic,
+                          child: AnimatedOpacity(
+                            opacity: state.isSettingsFloor ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeInOut,
+                            child: IgnorePointer(
+                              ignoring: !state.isSettingsFloor,
+                              child: CompassTransitionLayout(
+                                direction: state.currentDirection,
+                                centerChild: const SettingsCoreRoom(),
+                                northChild: const SettingsAgendaRoom(),
+                                southChild: const SettingsCommsRoom(),
+                                westChild: const SettingsFocusRoom(),
+                                eastChild: const SettingsVisionRoom(),
+                              ),
                             ),
                           ),
                         ),
-                      ),
 
-                      // =======================================================
-                      // 🏢 طبقة السطح (الطابق الأول الأساسي):
-                      // تكبر وتتمدد للأمام (1.0 -> 1.45) متلاشية وكأنك دخلت في عمقها
-                      // وتهبط متراجعة (1.45 -> 1.0) عند التبعيد لتستقر على السطح
-                      // =======================================================
-                      AnimatedScale(
-                        scale: state.isSettingsFloor ? 1.45 : 1.0,
-                        duration: const Duration(milliseconds: 360),
-                        curve: Curves.easeInOutCubic,
-                        child: AnimatedOpacity(
-                          opacity: state.isSettingsFloor ? 0.0 : 1.0,
-                          duration: const Duration(milliseconds: 260),
-                          curve: Curves.easeInOut,
-                          child: IgnorePointer(
-                            ignoring: state.isSettingsFloor,
-                            child: CompassTransitionLayout(
-                              direction: state.currentDirection,
-                              centerChild: const CockpitDashboardView(),
-                              northChild: const AgendaView(),
-                              southChild: const CommunicationsView(),
-                              westChild: const FocusAlarmsView(),
-                              eastChild: const SpatialVisionView(),
+                        // الطبقة الأساسية
+                        AnimatedScale(
+                          scale: state.isSettingsFloor ? 1.45 : 1.0,
+                          duration: const Duration(milliseconds: 360),
+                          curve: Curves.easeInOutCubic,
+                          child: AnimatedOpacity(
+                            opacity: state.isSettingsFloor ? 0.0 : 1.0,
+                            duration: const Duration(milliseconds: 260),
+                            curve: Curves.easeInOut,
+                            child: IgnorePointer(
+                              ignoring: state.isSettingsFloor,
+                              child: CompassTransitionLayout(
+                                direction: state.currentDirection,
+                                centerChild: const CockpitDashboardView(),
+                                northChild: const AgendaView(),
+                                southChild: const CommunicationsView(),
+                                westChild: const FocusAlarmsView(),
+                                eastChild: const SpatialVisionView(),
+                              ),
                             ),
                           ),
                         ),
-                      ),
 
-                      // =======================================================
-                      // 🧭 شريط البوصلة والتحكم العلوي (HUD)
-                      // =======================================================
-                      _SpatialCompassHud(
-                        direction: state.currentDirection,
-                        isSettingsFloor: state.isSettingsFloor,
-                        onCenterTap: cubit.returnToCenter,
-                        onFloorToggle: cubit.toggleFloor,
-                      ),
-                    ],
+                        // شريط الـ HUD العائم
+                        _SpatialCompassHud(
+                          direction: state.currentDirection,
+                          isSettingsFloor: state.isSettingsFloor,
+                          onCenterTap: cubit.returnToCenter,
+                          onFloorToggle: cubit.toggleFloor,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -320,7 +330,6 @@ class _SpatialCompassHud extends StatelessWidget {
           ),
           Row(
             children: [
-              // زر التنقل الفوري بين الطابقين
               IconButton.filledTonal(
                 style: IconButton.styleFrom(
                   backgroundColor: isSettingsFloor

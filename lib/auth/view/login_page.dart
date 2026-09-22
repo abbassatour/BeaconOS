@@ -5,6 +5,7 @@ import 'package:beacon_os/core/theme/app_theme.dart';
 import 'package:beacon_os/spatial_compass/view/spatial_compass_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:launcher_repository/launcher_repository.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -31,7 +32,9 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => AuthCubit(),
+      create: (_) => AuthCubit(
+        repository: context.read<LauncherRepository>(),
+      ),
       child: Scaffold(
         backgroundColor: AppTheme.warmPaper,
         body: BlocConsumer<AuthCubit, AuthState>(

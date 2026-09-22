@@ -11,16 +11,12 @@ class $VoiceMemosTable extends VoiceMemos
   $VoiceMemosTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
     'id',
     aliasedName,
     false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
@@ -58,6 +54,29 @@ class $VoiceMemosTable extends VoiceMemos
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isSyncedMeta = const VerificationMeta(
     'isSynced',
   );
@@ -79,6 +98,8 @@ class $VoiceMemosTable extends VoiceMemos
     title,
     content,
     createdAt,
+    updatedAt,
+    deletedAt,
     isSynced,
   ];
   @override
@@ -95,6 +116,8 @@ class $VoiceMemosTable extends VoiceMemos
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
     }
     if (data.containsKey('title')) {
       context.handle(
@@ -118,6 +141,18 @@ class $VoiceMemosTable extends VoiceMemos
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('is_synced')) {
       context.handle(
         _isSyncedMeta,
@@ -134,7 +169,7 @@ class $VoiceMemosTable extends VoiceMemos
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return VoiceMemo(
       id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
       title: attachedDatabase.typeMapping.read(
@@ -149,6 +184,14 @@ class $VoiceMemosTable extends VoiceMemos
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       isSynced: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_synced'],
@@ -163,25 +206,33 @@ class $VoiceMemosTable extends VoiceMemos
 }
 
 class VoiceMemo extends DataClass implements Insertable<VoiceMemo> {
-  final int id;
+  final String id;
   final String title;
   final String content;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
   final bool isSynced;
   const VoiceMemo({
     required this.id,
     required this.title,
     required this.content,
     required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
     required this.isSynced,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
+    map['id'] = Variable<String>(id);
     map['title'] = Variable<String>(title);
     map['content'] = Variable<String>(content);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     map['is_synced'] = Variable<bool>(isSynced);
     return map;
   }
@@ -192,6 +243,10 @@ class VoiceMemo extends DataClass implements Insertable<VoiceMemo> {
       title: Value(title),
       content: Value(content),
       createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       isSynced: Value(isSynced),
     );
   }
@@ -202,10 +257,12 @@ class VoiceMemo extends DataClass implements Insertable<VoiceMemo> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return VoiceMemo(
-      id: serializer.fromJson<int>(json['id']),
+      id: serializer.fromJson<String>(json['id']),
       title: serializer.fromJson<String>(json['title']),
       content: serializer.fromJson<String>(json['content']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
     );
   }
@@ -213,25 +270,31 @@ class VoiceMemo extends DataClass implements Insertable<VoiceMemo> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
+      'id': serializer.toJson<String>(id),
       'title': serializer.toJson<String>(title),
       'content': serializer.toJson<String>(content),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'isSynced': serializer.toJson<bool>(isSynced),
     };
   }
 
   VoiceMemo copyWith({
-    int? id,
+    String? id,
     String? title,
     String? content,
     DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
     bool? isSynced,
   }) => VoiceMemo(
     id: id ?? this.id,
     title: title ?? this.title,
     content: content ?? this.content,
     createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     isSynced: isSynced ?? this.isSynced,
   );
   VoiceMemo copyWithCompanion(VoiceMemosCompanion data) {
@@ -240,6 +303,8 @@ class VoiceMemo extends DataClass implements Insertable<VoiceMemo> {
       title: data.title.present ? data.title.value : this.title,
       content: data.content.present ? data.content.value : this.content,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
     );
   }
@@ -251,13 +316,23 @@ class VoiceMemo extends DataClass implements Insertable<VoiceMemo> {
           ..write('title: $title, ')
           ..write('content: $content, ')
           ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('isSynced: $isSynced')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, title, content, createdAt, isSynced);
+  int get hashCode => Object.hash(
+    id,
+    title,
+    content,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isSynced,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -266,59 +341,83 @@ class VoiceMemo extends DataClass implements Insertable<VoiceMemo> {
           other.title == this.title &&
           other.content == this.content &&
           other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
           other.isSynced == this.isSynced);
 }
 
 class VoiceMemosCompanion extends UpdateCompanion<VoiceMemo> {
-  final Value<int> id;
+  final Value<String> id;
   final Value<String> title;
   final Value<String> content;
   final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
   final Value<bool> isSynced;
+  final Value<int> rowid;
   const VoiceMemosCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
     this.content = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
   });
   VoiceMemosCompanion.insert({
-    this.id = const Value.absent(),
+    required String id,
     required String title,
     required String content,
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
-  }) : title = Value(title),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       title = Value(title),
        content = Value(content);
   static Insertable<VoiceMemo> custom({
-    Expression<int>? id,
+    Expression<String>? id,
     Expression<String>? title,
     Expression<String>? content,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
     Expression<bool>? isSynced,
+    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (title != null) 'title': title,
       if (content != null) 'content': content,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (isSynced != null) 'is_synced': isSynced,
+      if (rowid != null) 'rowid': rowid,
     });
   }
 
   VoiceMemosCompanion copyWith({
-    Value<int>? id,
+    Value<String>? id,
     Value<String>? title,
     Value<String>? content,
     Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
     Value<bool>? isSynced,
+    Value<int>? rowid,
   }) {
     return VoiceMemosCompanion(
       id: id ?? this.id,
       title: title ?? this.title,
       content: content ?? this.content,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       isSynced: isSynced ?? this.isSynced,
+      rowid: rowid ?? this.rowid,
     );
   }
 
@@ -326,7 +425,7 @@ class VoiceMemosCompanion extends UpdateCompanion<VoiceMemo> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     if (id.present) {
-      map['id'] = Variable<int>(id.value);
+      map['id'] = Variable<String>(id.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -337,8 +436,17 @@ class VoiceMemosCompanion extends UpdateCompanion<VoiceMemo> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (isSynced.present) {
       map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
     }
     return map;
   }
@@ -350,7 +458,10 @@ class VoiceMemosCompanion extends UpdateCompanion<VoiceMemo> {
           ..write('title: $title, ')
           ..write('content: $content, ')
           ..write('createdAt: $createdAt, ')
-          ..write('isSynced: $isSynced')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -363,16 +474,12 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
   $TasksTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
     'id',
     aliasedName,
     false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
@@ -382,7 +489,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     false,
     additionalChecks: GeneratedColumn.checkTextLength(
       minTextLength: 1,
-      maxTextLength: 255,
+      maxTextLength: 500,
     ),
     type: DriftSqlType.string,
     requiredDuringInsert: true,
@@ -437,6 +544,29 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isSyncedMeta = const VerificationMeta(
     'isSynced',
   );
@@ -460,6 +590,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     priority,
     isCompleted,
     createdAt,
+    updatedAt,
+    deletedAt,
     isSynced,
   ];
   @override
@@ -476,6 +608,8 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
     }
     if (data.containsKey('title')) {
       context.handle(
@@ -512,6 +646,18 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('is_synced')) {
       context.handle(
         _isSyncedMeta,
@@ -528,7 +674,7 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return Task(
       id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
       title: attachedDatabase.typeMapping.read(
@@ -551,6 +697,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       isSynced: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_synced'],
@@ -565,14 +719,14 @@ class $TasksTable extends Tasks with TableInfo<$TasksTable, Task> {
 }
 
 class Task extends DataClass implements Insertable<Task> {
-  final int id;
+  final String id;
   final String title;
   final DateTime? dueDate;
-
-  /// أولوية المهمة: 'high', 'medium', 'low'
   final String priority;
   final bool isCompleted;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
   final bool isSynced;
   const Task({
     required this.id,
@@ -581,12 +735,14 @@ class Task extends DataClass implements Insertable<Task> {
     required this.priority,
     required this.isCompleted,
     required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
     required this.isSynced,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
+    map['id'] = Variable<String>(id);
     map['title'] = Variable<String>(title);
     if (!nullToAbsent || dueDate != null) {
       map['due_date'] = Variable<DateTime>(dueDate);
@@ -594,6 +750,10 @@ class Task extends DataClass implements Insertable<Task> {
     map['priority'] = Variable<String>(priority);
     map['is_completed'] = Variable<bool>(isCompleted);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     map['is_synced'] = Variable<bool>(isSynced);
     return map;
   }
@@ -608,6 +768,10 @@ class Task extends DataClass implements Insertable<Task> {
       priority: Value(priority),
       isCompleted: Value(isCompleted),
       createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       isSynced: Value(isSynced),
     );
   }
@@ -618,12 +782,14 @@ class Task extends DataClass implements Insertable<Task> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Task(
-      id: serializer.fromJson<int>(json['id']),
+      id: serializer.fromJson<String>(json['id']),
       title: serializer.fromJson<String>(json['title']),
       dueDate: serializer.fromJson<DateTime?>(json['dueDate']),
       priority: serializer.fromJson<String>(json['priority']),
       isCompleted: serializer.fromJson<bool>(json['isCompleted']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
     );
   }
@@ -631,23 +797,27 @@ class Task extends DataClass implements Insertable<Task> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
+      'id': serializer.toJson<String>(id),
       'title': serializer.toJson<String>(title),
       'dueDate': serializer.toJson<DateTime?>(dueDate),
       'priority': serializer.toJson<String>(priority),
       'isCompleted': serializer.toJson<bool>(isCompleted),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'isSynced': serializer.toJson<bool>(isSynced),
     };
   }
 
   Task copyWith({
-    int? id,
+    String? id,
     String? title,
     Value<DateTime?> dueDate = const Value.absent(),
     String? priority,
     bool? isCompleted,
     DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
     bool? isSynced,
   }) => Task(
     id: id ?? this.id,
@@ -656,6 +826,8 @@ class Task extends DataClass implements Insertable<Task> {
     priority: priority ?? this.priority,
     isCompleted: isCompleted ?? this.isCompleted,
     createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     isSynced: isSynced ?? this.isSynced,
   );
   Task copyWithCompanion(TasksCompanion data) {
@@ -668,6 +840,8 @@ class Task extends DataClass implements Insertable<Task> {
           ? data.isCompleted.value
           : this.isCompleted,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
     );
   }
@@ -681,6 +855,8 @@ class Task extends DataClass implements Insertable<Task> {
           ..write('priority: $priority, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('isSynced: $isSynced')
           ..write(')'))
         .toString();
@@ -694,6 +870,8 @@ class Task extends DataClass implements Insertable<Task> {
     priority,
     isCompleted,
     createdAt,
+    updatedAt,
+    deletedAt,
     isSynced,
   );
   @override
@@ -706,17 +884,22 @@ class Task extends DataClass implements Insertable<Task> {
           other.priority == this.priority &&
           other.isCompleted == this.isCompleted &&
           other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
           other.isSynced == this.isSynced);
 }
 
 class TasksCompanion extends UpdateCompanion<Task> {
-  final Value<int> id;
+  final Value<String> id;
   final Value<String> title;
   final Value<DateTime?> dueDate;
   final Value<String> priority;
   final Value<bool> isCompleted;
   final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
   final Value<bool> isSynced;
+  final Value<int> rowid;
   const TasksCompanion({
     this.id = const Value.absent(),
     this.title = const Value.absent(),
@@ -724,25 +907,35 @@ class TasksCompanion extends UpdateCompanion<Task> {
     this.priority = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
   });
   TasksCompanion.insert({
-    this.id = const Value.absent(),
+    required String id,
     required String title,
     this.dueDate = const Value.absent(),
     this.priority = const Value.absent(),
     this.isCompleted = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
-  }) : title = Value(title);
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       title = Value(title);
   static Insertable<Task> custom({
-    Expression<int>? id,
+    Expression<String>? id,
     Expression<String>? title,
     Expression<DateTime>? dueDate,
     Expression<String>? priority,
     Expression<bool>? isCompleted,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
     Expression<bool>? isSynced,
+    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -751,18 +944,24 @@ class TasksCompanion extends UpdateCompanion<Task> {
       if (priority != null) 'priority': priority,
       if (isCompleted != null) 'is_completed': isCompleted,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (isSynced != null) 'is_synced': isSynced,
+      if (rowid != null) 'rowid': rowid,
     });
   }
 
   TasksCompanion copyWith({
-    Value<int>? id,
+    Value<String>? id,
     Value<String>? title,
     Value<DateTime?>? dueDate,
     Value<String>? priority,
     Value<bool>? isCompleted,
     Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
     Value<bool>? isSynced,
+    Value<int>? rowid,
   }) {
     return TasksCompanion(
       id: id ?? this.id,
@@ -771,7 +970,10 @@ class TasksCompanion extends UpdateCompanion<Task> {
       priority: priority ?? this.priority,
       isCompleted: isCompleted ?? this.isCompleted,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       isSynced: isSynced ?? this.isSynced,
+      rowid: rowid ?? this.rowid,
     );
   }
 
@@ -779,7 +981,7 @@ class TasksCompanion extends UpdateCompanion<Task> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     if (id.present) {
-      map['id'] = Variable<int>(id.value);
+      map['id'] = Variable<String>(id.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -796,8 +998,17 @@ class TasksCompanion extends UpdateCompanion<Task> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (isSynced.present) {
       map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
     }
     return map;
   }
@@ -811,7 +1022,10 @@ class TasksCompanion extends UpdateCompanion<Task> {
           ..write('priority: $priority, ')
           ..write('isCompleted: $isCompleted, ')
           ..write('createdAt: $createdAt, ')
-          ..write('isSynced: $isSynced')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -1180,16 +1394,12 @@ class $ContactsTable extends Contacts with TableInfo<$ContactsTable, Contact> {
   $ContactsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
     'id',
     aliasedName,
     false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
@@ -1257,6 +1467,29 @@ class $ContactsTable extends Contacts with TableInfo<$ContactsTable, Contact> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isSyncedMeta = const VerificationMeta(
     'isSynced',
   );
@@ -1280,6 +1513,8 @@ class $ContactsTable extends Contacts with TableInfo<$ContactsTable, Contact> {
     relationship,
     isEmergency,
     createdAt,
+    updatedAt,
+    deletedAt,
     isSynced,
   ];
   @override
@@ -1296,6 +1531,8 @@ class $ContactsTable extends Contacts with TableInfo<$ContactsTable, Contact> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
     }
     if (data.containsKey('name')) {
       context.handle(
@@ -1340,6 +1577,18 @@ class $ContactsTable extends Contacts with TableInfo<$ContactsTable, Contact> {
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('is_synced')) {
       context.handle(
         _isSyncedMeta,
@@ -1356,7 +1605,7 @@ class $ContactsTable extends Contacts with TableInfo<$ContactsTable, Contact> {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return Contact(
       id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
       name: attachedDatabase.typeMapping.read(
@@ -1379,6 +1628,14 @@ class $ContactsTable extends Contacts with TableInfo<$ContactsTable, Contact> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       isSynced: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_synced'],
@@ -1393,20 +1650,14 @@ class $ContactsTable extends Contacts with TableInfo<$ContactsTable, Contact> {
 }
 
 class Contact extends DataClass implements Insertable<Contact> {
-  final int id;
-
-  /// الاسم الظاهر (مثلاً: أحمد، John Smith)
+  final String id;
   final String name;
-
-  /// رقم الهاتف المعياري
   final String phoneNumber;
-
-  /// صلة القرابة لتمكين الأوامر الصوتية الذكية (مثلاً: أبي، Dad, Doctor, Sister)
   final String? relationship;
-
-  /// هل يتم اعتماده كجهة اتصال للطوارئ في رادار الاستغاثة SOS؟
   final bool isEmergency;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
   final bool isSynced;
   const Contact({
     required this.id,
@@ -1415,12 +1666,14 @@ class Contact extends DataClass implements Insertable<Contact> {
     this.relationship,
     required this.isEmergency,
     required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
     required this.isSynced,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
+    map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
     map['phone_number'] = Variable<String>(phoneNumber);
     if (!nullToAbsent || relationship != null) {
@@ -1428,6 +1681,10 @@ class Contact extends DataClass implements Insertable<Contact> {
     }
     map['is_emergency'] = Variable<bool>(isEmergency);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     map['is_synced'] = Variable<bool>(isSynced);
     return map;
   }
@@ -1442,6 +1699,10 @@ class Contact extends DataClass implements Insertable<Contact> {
           : Value(relationship),
       isEmergency: Value(isEmergency),
       createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       isSynced: Value(isSynced),
     );
   }
@@ -1452,12 +1713,14 @@ class Contact extends DataClass implements Insertable<Contact> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Contact(
-      id: serializer.fromJson<int>(json['id']),
+      id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       phoneNumber: serializer.fromJson<String>(json['phoneNumber']),
       relationship: serializer.fromJson<String?>(json['relationship']),
       isEmergency: serializer.fromJson<bool>(json['isEmergency']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
     );
   }
@@ -1465,23 +1728,27 @@ class Contact extends DataClass implements Insertable<Contact> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
+      'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'phoneNumber': serializer.toJson<String>(phoneNumber),
       'relationship': serializer.toJson<String?>(relationship),
       'isEmergency': serializer.toJson<bool>(isEmergency),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'isSynced': serializer.toJson<bool>(isSynced),
     };
   }
 
   Contact copyWith({
-    int? id,
+    String? id,
     String? name,
     String? phoneNumber,
     Value<String?> relationship = const Value.absent(),
     bool? isEmergency,
     DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
     bool? isSynced,
   }) => Contact(
     id: id ?? this.id,
@@ -1490,6 +1757,8 @@ class Contact extends DataClass implements Insertable<Contact> {
     relationship: relationship.present ? relationship.value : this.relationship,
     isEmergency: isEmergency ?? this.isEmergency,
     createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     isSynced: isSynced ?? this.isSynced,
   );
   Contact copyWithCompanion(ContactsCompanion data) {
@@ -1506,6 +1775,8 @@ class Contact extends DataClass implements Insertable<Contact> {
           ? data.isEmergency.value
           : this.isEmergency,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
     );
   }
@@ -1519,6 +1790,8 @@ class Contact extends DataClass implements Insertable<Contact> {
           ..write('relationship: $relationship, ')
           ..write('isEmergency: $isEmergency, ')
           ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('isSynced: $isSynced')
           ..write(')'))
         .toString();
@@ -1532,6 +1805,8 @@ class Contact extends DataClass implements Insertable<Contact> {
     relationship,
     isEmergency,
     createdAt,
+    updatedAt,
+    deletedAt,
     isSynced,
   );
   @override
@@ -1544,17 +1819,22 @@ class Contact extends DataClass implements Insertable<Contact> {
           other.relationship == this.relationship &&
           other.isEmergency == this.isEmergency &&
           other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
           other.isSynced == this.isSynced);
 }
 
 class ContactsCompanion extends UpdateCompanion<Contact> {
-  final Value<int> id;
+  final Value<String> id;
   final Value<String> name;
   final Value<String> phoneNumber;
   final Value<String?> relationship;
   final Value<bool> isEmergency;
   final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
   final Value<bool> isSynced;
+  final Value<int> rowid;
   const ContactsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -1562,26 +1842,36 @@ class ContactsCompanion extends UpdateCompanion<Contact> {
     this.relationship = const Value.absent(),
     this.isEmergency = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
   });
   ContactsCompanion.insert({
-    this.id = const Value.absent(),
+    required String id,
     required String name,
     required String phoneNumber,
     this.relationship = const Value.absent(),
     this.isEmergency = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
-  }) : name = Value(name),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
        phoneNumber = Value(phoneNumber);
   static Insertable<Contact> custom({
-    Expression<int>? id,
+    Expression<String>? id,
     Expression<String>? name,
     Expression<String>? phoneNumber,
     Expression<String>? relationship,
     Expression<bool>? isEmergency,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
     Expression<bool>? isSynced,
+    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1590,18 +1880,24 @@ class ContactsCompanion extends UpdateCompanion<Contact> {
       if (relationship != null) 'relationship': relationship,
       if (isEmergency != null) 'is_emergency': isEmergency,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (isSynced != null) 'is_synced': isSynced,
+      if (rowid != null) 'rowid': rowid,
     });
   }
 
   ContactsCompanion copyWith({
-    Value<int>? id,
+    Value<String>? id,
     Value<String>? name,
     Value<String>? phoneNumber,
     Value<String?>? relationship,
     Value<bool>? isEmergency,
     Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
     Value<bool>? isSynced,
+    Value<int>? rowid,
   }) {
     return ContactsCompanion(
       id: id ?? this.id,
@@ -1610,7 +1906,10 @@ class ContactsCompanion extends UpdateCompanion<Contact> {
       relationship: relationship ?? this.relationship,
       isEmergency: isEmergency ?? this.isEmergency,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       isSynced: isSynced ?? this.isSynced,
+      rowid: rowid ?? this.rowid,
     );
   }
 
@@ -1618,7 +1917,7 @@ class ContactsCompanion extends UpdateCompanion<Contact> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     if (id.present) {
-      map['id'] = Variable<int>(id.value);
+      map['id'] = Variable<String>(id.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -1635,8 +1934,17 @@ class ContactsCompanion extends UpdateCompanion<Contact> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (isSynced.present) {
       map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
     }
     return map;
   }
@@ -1650,7 +1958,10 @@ class ContactsCompanion extends UpdateCompanion<Contact> {
           ..write('relationship: $relationship, ')
           ..write('isEmergency: $isEmergency, ')
           ..write('createdAt: $createdAt, ')
-          ..write('isSynced: $isSynced')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -1664,16 +1975,12 @@ class $MessagesVaultTable extends MessagesVault
   $MessagesVaultTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
     'id',
     aliasedName,
     false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _contactIdentifierMeta = const VerificationMeta(
     'contactIdentifier',
@@ -1765,6 +2072,41 @@ class $MessagesVaultTable extends MessagesVault
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isSyncedMeta = const VerificationMeta(
     'isSynced',
   );
@@ -1790,6 +2132,9 @@ class $MessagesVaultTable extends MessagesVault
     isOutgoing,
     timestamp,
     isRead,
+    createdAt,
+    updatedAt,
+    deletedAt,
     isSynced,
   ];
   @override
@@ -1806,6 +2151,8 @@ class $MessagesVaultTable extends MessagesVault
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
     }
     if (data.containsKey('contact_identifier')) {
       context.handle(
@@ -1861,6 +2208,24 @@ class $MessagesVaultTable extends MessagesVault
         isRead.isAcceptableOrUnknown(data['is_read']!, _isReadMeta),
       );
     }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('is_synced')) {
       context.handle(
         _isSyncedMeta,
@@ -1877,7 +2242,7 @@ class $MessagesVaultTable extends MessagesVault
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return MessagesVaultData(
       id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
       contactIdentifier: attachedDatabase.typeMapping.read(
@@ -1908,6 +2273,18 @@ class $MessagesVaultTable extends MessagesVault
         DriftSqlType.bool,
         data['${effectivePrefix}is_read'],
       )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       isSynced: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_synced'],
@@ -1923,28 +2300,17 @@ class $MessagesVaultTable extends MessagesVault
 
 class MessagesVaultData extends DataClass
     implements Insertable<MessagesVaultData> {
-  final int id;
-
-  /// معرف جهة الاتصال (سواء كان رقم هاتف أو اسم)
+  final String id;
   final String contactIdentifier;
-
-  /// اسم المرسل الظاهر
   final String senderName;
-
-  /// محتوى الرسالة النصية
   final String messageText;
-
-  /// التطبيق أو المنصة المصدر (sms, whatsapp, telegram)
   final String platform;
-
-  /// هل الرسالة صادرة من المستخدم (عبر الرد الصوتي) أم واردة؟
   final bool isOutgoing;
-
-  /// توقيت الرسالة
   final DateTime timestamp;
-
-  /// هل استمع إليها المستخدم أو قرأها؟
   final bool isRead;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
   final bool isSynced;
   const MessagesVaultData({
     required this.id,
@@ -1955,12 +2321,15 @@ class MessagesVaultData extends DataClass
     required this.isOutgoing,
     required this.timestamp,
     required this.isRead,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
     required this.isSynced,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
+    map['id'] = Variable<String>(id);
     map['contact_identifier'] = Variable<String>(contactIdentifier);
     map['sender_name'] = Variable<String>(senderName);
     map['message_text'] = Variable<String>(messageText);
@@ -1968,6 +2337,11 @@ class MessagesVaultData extends DataClass
     map['is_outgoing'] = Variable<bool>(isOutgoing);
     map['timestamp'] = Variable<DateTime>(timestamp);
     map['is_read'] = Variable<bool>(isRead);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     map['is_synced'] = Variable<bool>(isSynced);
     return map;
   }
@@ -1982,6 +2356,11 @@ class MessagesVaultData extends DataClass
       isOutgoing: Value(isOutgoing),
       timestamp: Value(timestamp),
       isRead: Value(isRead),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       isSynced: Value(isSynced),
     );
   }
@@ -1992,7 +2371,7 @@ class MessagesVaultData extends DataClass
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return MessagesVaultData(
-      id: serializer.fromJson<int>(json['id']),
+      id: serializer.fromJson<String>(json['id']),
       contactIdentifier: serializer.fromJson<String>(json['contactIdentifier']),
       senderName: serializer.fromJson<String>(json['senderName']),
       messageText: serializer.fromJson<String>(json['messageText']),
@@ -2000,6 +2379,9 @@ class MessagesVaultData extends DataClass
       isOutgoing: serializer.fromJson<bool>(json['isOutgoing']),
       timestamp: serializer.fromJson<DateTime>(json['timestamp']),
       isRead: serializer.fromJson<bool>(json['isRead']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
     );
   }
@@ -2007,7 +2389,7 @@ class MessagesVaultData extends DataClass
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
+      'id': serializer.toJson<String>(id),
       'contactIdentifier': serializer.toJson<String>(contactIdentifier),
       'senderName': serializer.toJson<String>(senderName),
       'messageText': serializer.toJson<String>(messageText),
@@ -2015,12 +2397,15 @@ class MessagesVaultData extends DataClass
       'isOutgoing': serializer.toJson<bool>(isOutgoing),
       'timestamp': serializer.toJson<DateTime>(timestamp),
       'isRead': serializer.toJson<bool>(isRead),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'isSynced': serializer.toJson<bool>(isSynced),
     };
   }
 
   MessagesVaultData copyWith({
-    int? id,
+    String? id,
     String? contactIdentifier,
     String? senderName,
     String? messageText,
@@ -2028,6 +2413,9 @@ class MessagesVaultData extends DataClass
     bool? isOutgoing,
     DateTime? timestamp,
     bool? isRead,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
     bool? isSynced,
   }) => MessagesVaultData(
     id: id ?? this.id,
@@ -2038,6 +2426,9 @@ class MessagesVaultData extends DataClass
     isOutgoing: isOutgoing ?? this.isOutgoing,
     timestamp: timestamp ?? this.timestamp,
     isRead: isRead ?? this.isRead,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     isSynced: isSynced ?? this.isSynced,
   );
   MessagesVaultData copyWithCompanion(MessagesVaultCompanion data) {
@@ -2058,6 +2449,9 @@ class MessagesVaultData extends DataClass
           : this.isOutgoing,
       timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
       isRead: data.isRead.present ? data.isRead.value : this.isRead,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
     );
   }
@@ -2073,6 +2467,9 @@ class MessagesVaultData extends DataClass
           ..write('isOutgoing: $isOutgoing, ')
           ..write('timestamp: $timestamp, ')
           ..write('isRead: $isRead, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('isSynced: $isSynced')
           ..write(')'))
         .toString();
@@ -2088,6 +2485,9 @@ class MessagesVaultData extends DataClass
     isOutgoing,
     timestamp,
     isRead,
+    createdAt,
+    updatedAt,
+    deletedAt,
     isSynced,
   );
   @override
@@ -2102,11 +2502,14 @@ class MessagesVaultData extends DataClass
           other.isOutgoing == this.isOutgoing &&
           other.timestamp == this.timestamp &&
           other.isRead == this.isRead &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
           other.isSynced == this.isSynced);
 }
 
 class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
-  final Value<int> id;
+  final Value<String> id;
   final Value<String> contactIdentifier;
   final Value<String> senderName;
   final Value<String> messageText;
@@ -2114,7 +2517,11 @@ class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
   final Value<bool> isOutgoing;
   final Value<DateTime> timestamp;
   final Value<bool> isRead;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
   final Value<bool> isSynced;
+  final Value<int> rowid;
   const MessagesVaultCompanion({
     this.id = const Value.absent(),
     this.contactIdentifier = const Value.absent(),
@@ -2124,10 +2531,14 @@ class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
     this.isOutgoing = const Value.absent(),
     this.timestamp = const Value.absent(),
     this.isRead = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
   });
   MessagesVaultCompanion.insert({
-    this.id = const Value.absent(),
+    required String id,
     required String contactIdentifier,
     required String senderName,
     required String messageText,
@@ -2135,12 +2546,17 @@ class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
     this.isOutgoing = const Value.absent(),
     this.timestamp = const Value.absent(),
     this.isRead = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
-  }) : contactIdentifier = Value(contactIdentifier),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       contactIdentifier = Value(contactIdentifier),
        senderName = Value(senderName),
        messageText = Value(messageText);
   static Insertable<MessagesVaultData> custom({
-    Expression<int>? id,
+    Expression<String>? id,
     Expression<String>? contactIdentifier,
     Expression<String>? senderName,
     Expression<String>? messageText,
@@ -2148,7 +2564,11 @@ class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
     Expression<bool>? isOutgoing,
     Expression<DateTime>? timestamp,
     Expression<bool>? isRead,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
     Expression<bool>? isSynced,
+    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2159,12 +2579,16 @@ class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
       if (isOutgoing != null) 'is_outgoing': isOutgoing,
       if (timestamp != null) 'timestamp': timestamp,
       if (isRead != null) 'is_read': isRead,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (isSynced != null) 'is_synced': isSynced,
+      if (rowid != null) 'rowid': rowid,
     });
   }
 
   MessagesVaultCompanion copyWith({
-    Value<int>? id,
+    Value<String>? id,
     Value<String>? contactIdentifier,
     Value<String>? senderName,
     Value<String>? messageText,
@@ -2172,7 +2596,11 @@ class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
     Value<bool>? isOutgoing,
     Value<DateTime>? timestamp,
     Value<bool>? isRead,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
     Value<bool>? isSynced,
+    Value<int>? rowid,
   }) {
     return MessagesVaultCompanion(
       id: id ?? this.id,
@@ -2183,7 +2611,11 @@ class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
       isOutgoing: isOutgoing ?? this.isOutgoing,
       timestamp: timestamp ?? this.timestamp,
       isRead: isRead ?? this.isRead,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       isSynced: isSynced ?? this.isSynced,
+      rowid: rowid ?? this.rowid,
     );
   }
 
@@ -2191,7 +2623,7 @@ class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     if (id.present) {
-      map['id'] = Variable<int>(id.value);
+      map['id'] = Variable<String>(id.value);
     }
     if (contactIdentifier.present) {
       map['contact_identifier'] = Variable<String>(contactIdentifier.value);
@@ -2214,8 +2646,20 @@ class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
     if (isRead.present) {
       map['is_read'] = Variable<bool>(isRead.value);
     }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (isSynced.present) {
       map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
     }
     return map;
   }
@@ -2231,7 +2675,11 @@ class MessagesVaultCompanion extends UpdateCompanion<MessagesVaultData> {
           ..write('isOutgoing: $isOutgoing, ')
           ..write('timestamp: $timestamp, ')
           ..write('isRead: $isRead, ')
-          ..write('isSynced: $isSynced')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -2244,16 +2692,12 @@ class $AlarmsTable extends Alarms with TableInfo<$AlarmsTable, Alarm> {
   $AlarmsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
     'id',
     aliasedName,
     false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _hourMeta = const VerificationMeta('hour');
   @override
@@ -2322,6 +2766,29 @@ class $AlarmsTable extends Alarms with TableInfo<$AlarmsTable, Alarm> {
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isSyncedMeta = const VerificationMeta(
     'isSynced',
   );
@@ -2346,6 +2813,8 @@ class $AlarmsTable extends Alarms with TableInfo<$AlarmsTable, Alarm> {
     daysOfWeek,
     isActive,
     createdAt,
+    updatedAt,
+    deletedAt,
     isSynced,
   ];
   @override
@@ -2362,6 +2831,8 @@ class $AlarmsTable extends Alarms with TableInfo<$AlarmsTable, Alarm> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
     }
     if (data.containsKey('hour')) {
       context.handle(
@@ -2406,6 +2877,18 @@ class $AlarmsTable extends Alarms with TableInfo<$AlarmsTable, Alarm> {
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('is_synced')) {
       context.handle(
         _isSyncedMeta,
@@ -2422,7 +2905,7 @@ class $AlarmsTable extends Alarms with TableInfo<$AlarmsTable, Alarm> {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return Alarm(
       id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
       hour: attachedDatabase.typeMapping.read(
@@ -2449,6 +2932,14 @@ class $AlarmsTable extends Alarms with TableInfo<$AlarmsTable, Alarm> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       isSynced: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_synced'],
@@ -2463,13 +2954,15 @@ class $AlarmsTable extends Alarms with TableInfo<$AlarmsTable, Alarm> {
 }
 
 class Alarm extends DataClass implements Insertable<Alarm> {
-  final int id;
+  final String id;
   final int hour;
   final int minute;
   final String label;
   final String daysOfWeek;
   final bool isActive;
   final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
   final bool isSynced;
   const Alarm({
     required this.id,
@@ -2479,18 +2972,24 @@ class Alarm extends DataClass implements Insertable<Alarm> {
     required this.daysOfWeek,
     required this.isActive,
     required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
     required this.isSynced,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
+    map['id'] = Variable<String>(id);
     map['hour'] = Variable<int>(hour);
     map['minute'] = Variable<int>(minute);
     map['label'] = Variable<String>(label);
     map['days_of_week'] = Variable<String>(daysOfWeek);
     map['is_active'] = Variable<bool>(isActive);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     map['is_synced'] = Variable<bool>(isSynced);
     return map;
   }
@@ -2504,6 +3003,10 @@ class Alarm extends DataClass implements Insertable<Alarm> {
       daysOfWeek: Value(daysOfWeek),
       isActive: Value(isActive),
       createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       isSynced: Value(isSynced),
     );
   }
@@ -2514,13 +3017,15 @@ class Alarm extends DataClass implements Insertable<Alarm> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Alarm(
-      id: serializer.fromJson<int>(json['id']),
+      id: serializer.fromJson<String>(json['id']),
       hour: serializer.fromJson<int>(json['hour']),
       minute: serializer.fromJson<int>(json['minute']),
       label: serializer.fromJson<String>(json['label']),
       daysOfWeek: serializer.fromJson<String>(json['daysOfWeek']),
       isActive: serializer.fromJson<bool>(json['isActive']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
     );
   }
@@ -2528,25 +3033,29 @@ class Alarm extends DataClass implements Insertable<Alarm> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
+      'id': serializer.toJson<String>(id),
       'hour': serializer.toJson<int>(hour),
       'minute': serializer.toJson<int>(minute),
       'label': serializer.toJson<String>(label),
       'daysOfWeek': serializer.toJson<String>(daysOfWeek),
       'isActive': serializer.toJson<bool>(isActive),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'isSynced': serializer.toJson<bool>(isSynced),
     };
   }
 
   Alarm copyWith({
-    int? id,
+    String? id,
     int? hour,
     int? minute,
     String? label,
     String? daysOfWeek,
     bool? isActive,
     DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
     bool? isSynced,
   }) => Alarm(
     id: id ?? this.id,
@@ -2556,6 +3065,8 @@ class Alarm extends DataClass implements Insertable<Alarm> {
     daysOfWeek: daysOfWeek ?? this.daysOfWeek,
     isActive: isActive ?? this.isActive,
     createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     isSynced: isSynced ?? this.isSynced,
   );
   Alarm copyWithCompanion(AlarmsCompanion data) {
@@ -2569,6 +3080,8 @@ class Alarm extends DataClass implements Insertable<Alarm> {
           : this.daysOfWeek,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
     );
   }
@@ -2583,6 +3096,8 @@ class Alarm extends DataClass implements Insertable<Alarm> {
           ..write('daysOfWeek: $daysOfWeek, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('isSynced: $isSynced')
           ..write(')'))
         .toString();
@@ -2597,6 +3112,8 @@ class Alarm extends DataClass implements Insertable<Alarm> {
     daysOfWeek,
     isActive,
     createdAt,
+    updatedAt,
+    deletedAt,
     isSynced,
   );
   @override
@@ -2610,18 +3127,23 @@ class Alarm extends DataClass implements Insertable<Alarm> {
           other.daysOfWeek == this.daysOfWeek &&
           other.isActive == this.isActive &&
           other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
           other.isSynced == this.isSynced);
 }
 
 class AlarmsCompanion extends UpdateCompanion<Alarm> {
-  final Value<int> id;
+  final Value<String> id;
   final Value<int> hour;
   final Value<int> minute;
   final Value<String> label;
   final Value<String> daysOfWeek;
   final Value<bool> isActive;
   final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
   final Value<bool> isSynced;
+  final Value<int> rowid;
   const AlarmsCompanion({
     this.id = const Value.absent(),
     this.hour = const Value.absent(),
@@ -2630,28 +3152,38 @@ class AlarmsCompanion extends UpdateCompanion<Alarm> {
     this.daysOfWeek = const Value.absent(),
     this.isActive = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
   });
   AlarmsCompanion.insert({
-    this.id = const Value.absent(),
+    required String id,
     required int hour,
     required int minute,
     this.label = const Value.absent(),
     this.daysOfWeek = const Value.absent(),
     this.isActive = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
-  }) : hour = Value(hour),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       hour = Value(hour),
        minute = Value(minute);
   static Insertable<Alarm> custom({
-    Expression<int>? id,
+    Expression<String>? id,
     Expression<int>? hour,
     Expression<int>? minute,
     Expression<String>? label,
     Expression<String>? daysOfWeek,
     Expression<bool>? isActive,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
     Expression<bool>? isSynced,
+    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2661,19 +3193,25 @@ class AlarmsCompanion extends UpdateCompanion<Alarm> {
       if (daysOfWeek != null) 'days_of_week': daysOfWeek,
       if (isActive != null) 'is_active': isActive,
       if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (isSynced != null) 'is_synced': isSynced,
+      if (rowid != null) 'rowid': rowid,
     });
   }
 
   AlarmsCompanion copyWith({
-    Value<int>? id,
+    Value<String>? id,
     Value<int>? hour,
     Value<int>? minute,
     Value<String>? label,
     Value<String>? daysOfWeek,
     Value<bool>? isActive,
     Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
     Value<bool>? isSynced,
+    Value<int>? rowid,
   }) {
     return AlarmsCompanion(
       id: id ?? this.id,
@@ -2683,7 +3221,10 @@ class AlarmsCompanion extends UpdateCompanion<Alarm> {
       daysOfWeek: daysOfWeek ?? this.daysOfWeek,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       isSynced: isSynced ?? this.isSynced,
+      rowid: rowid ?? this.rowid,
     );
   }
 
@@ -2691,7 +3232,7 @@ class AlarmsCompanion extends UpdateCompanion<Alarm> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     if (id.present) {
-      map['id'] = Variable<int>(id.value);
+      map['id'] = Variable<String>(id.value);
     }
     if (hour.present) {
       map['hour'] = Variable<int>(hour.value);
@@ -2711,8 +3252,17 @@ class AlarmsCompanion extends UpdateCompanion<Alarm> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (isSynced.present) {
       map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
     }
     return map;
   }
@@ -2727,7 +3277,10 @@ class AlarmsCompanion extends UpdateCompanion<Alarm> {
           ..write('daysOfWeek: $daysOfWeek, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
-          ..write('isSynced: $isSynced')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -2741,16 +3294,12 @@ class $FocusSessionsTable extends FocusSessions
   $FocusSessionsTable(this.attachedDatabase, [this._alias]);
   static const VerificationMeta _idMeta = const VerificationMeta('id');
   @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
     'id',
     aliasedName,
     false,
-    hasAutoIncrement: true,
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
-    defaultConstraints: GeneratedColumn.constraintIsAlways(
-      'PRIMARY KEY AUTOINCREMENT',
-    ),
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _durationMinutesMeta = const VerificationMeta(
     'durationMinutes',
@@ -2787,6 +3336,41 @@ class $FocusSessionsTable extends FocusSessions
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _isSyncedMeta = const VerificationMeta(
     'isSynced',
   );
@@ -2808,6 +3392,9 @@ class $FocusSessionsTable extends FocusSessions
     durationMinutes,
     sessionType,
     completedAt,
+    createdAt,
+    updatedAt,
+    deletedAt,
     isSynced,
   ];
   @override
@@ -2824,6 +3411,8 @@ class $FocusSessionsTable extends FocusSessions
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
     }
     if (data.containsKey('duration_minutes')) {
       context.handle(
@@ -2854,6 +3443,24 @@ class $FocusSessionsTable extends FocusSessions
         ),
       );
     }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
     if (data.containsKey('is_synced')) {
       context.handle(
         _isSyncedMeta,
@@ -2870,7 +3477,7 @@ class $FocusSessionsTable extends FocusSessions
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return FocusSession(
       id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
       durationMinutes: attachedDatabase.typeMapping.read(
@@ -2885,6 +3492,18 @@ class $FocusSessionsTable extends FocusSessions
         DriftSqlType.dateTime,
         data['${effectivePrefix}completed_at'],
       )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
       isSynced: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_synced'],
@@ -2899,25 +3518,36 @@ class $FocusSessionsTable extends FocusSessions
 }
 
 class FocusSession extends DataClass implements Insertable<FocusSession> {
-  final int id;
+  final String id;
   final int durationMinutes;
   final String sessionType;
   final DateTime completedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
   final bool isSynced;
   const FocusSession({
     required this.id,
     required this.durationMinutes,
     required this.sessionType,
     required this.completedAt,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
     required this.isSynced,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
+    map['id'] = Variable<String>(id);
     map['duration_minutes'] = Variable<int>(durationMinutes);
     map['session_type'] = Variable<String>(sessionType);
     map['completed_at'] = Variable<DateTime>(completedAt);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
     map['is_synced'] = Variable<bool>(isSynced);
     return map;
   }
@@ -2928,6 +3558,11 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
       durationMinutes: Value(durationMinutes),
       sessionType: Value(sessionType),
       completedAt: Value(completedAt),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
       isSynced: Value(isSynced),
     );
   }
@@ -2938,10 +3573,13 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return FocusSession(
-      id: serializer.fromJson<int>(json['id']),
+      id: serializer.fromJson<String>(json['id']),
       durationMinutes: serializer.fromJson<int>(json['durationMinutes']),
       sessionType: serializer.fromJson<String>(json['sessionType']),
       completedAt: serializer.fromJson<DateTime>(json['completedAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
       isSynced: serializer.fromJson<bool>(json['isSynced']),
     );
   }
@@ -2949,25 +3587,34 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
+      'id': serializer.toJson<String>(id),
       'durationMinutes': serializer.toJson<int>(durationMinutes),
       'sessionType': serializer.toJson<String>(sessionType),
       'completedAt': serializer.toJson<DateTime>(completedAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
       'isSynced': serializer.toJson<bool>(isSynced),
     };
   }
 
   FocusSession copyWith({
-    int? id,
+    String? id,
     int? durationMinutes,
     String? sessionType,
     DateTime? completedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
     bool? isSynced,
   }) => FocusSession(
     id: id ?? this.id,
     durationMinutes: durationMinutes ?? this.durationMinutes,
     sessionType: sessionType ?? this.sessionType,
     completedAt: completedAt ?? this.completedAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
     isSynced: isSynced ?? this.isSynced,
   );
   FocusSession copyWithCompanion(FocusSessionsCompanion data) {
@@ -2982,6 +3629,9 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
       completedAt: data.completedAt.present
           ? data.completedAt.value
           : this.completedAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
       isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
     );
   }
@@ -2993,14 +3643,25 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           ..write('durationMinutes: $durationMinutes, ')
           ..write('sessionType: $sessionType, ')
           ..write('completedAt: $completedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
           ..write('isSynced: $isSynced')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, durationMinutes, sessionType, completedAt, isSynced);
+  int get hashCode => Object.hash(
+    id,
+    durationMinutes,
+    sessionType,
+    completedAt,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isSynced,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3009,58 +3670,90 @@ class FocusSession extends DataClass implements Insertable<FocusSession> {
           other.durationMinutes == this.durationMinutes &&
           other.sessionType == this.sessionType &&
           other.completedAt == this.completedAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
           other.isSynced == this.isSynced);
 }
 
 class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
-  final Value<int> id;
+  final Value<String> id;
   final Value<int> durationMinutes;
   final Value<String> sessionType;
   final Value<DateTime> completedAt;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
   final Value<bool> isSynced;
+  final Value<int> rowid;
   const FocusSessionsCompanion({
     this.id = const Value.absent(),
     this.durationMinutes = const Value.absent(),
     this.sessionType = const Value.absent(),
     this.completedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
   });
   FocusSessionsCompanion.insert({
-    this.id = const Value.absent(),
+    required String id,
     required int durationMinutes,
     this.sessionType = const Value.absent(),
     this.completedAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
     this.isSynced = const Value.absent(),
-  }) : durationMinutes = Value(durationMinutes);
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       durationMinutes = Value(durationMinutes);
   static Insertable<FocusSession> custom({
-    Expression<int>? id,
+    Expression<String>? id,
     Expression<int>? durationMinutes,
     Expression<String>? sessionType,
     Expression<DateTime>? completedAt,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
     Expression<bool>? isSynced,
+    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (durationMinutes != null) 'duration_minutes': durationMinutes,
       if (sessionType != null) 'session_type': sessionType,
       if (completedAt != null) 'completed_at': completedAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
       if (isSynced != null) 'is_synced': isSynced,
+      if (rowid != null) 'rowid': rowid,
     });
   }
 
   FocusSessionsCompanion copyWith({
-    Value<int>? id,
+    Value<String>? id,
     Value<int>? durationMinutes,
     Value<String>? sessionType,
     Value<DateTime>? completedAt,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
     Value<bool>? isSynced,
+    Value<int>? rowid,
   }) {
     return FocusSessionsCompanion(
       id: id ?? this.id,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       sessionType: sessionType ?? this.sessionType,
       completedAt: completedAt ?? this.completedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
       isSynced: isSynced ?? this.isSynced,
+      rowid: rowid ?? this.rowid,
     );
   }
 
@@ -3068,7 +3761,7 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     if (id.present) {
-      map['id'] = Variable<int>(id.value);
+      map['id'] = Variable<String>(id.value);
     }
     if (durationMinutes.present) {
       map['duration_minutes'] = Variable<int>(durationMinutes.value);
@@ -3079,8 +3772,20 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
     if (completedAt.present) {
       map['completed_at'] = Variable<DateTime>(completedAt.value);
     }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
     if (isSynced.present) {
       map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
     }
     return map;
   }
@@ -3092,7 +3797,2340 @@ class FocusSessionsCompanion extends UpdateCompanion<FocusSession> {
           ..write('durationMinutes: $durationMinutes, ')
           ..write('sessionType: $sessionType, ')
           ..write('completedAt: $completedAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AppSettingsTable extends AppSettings
+    with TableInfo<$AppSettingsTable, AppSetting> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppSettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _speechRateMeta = const VerificationMeta(
+    'speechRate',
+  );
+  @override
+  late final GeneratedColumn<double> speechRate = GeneratedColumn<double>(
+    'speech_rate',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.5),
+  );
+  static const VerificationMeta _hapticsEnabledMeta = const VerificationMeta(
+    'hapticsEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> hapticsEnabled = GeneratedColumn<bool>(
+    'haptics_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("haptics_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _soundCuesEnabledMeta = const VerificationMeta(
+    'soundCuesEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> soundCuesEnabled = GeneratedColumn<bool>(
+    'sound_cues_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("sound_cues_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _isHighContrastMeta = const VerificationMeta(
+    'isHighContrast',
+  );
+  @override
+  late final GeneratedColumn<bool> isHighContrast = GeneratedColumn<bool>(
+    'is_high_contrast',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_high_contrast" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _defaultPriorityMeta = const VerificationMeta(
+    'defaultPriority',
+  );
+  @override
+  late final GeneratedColumn<String> defaultPriority = GeneratedColumn<String>(
+    'default_priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('medium'),
+  );
+  static const VerificationMeta _autoArchiveCompletedMeta =
+      const VerificationMeta('autoArchiveCompleted');
+  @override
+  late final GeneratedColumn<bool> autoArchiveCompleted = GeneratedColumn<bool>(
+    'auto_archive_completed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_archive_completed" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _speakDueDatesAloudMeta =
+      const VerificationMeta('speakDueDatesAloud');
+  @override
+  late final GeneratedColumn<bool> speakDueDatesAloud = GeneratedColumn<bool>(
+    'speak_due_dates_aloud',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("speak_due_dates_aloud" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _autoDialEmergencyMeta = const VerificationMeta(
+    'autoDialEmergency',
+  );
+  @override
+  late final GeneratedColumn<bool> autoDialEmergency = GeneratedColumn<bool>(
+    'auto_dial_emergency',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_dial_emergency" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _shareGpsOnSosMeta = const VerificationMeta(
+    'shareGpsOnSos',
+  );
+  @override
+  late final GeneratedColumn<bool> shareGpsOnSos = GeneratedColumn<bool>(
+    'share_gps_on_sos',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("share_gps_on_sos" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _speakIncomingSmsMeta = const VerificationMeta(
+    'speakIncomingSms',
+  );
+  @override
+  late final GeneratedColumn<bool> speakIncomingSms = GeneratedColumn<bool>(
+    'speak_incoming_sms',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("speak_incoming_sms" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _voiceChimeHalfwayMeta = const VerificationMeta(
+    'voiceChimeHalfway',
+  );
+  @override
+  late final GeneratedColumn<bool> voiceChimeHalfway = GeneratedColumn<bool>(
+    'voice_chime_halfway',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("voice_chime_halfway" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _vibrateOnSessionFinishMeta =
+      const VerificationMeta('vibrateOnSessionFinish');
+  @override
+  late final GeneratedColumn<bool> vibrateOnSessionFinish =
+      GeneratedColumn<bool>(
+        'vibrate_on_session_finish',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("vibrate_on_session_finish" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
+  static const VerificationMeta _syncAlarmsWithAndroidClockMeta =
+      const VerificationMeta('syncAlarmsWithAndroidClock');
+  @override
+  late final GeneratedColumn<bool> syncAlarmsWithAndroidClock =
+      GeneratedColumn<bool>(
+        'sync_alarms_with_android_clock',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("sync_alarms_with_android_clock" IN (0, 1))',
+        ),
+        defaultValue: const Constant(true),
+      );
+  static const VerificationMeta _visionInspectionDetailMeta =
+      const VerificationMeta('visionInspectionDetail');
+  @override
+  late final GeneratedColumn<String> visionInspectionDetail =
+      GeneratedColumn<String>(
+        'vision_inspection_detail',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('concise'),
+      );
+  static const VerificationMeta _autoFlashlightInDarkMeta =
+      const VerificationMeta('autoFlashlightInDark');
+  @override
+  late final GeneratedColumn<bool> autoFlashlightInDark = GeneratedColumn<bool>(
+    'auto_flashlight_in_dark',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("auto_flashlight_in_dark" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _preferredCurrencyMeta = const VerificationMeta(
+    'preferredCurrency',
+  );
+  @override
+  late final GeneratedColumn<String> preferredCurrency =
+      GeneratedColumn<String>(
+        'preferred_currency',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultValue: const Constant('USD / Local'),
+      );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _isSyncedMeta = const VerificationMeta(
+    'isSynced',
+  );
+  @override
+  late final GeneratedColumn<bool> isSynced = GeneratedColumn<bool>(
+    'is_synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    speechRate,
+    hapticsEnabled,
+    soundCuesEnabled,
+    isHighContrast,
+    defaultPriority,
+    autoArchiveCompleted,
+    speakDueDatesAloud,
+    autoDialEmergency,
+    shareGpsOnSos,
+    speakIncomingSms,
+    voiceChimeHalfway,
+    vibrateOnSessionFinish,
+    syncAlarmsWithAndroidClock,
+    visionInspectionDetail,
+    autoFlashlightInDark,
+    preferredCurrency,
+    updatedAt,
+    isSynced,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppSetting> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('speech_rate')) {
+      context.handle(
+        _speechRateMeta,
+        speechRate.isAcceptableOrUnknown(data['speech_rate']!, _speechRateMeta),
+      );
+    }
+    if (data.containsKey('haptics_enabled')) {
+      context.handle(
+        _hapticsEnabledMeta,
+        hapticsEnabled.isAcceptableOrUnknown(
+          data['haptics_enabled']!,
+          _hapticsEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sound_cues_enabled')) {
+      context.handle(
+        _soundCuesEnabledMeta,
+        soundCuesEnabled.isAcceptableOrUnknown(
+          data['sound_cues_enabled']!,
+          _soundCuesEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_high_contrast')) {
+      context.handle(
+        _isHighContrastMeta,
+        isHighContrast.isAcceptableOrUnknown(
+          data['is_high_contrast']!,
+          _isHighContrastMeta,
+        ),
+      );
+    }
+    if (data.containsKey('default_priority')) {
+      context.handle(
+        _defaultPriorityMeta,
+        defaultPriority.isAcceptableOrUnknown(
+          data['default_priority']!,
+          _defaultPriorityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('auto_archive_completed')) {
+      context.handle(
+        _autoArchiveCompletedMeta,
+        autoArchiveCompleted.isAcceptableOrUnknown(
+          data['auto_archive_completed']!,
+          _autoArchiveCompletedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('speak_due_dates_aloud')) {
+      context.handle(
+        _speakDueDatesAloudMeta,
+        speakDueDatesAloud.isAcceptableOrUnknown(
+          data['speak_due_dates_aloud']!,
+          _speakDueDatesAloudMeta,
+        ),
+      );
+    }
+    if (data.containsKey('auto_dial_emergency')) {
+      context.handle(
+        _autoDialEmergencyMeta,
+        autoDialEmergency.isAcceptableOrUnknown(
+          data['auto_dial_emergency']!,
+          _autoDialEmergencyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('share_gps_on_sos')) {
+      context.handle(
+        _shareGpsOnSosMeta,
+        shareGpsOnSos.isAcceptableOrUnknown(
+          data['share_gps_on_sos']!,
+          _shareGpsOnSosMeta,
+        ),
+      );
+    }
+    if (data.containsKey('speak_incoming_sms')) {
+      context.handle(
+        _speakIncomingSmsMeta,
+        speakIncomingSms.isAcceptableOrUnknown(
+          data['speak_incoming_sms']!,
+          _speakIncomingSmsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('voice_chime_halfway')) {
+      context.handle(
+        _voiceChimeHalfwayMeta,
+        voiceChimeHalfway.isAcceptableOrUnknown(
+          data['voice_chime_halfway']!,
+          _voiceChimeHalfwayMeta,
+        ),
+      );
+    }
+    if (data.containsKey('vibrate_on_session_finish')) {
+      context.handle(
+        _vibrateOnSessionFinishMeta,
+        vibrateOnSessionFinish.isAcceptableOrUnknown(
+          data['vibrate_on_session_finish']!,
+          _vibrateOnSessionFinishMeta,
+        ),
+      );
+    }
+    if (data.containsKey('sync_alarms_with_android_clock')) {
+      context.handle(
+        _syncAlarmsWithAndroidClockMeta,
+        syncAlarmsWithAndroidClock.isAcceptableOrUnknown(
+          data['sync_alarms_with_android_clock']!,
+          _syncAlarmsWithAndroidClockMeta,
+        ),
+      );
+    }
+    if (data.containsKey('vision_inspection_detail')) {
+      context.handle(
+        _visionInspectionDetailMeta,
+        visionInspectionDetail.isAcceptableOrUnknown(
+          data['vision_inspection_detail']!,
+          _visionInspectionDetailMeta,
+        ),
+      );
+    }
+    if (data.containsKey('auto_flashlight_in_dark')) {
+      context.handle(
+        _autoFlashlightInDarkMeta,
+        autoFlashlightInDark.isAcceptableOrUnknown(
+          data['auto_flashlight_in_dark']!,
+          _autoFlashlightInDarkMeta,
+        ),
+      );
+    }
+    if (data.containsKey('preferred_currency')) {
+      context.handle(
+        _preferredCurrencyMeta,
+        preferredCurrency.isAcceptableOrUnknown(
+          data['preferred_currency']!,
+          _preferredCurrencyMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('is_synced')) {
+      context.handle(
+        _isSyncedMeta,
+        isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AppSetting map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppSetting(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      speechRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}speech_rate'],
+      )!,
+      hapticsEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}haptics_enabled'],
+      )!,
+      soundCuesEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sound_cues_enabled'],
+      )!,
+      isHighContrast: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_high_contrast'],
+      )!,
+      defaultPriority: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}default_priority'],
+      )!,
+      autoArchiveCompleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_archive_completed'],
+      )!,
+      speakDueDatesAloud: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}speak_due_dates_aloud'],
+      )!,
+      autoDialEmergency: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_dial_emergency'],
+      )!,
+      shareGpsOnSos: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}share_gps_on_sos'],
+      )!,
+      speakIncomingSms: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}speak_incoming_sms'],
+      )!,
+      voiceChimeHalfway: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}voice_chime_halfway'],
+      )!,
+      vibrateOnSessionFinish: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}vibrate_on_session_finish'],
+      )!,
+      syncAlarmsWithAndroidClock: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}sync_alarms_with_android_clock'],
+      )!,
+      visionInspectionDetail: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}vision_inspection_detail'],
+      )!,
+      autoFlashlightInDark: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}auto_flashlight_in_dark'],
+      )!,
+      preferredCurrency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}preferred_currency'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      isSynced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_synced'],
+      )!,
+    );
+  }
+
+  @override
+  $AppSettingsTable createAlias(String alias) {
+    return $AppSettingsTable(attachedDatabase, alias);
+  }
+}
+
+class AppSetting extends DataClass implements Insertable<AppSetting> {
+  /// معرّف الإعدادات (نستخدم 'local_settings' كمعرف ثابت للمستخدم النشط)
+  final String id;
+  final double speechRate;
+  final bool hapticsEnabled;
+  final bool soundCuesEnabled;
+  final bool isHighContrast;
+  final String defaultPriority;
+  final bool autoArchiveCompleted;
+  final bool speakDueDatesAloud;
+  final bool autoDialEmergency;
+  final bool shareGpsOnSos;
+  final bool speakIncomingSms;
+  final bool voiceChimeHalfway;
+  final bool vibrateOnSessionFinish;
+  final bool syncAlarmsWithAndroidClock;
+  final String visionInspectionDetail;
+  final bool autoFlashlightInDark;
+  final String preferredCurrency;
+  final DateTime updatedAt;
+  final bool isSynced;
+  const AppSetting({
+    required this.id,
+    required this.speechRate,
+    required this.hapticsEnabled,
+    required this.soundCuesEnabled,
+    required this.isHighContrast,
+    required this.defaultPriority,
+    required this.autoArchiveCompleted,
+    required this.speakDueDatesAloud,
+    required this.autoDialEmergency,
+    required this.shareGpsOnSos,
+    required this.speakIncomingSms,
+    required this.voiceChimeHalfway,
+    required this.vibrateOnSessionFinish,
+    required this.syncAlarmsWithAndroidClock,
+    required this.visionInspectionDetail,
+    required this.autoFlashlightInDark,
+    required this.preferredCurrency,
+    required this.updatedAt,
+    required this.isSynced,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['speech_rate'] = Variable<double>(speechRate);
+    map['haptics_enabled'] = Variable<bool>(hapticsEnabled);
+    map['sound_cues_enabled'] = Variable<bool>(soundCuesEnabled);
+    map['is_high_contrast'] = Variable<bool>(isHighContrast);
+    map['default_priority'] = Variable<String>(defaultPriority);
+    map['auto_archive_completed'] = Variable<bool>(autoArchiveCompleted);
+    map['speak_due_dates_aloud'] = Variable<bool>(speakDueDatesAloud);
+    map['auto_dial_emergency'] = Variable<bool>(autoDialEmergency);
+    map['share_gps_on_sos'] = Variable<bool>(shareGpsOnSos);
+    map['speak_incoming_sms'] = Variable<bool>(speakIncomingSms);
+    map['voice_chime_halfway'] = Variable<bool>(voiceChimeHalfway);
+    map['vibrate_on_session_finish'] = Variable<bool>(vibrateOnSessionFinish);
+    map['sync_alarms_with_android_clock'] = Variable<bool>(
+      syncAlarmsWithAndroidClock,
+    );
+    map['vision_inspection_detail'] = Variable<String>(visionInspectionDetail);
+    map['auto_flashlight_in_dark'] = Variable<bool>(autoFlashlightInDark);
+    map['preferred_currency'] = Variable<String>(preferredCurrency);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    map['is_synced'] = Variable<bool>(isSynced);
+    return map;
+  }
+
+  AppSettingsCompanion toCompanion(bool nullToAbsent) {
+    return AppSettingsCompanion(
+      id: Value(id),
+      speechRate: Value(speechRate),
+      hapticsEnabled: Value(hapticsEnabled),
+      soundCuesEnabled: Value(soundCuesEnabled),
+      isHighContrast: Value(isHighContrast),
+      defaultPriority: Value(defaultPriority),
+      autoArchiveCompleted: Value(autoArchiveCompleted),
+      speakDueDatesAloud: Value(speakDueDatesAloud),
+      autoDialEmergency: Value(autoDialEmergency),
+      shareGpsOnSos: Value(shareGpsOnSos),
+      speakIncomingSms: Value(speakIncomingSms),
+      voiceChimeHalfway: Value(voiceChimeHalfway),
+      vibrateOnSessionFinish: Value(vibrateOnSessionFinish),
+      syncAlarmsWithAndroidClock: Value(syncAlarmsWithAndroidClock),
+      visionInspectionDetail: Value(visionInspectionDetail),
+      autoFlashlightInDark: Value(autoFlashlightInDark),
+      preferredCurrency: Value(preferredCurrency),
+      updatedAt: Value(updatedAt),
+      isSynced: Value(isSynced),
+    );
+  }
+
+  factory AppSetting.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppSetting(
+      id: serializer.fromJson<String>(json['id']),
+      speechRate: serializer.fromJson<double>(json['speechRate']),
+      hapticsEnabled: serializer.fromJson<bool>(json['hapticsEnabled']),
+      soundCuesEnabled: serializer.fromJson<bool>(json['soundCuesEnabled']),
+      isHighContrast: serializer.fromJson<bool>(json['isHighContrast']),
+      defaultPriority: serializer.fromJson<String>(json['defaultPriority']),
+      autoArchiveCompleted: serializer.fromJson<bool>(
+        json['autoArchiveCompleted'],
+      ),
+      speakDueDatesAloud: serializer.fromJson<bool>(json['speakDueDatesAloud']),
+      autoDialEmergency: serializer.fromJson<bool>(json['autoDialEmergency']),
+      shareGpsOnSos: serializer.fromJson<bool>(json['shareGpsOnSos']),
+      speakIncomingSms: serializer.fromJson<bool>(json['speakIncomingSms']),
+      voiceChimeHalfway: serializer.fromJson<bool>(json['voiceChimeHalfway']),
+      vibrateOnSessionFinish: serializer.fromJson<bool>(
+        json['vibrateOnSessionFinish'],
+      ),
+      syncAlarmsWithAndroidClock: serializer.fromJson<bool>(
+        json['syncAlarmsWithAndroidClock'],
+      ),
+      visionInspectionDetail: serializer.fromJson<String>(
+        json['visionInspectionDetail'],
+      ),
+      autoFlashlightInDark: serializer.fromJson<bool>(
+        json['autoFlashlightInDark'],
+      ),
+      preferredCurrency: serializer.fromJson<String>(json['preferredCurrency']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      isSynced: serializer.fromJson<bool>(json['isSynced']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'speechRate': serializer.toJson<double>(speechRate),
+      'hapticsEnabled': serializer.toJson<bool>(hapticsEnabled),
+      'soundCuesEnabled': serializer.toJson<bool>(soundCuesEnabled),
+      'isHighContrast': serializer.toJson<bool>(isHighContrast),
+      'defaultPriority': serializer.toJson<String>(defaultPriority),
+      'autoArchiveCompleted': serializer.toJson<bool>(autoArchiveCompleted),
+      'speakDueDatesAloud': serializer.toJson<bool>(speakDueDatesAloud),
+      'autoDialEmergency': serializer.toJson<bool>(autoDialEmergency),
+      'shareGpsOnSos': serializer.toJson<bool>(shareGpsOnSos),
+      'speakIncomingSms': serializer.toJson<bool>(speakIncomingSms),
+      'voiceChimeHalfway': serializer.toJson<bool>(voiceChimeHalfway),
+      'vibrateOnSessionFinish': serializer.toJson<bool>(vibrateOnSessionFinish),
+      'syncAlarmsWithAndroidClock': serializer.toJson<bool>(
+        syncAlarmsWithAndroidClock,
+      ),
+      'visionInspectionDetail': serializer.toJson<String>(
+        visionInspectionDetail,
+      ),
+      'autoFlashlightInDark': serializer.toJson<bool>(autoFlashlightInDark),
+      'preferredCurrency': serializer.toJson<String>(preferredCurrency),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'isSynced': serializer.toJson<bool>(isSynced),
+    };
+  }
+
+  AppSetting copyWith({
+    String? id,
+    double? speechRate,
+    bool? hapticsEnabled,
+    bool? soundCuesEnabled,
+    bool? isHighContrast,
+    String? defaultPriority,
+    bool? autoArchiveCompleted,
+    bool? speakDueDatesAloud,
+    bool? autoDialEmergency,
+    bool? shareGpsOnSos,
+    bool? speakIncomingSms,
+    bool? voiceChimeHalfway,
+    bool? vibrateOnSessionFinish,
+    bool? syncAlarmsWithAndroidClock,
+    String? visionInspectionDetail,
+    bool? autoFlashlightInDark,
+    String? preferredCurrency,
+    DateTime? updatedAt,
+    bool? isSynced,
+  }) => AppSetting(
+    id: id ?? this.id,
+    speechRate: speechRate ?? this.speechRate,
+    hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
+    soundCuesEnabled: soundCuesEnabled ?? this.soundCuesEnabled,
+    isHighContrast: isHighContrast ?? this.isHighContrast,
+    defaultPriority: defaultPriority ?? this.defaultPriority,
+    autoArchiveCompleted: autoArchiveCompleted ?? this.autoArchiveCompleted,
+    speakDueDatesAloud: speakDueDatesAloud ?? this.speakDueDatesAloud,
+    autoDialEmergency: autoDialEmergency ?? this.autoDialEmergency,
+    shareGpsOnSos: shareGpsOnSos ?? this.shareGpsOnSos,
+    speakIncomingSms: speakIncomingSms ?? this.speakIncomingSms,
+    voiceChimeHalfway: voiceChimeHalfway ?? this.voiceChimeHalfway,
+    vibrateOnSessionFinish:
+        vibrateOnSessionFinish ?? this.vibrateOnSessionFinish,
+    syncAlarmsWithAndroidClock:
+        syncAlarmsWithAndroidClock ?? this.syncAlarmsWithAndroidClock,
+    visionInspectionDetail:
+        visionInspectionDetail ?? this.visionInspectionDetail,
+    autoFlashlightInDark: autoFlashlightInDark ?? this.autoFlashlightInDark,
+    preferredCurrency: preferredCurrency ?? this.preferredCurrency,
+    updatedAt: updatedAt ?? this.updatedAt,
+    isSynced: isSynced ?? this.isSynced,
+  );
+  AppSetting copyWithCompanion(AppSettingsCompanion data) {
+    return AppSetting(
+      id: data.id.present ? data.id.value : this.id,
+      speechRate: data.speechRate.present
+          ? data.speechRate.value
+          : this.speechRate,
+      hapticsEnabled: data.hapticsEnabled.present
+          ? data.hapticsEnabled.value
+          : this.hapticsEnabled,
+      soundCuesEnabled: data.soundCuesEnabled.present
+          ? data.soundCuesEnabled.value
+          : this.soundCuesEnabled,
+      isHighContrast: data.isHighContrast.present
+          ? data.isHighContrast.value
+          : this.isHighContrast,
+      defaultPriority: data.defaultPriority.present
+          ? data.defaultPriority.value
+          : this.defaultPriority,
+      autoArchiveCompleted: data.autoArchiveCompleted.present
+          ? data.autoArchiveCompleted.value
+          : this.autoArchiveCompleted,
+      speakDueDatesAloud: data.speakDueDatesAloud.present
+          ? data.speakDueDatesAloud.value
+          : this.speakDueDatesAloud,
+      autoDialEmergency: data.autoDialEmergency.present
+          ? data.autoDialEmergency.value
+          : this.autoDialEmergency,
+      shareGpsOnSos: data.shareGpsOnSos.present
+          ? data.shareGpsOnSos.value
+          : this.shareGpsOnSos,
+      speakIncomingSms: data.speakIncomingSms.present
+          ? data.speakIncomingSms.value
+          : this.speakIncomingSms,
+      voiceChimeHalfway: data.voiceChimeHalfway.present
+          ? data.voiceChimeHalfway.value
+          : this.voiceChimeHalfway,
+      vibrateOnSessionFinish: data.vibrateOnSessionFinish.present
+          ? data.vibrateOnSessionFinish.value
+          : this.vibrateOnSessionFinish,
+      syncAlarmsWithAndroidClock: data.syncAlarmsWithAndroidClock.present
+          ? data.syncAlarmsWithAndroidClock.value
+          : this.syncAlarmsWithAndroidClock,
+      visionInspectionDetail: data.visionInspectionDetail.present
+          ? data.visionInspectionDetail.value
+          : this.visionInspectionDetail,
+      autoFlashlightInDark: data.autoFlashlightInDark.present
+          ? data.autoFlashlightInDark.value
+          : this.autoFlashlightInDark,
+      preferredCurrency: data.preferredCurrency.present
+          ? data.preferredCurrency.value
+          : this.preferredCurrency,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSetting(')
+          ..write('id: $id, ')
+          ..write('speechRate: $speechRate, ')
+          ..write('hapticsEnabled: $hapticsEnabled, ')
+          ..write('soundCuesEnabled: $soundCuesEnabled, ')
+          ..write('isHighContrast: $isHighContrast, ')
+          ..write('defaultPriority: $defaultPriority, ')
+          ..write('autoArchiveCompleted: $autoArchiveCompleted, ')
+          ..write('speakDueDatesAloud: $speakDueDatesAloud, ')
+          ..write('autoDialEmergency: $autoDialEmergency, ')
+          ..write('shareGpsOnSos: $shareGpsOnSos, ')
+          ..write('speakIncomingSms: $speakIncomingSms, ')
+          ..write('voiceChimeHalfway: $voiceChimeHalfway, ')
+          ..write('vibrateOnSessionFinish: $vibrateOnSessionFinish, ')
+          ..write('syncAlarmsWithAndroidClock: $syncAlarmsWithAndroidClock, ')
+          ..write('visionInspectionDetail: $visionInspectionDetail, ')
+          ..write('autoFlashlightInDark: $autoFlashlightInDark, ')
+          ..write('preferredCurrency: $preferredCurrency, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('isSynced: $isSynced')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    speechRate,
+    hapticsEnabled,
+    soundCuesEnabled,
+    isHighContrast,
+    defaultPriority,
+    autoArchiveCompleted,
+    speakDueDatesAloud,
+    autoDialEmergency,
+    shareGpsOnSos,
+    speakIncomingSms,
+    voiceChimeHalfway,
+    vibrateOnSessionFinish,
+    syncAlarmsWithAndroidClock,
+    visionInspectionDetail,
+    autoFlashlightInDark,
+    preferredCurrency,
+    updatedAt,
+    isSynced,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppSetting &&
+          other.id == this.id &&
+          other.speechRate == this.speechRate &&
+          other.hapticsEnabled == this.hapticsEnabled &&
+          other.soundCuesEnabled == this.soundCuesEnabled &&
+          other.isHighContrast == this.isHighContrast &&
+          other.defaultPriority == this.defaultPriority &&
+          other.autoArchiveCompleted == this.autoArchiveCompleted &&
+          other.speakDueDatesAloud == this.speakDueDatesAloud &&
+          other.autoDialEmergency == this.autoDialEmergency &&
+          other.shareGpsOnSos == this.shareGpsOnSos &&
+          other.speakIncomingSms == this.speakIncomingSms &&
+          other.voiceChimeHalfway == this.voiceChimeHalfway &&
+          other.vibrateOnSessionFinish == this.vibrateOnSessionFinish &&
+          other.syncAlarmsWithAndroidClock == this.syncAlarmsWithAndroidClock &&
+          other.visionInspectionDetail == this.visionInspectionDetail &&
+          other.autoFlashlightInDark == this.autoFlashlightInDark &&
+          other.preferredCurrency == this.preferredCurrency &&
+          other.updatedAt == this.updatedAt &&
+          other.isSynced == this.isSynced);
+}
+
+class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
+  final Value<String> id;
+  final Value<double> speechRate;
+  final Value<bool> hapticsEnabled;
+  final Value<bool> soundCuesEnabled;
+  final Value<bool> isHighContrast;
+  final Value<String> defaultPriority;
+  final Value<bool> autoArchiveCompleted;
+  final Value<bool> speakDueDatesAloud;
+  final Value<bool> autoDialEmergency;
+  final Value<bool> shareGpsOnSos;
+  final Value<bool> speakIncomingSms;
+  final Value<bool> voiceChimeHalfway;
+  final Value<bool> vibrateOnSessionFinish;
+  final Value<bool> syncAlarmsWithAndroidClock;
+  final Value<String> visionInspectionDetail;
+  final Value<bool> autoFlashlightInDark;
+  final Value<String> preferredCurrency;
+  final Value<DateTime> updatedAt;
+  final Value<bool> isSynced;
+  final Value<int> rowid;
+  const AppSettingsCompanion({
+    this.id = const Value.absent(),
+    this.speechRate = const Value.absent(),
+    this.hapticsEnabled = const Value.absent(),
+    this.soundCuesEnabled = const Value.absent(),
+    this.isHighContrast = const Value.absent(),
+    this.defaultPriority = const Value.absent(),
+    this.autoArchiveCompleted = const Value.absent(),
+    this.speakDueDatesAloud = const Value.absent(),
+    this.autoDialEmergency = const Value.absent(),
+    this.shareGpsOnSos = const Value.absent(),
+    this.speakIncomingSms = const Value.absent(),
+    this.voiceChimeHalfway = const Value.absent(),
+    this.vibrateOnSessionFinish = const Value.absent(),
+    this.syncAlarmsWithAndroidClock = const Value.absent(),
+    this.visionInspectionDetail = const Value.absent(),
+    this.autoFlashlightInDark = const Value.absent(),
+    this.preferredCurrency = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppSettingsCompanion.insert({
+    required String id,
+    this.speechRate = const Value.absent(),
+    this.hapticsEnabled = const Value.absent(),
+    this.soundCuesEnabled = const Value.absent(),
+    this.isHighContrast = const Value.absent(),
+    this.defaultPriority = const Value.absent(),
+    this.autoArchiveCompleted = const Value.absent(),
+    this.speakDueDatesAloud = const Value.absent(),
+    this.autoDialEmergency = const Value.absent(),
+    this.shareGpsOnSos = const Value.absent(),
+    this.speakIncomingSms = const Value.absent(),
+    this.voiceChimeHalfway = const Value.absent(),
+    this.vibrateOnSessionFinish = const Value.absent(),
+    this.syncAlarmsWithAndroidClock = const Value.absent(),
+    this.visionInspectionDetail = const Value.absent(),
+    this.autoFlashlightInDark = const Value.absent(),
+    this.preferredCurrency = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id);
+  static Insertable<AppSetting> custom({
+    Expression<String>? id,
+    Expression<double>? speechRate,
+    Expression<bool>? hapticsEnabled,
+    Expression<bool>? soundCuesEnabled,
+    Expression<bool>? isHighContrast,
+    Expression<String>? defaultPriority,
+    Expression<bool>? autoArchiveCompleted,
+    Expression<bool>? speakDueDatesAloud,
+    Expression<bool>? autoDialEmergency,
+    Expression<bool>? shareGpsOnSos,
+    Expression<bool>? speakIncomingSms,
+    Expression<bool>? voiceChimeHalfway,
+    Expression<bool>? vibrateOnSessionFinish,
+    Expression<bool>? syncAlarmsWithAndroidClock,
+    Expression<String>? visionInspectionDetail,
+    Expression<bool>? autoFlashlightInDark,
+    Expression<String>? preferredCurrency,
+    Expression<DateTime>? updatedAt,
+    Expression<bool>? isSynced,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (speechRate != null) 'speech_rate': speechRate,
+      if (hapticsEnabled != null) 'haptics_enabled': hapticsEnabled,
+      if (soundCuesEnabled != null) 'sound_cues_enabled': soundCuesEnabled,
+      if (isHighContrast != null) 'is_high_contrast': isHighContrast,
+      if (defaultPriority != null) 'default_priority': defaultPriority,
+      if (autoArchiveCompleted != null)
+        'auto_archive_completed': autoArchiveCompleted,
+      if (speakDueDatesAloud != null)
+        'speak_due_dates_aloud': speakDueDatesAloud,
+      if (autoDialEmergency != null) 'auto_dial_emergency': autoDialEmergency,
+      if (shareGpsOnSos != null) 'share_gps_on_sos': shareGpsOnSos,
+      if (speakIncomingSms != null) 'speak_incoming_sms': speakIncomingSms,
+      if (voiceChimeHalfway != null) 'voice_chime_halfway': voiceChimeHalfway,
+      if (vibrateOnSessionFinish != null)
+        'vibrate_on_session_finish': vibrateOnSessionFinish,
+      if (syncAlarmsWithAndroidClock != null)
+        'sync_alarms_with_android_clock': syncAlarmsWithAndroidClock,
+      if (visionInspectionDetail != null)
+        'vision_inspection_detail': visionInspectionDetail,
+      if (autoFlashlightInDark != null)
+        'auto_flashlight_in_dark': autoFlashlightInDark,
+      if (preferredCurrency != null) 'preferred_currency': preferredCurrency,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (isSynced != null) 'is_synced': isSynced,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppSettingsCompanion copyWith({
+    Value<String>? id,
+    Value<double>? speechRate,
+    Value<bool>? hapticsEnabled,
+    Value<bool>? soundCuesEnabled,
+    Value<bool>? isHighContrast,
+    Value<String>? defaultPriority,
+    Value<bool>? autoArchiveCompleted,
+    Value<bool>? speakDueDatesAloud,
+    Value<bool>? autoDialEmergency,
+    Value<bool>? shareGpsOnSos,
+    Value<bool>? speakIncomingSms,
+    Value<bool>? voiceChimeHalfway,
+    Value<bool>? vibrateOnSessionFinish,
+    Value<bool>? syncAlarmsWithAndroidClock,
+    Value<String>? visionInspectionDetail,
+    Value<bool>? autoFlashlightInDark,
+    Value<String>? preferredCurrency,
+    Value<DateTime>? updatedAt,
+    Value<bool>? isSynced,
+    Value<int>? rowid,
+  }) {
+    return AppSettingsCompanion(
+      id: id ?? this.id,
+      speechRate: speechRate ?? this.speechRate,
+      hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
+      soundCuesEnabled: soundCuesEnabled ?? this.soundCuesEnabled,
+      isHighContrast: isHighContrast ?? this.isHighContrast,
+      defaultPriority: defaultPriority ?? this.defaultPriority,
+      autoArchiveCompleted: autoArchiveCompleted ?? this.autoArchiveCompleted,
+      speakDueDatesAloud: speakDueDatesAloud ?? this.speakDueDatesAloud,
+      autoDialEmergency: autoDialEmergency ?? this.autoDialEmergency,
+      shareGpsOnSos: shareGpsOnSos ?? this.shareGpsOnSos,
+      speakIncomingSms: speakIncomingSms ?? this.speakIncomingSms,
+      voiceChimeHalfway: voiceChimeHalfway ?? this.voiceChimeHalfway,
+      vibrateOnSessionFinish:
+          vibrateOnSessionFinish ?? this.vibrateOnSessionFinish,
+      syncAlarmsWithAndroidClock:
+          syncAlarmsWithAndroidClock ?? this.syncAlarmsWithAndroidClock,
+      visionInspectionDetail:
+          visionInspectionDetail ?? this.visionInspectionDetail,
+      autoFlashlightInDark: autoFlashlightInDark ?? this.autoFlashlightInDark,
+      preferredCurrency: preferredCurrency ?? this.preferredCurrency,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isSynced: isSynced ?? this.isSynced,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (speechRate.present) {
+      map['speech_rate'] = Variable<double>(speechRate.value);
+    }
+    if (hapticsEnabled.present) {
+      map['haptics_enabled'] = Variable<bool>(hapticsEnabled.value);
+    }
+    if (soundCuesEnabled.present) {
+      map['sound_cues_enabled'] = Variable<bool>(soundCuesEnabled.value);
+    }
+    if (isHighContrast.present) {
+      map['is_high_contrast'] = Variable<bool>(isHighContrast.value);
+    }
+    if (defaultPriority.present) {
+      map['default_priority'] = Variable<String>(defaultPriority.value);
+    }
+    if (autoArchiveCompleted.present) {
+      map['auto_archive_completed'] = Variable<bool>(
+        autoArchiveCompleted.value,
+      );
+    }
+    if (speakDueDatesAloud.present) {
+      map['speak_due_dates_aloud'] = Variable<bool>(speakDueDatesAloud.value);
+    }
+    if (autoDialEmergency.present) {
+      map['auto_dial_emergency'] = Variable<bool>(autoDialEmergency.value);
+    }
+    if (shareGpsOnSos.present) {
+      map['share_gps_on_sos'] = Variable<bool>(shareGpsOnSos.value);
+    }
+    if (speakIncomingSms.present) {
+      map['speak_incoming_sms'] = Variable<bool>(speakIncomingSms.value);
+    }
+    if (voiceChimeHalfway.present) {
+      map['voice_chime_halfway'] = Variable<bool>(voiceChimeHalfway.value);
+    }
+    if (vibrateOnSessionFinish.present) {
+      map['vibrate_on_session_finish'] = Variable<bool>(
+        vibrateOnSessionFinish.value,
+      );
+    }
+    if (syncAlarmsWithAndroidClock.present) {
+      map['sync_alarms_with_android_clock'] = Variable<bool>(
+        syncAlarmsWithAndroidClock.value,
+      );
+    }
+    if (visionInspectionDetail.present) {
+      map['vision_inspection_detail'] = Variable<String>(
+        visionInspectionDetail.value,
+      );
+    }
+    if (autoFlashlightInDark.present) {
+      map['auto_flashlight_in_dark'] = Variable<bool>(
+        autoFlashlightInDark.value,
+      );
+    }
+    if (preferredCurrency.present) {
+      map['preferred_currency'] = Variable<String>(preferredCurrency.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (isSynced.present) {
+      map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppSettingsCompanion(')
+          ..write('id: $id, ')
+          ..write('speechRate: $speechRate, ')
+          ..write('hapticsEnabled: $hapticsEnabled, ')
+          ..write('soundCuesEnabled: $soundCuesEnabled, ')
+          ..write('isHighContrast: $isHighContrast, ')
+          ..write('defaultPriority: $defaultPriority, ')
+          ..write('autoArchiveCompleted: $autoArchiveCompleted, ')
+          ..write('speakDueDatesAloud: $speakDueDatesAloud, ')
+          ..write('autoDialEmergency: $autoDialEmergency, ')
+          ..write('shareGpsOnSos: $shareGpsOnSos, ')
+          ..write('speakIncomingSms: $speakIncomingSms, ')
+          ..write('voiceChimeHalfway: $voiceChimeHalfway, ')
+          ..write('vibrateOnSessionFinish: $vibrateOnSessionFinish, ')
+          ..write('syncAlarmsWithAndroidClock: $syncAlarmsWithAndroidClock, ')
+          ..write('visionInspectionDetail: $visionInspectionDetail, ')
+          ..write('autoFlashlightInDark: $autoFlashlightInDark, ')
+          ..write('preferredCurrency: $preferredCurrency, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SosAlertsTable extends SosAlerts
+    with TableInfo<$SosAlertsTable, SosAlert> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SosAlertsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _latitudeMeta = const VerificationMeta(
+    'latitude',
+  );
+  @override
+  late final GeneratedColumn<double> latitude = GeneratedColumn<double>(
+    'latitude',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _longitudeMeta = const VerificationMeta(
+    'longitude',
+  );
+  @override
+  late final GeneratedColumn<double> longitude = GeneratedColumn<double>(
+    'longitude',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _batteryLevelMeta = const VerificationMeta(
+    'batteryLevel',
+  );
+  @override
+  late final GeneratedColumn<int> batteryLevel = GeneratedColumn<int>(
+    'battery_level',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(100),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('active'),
+  );
+  static const VerificationMeta _googleMapsUrlMeta = const VerificationMeta(
+    'googleMapsUrl',
+  );
+  @override
+  late final GeneratedColumn<String> googleMapsUrl = GeneratedColumn<String>(
+    'google_maps_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _triggeredAtMeta = const VerificationMeta(
+    'triggeredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> triggeredAt = GeneratedColumn<DateTime>(
+    'triggered_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isSyncedMeta = const VerificationMeta(
+    'isSynced',
+  );
+  @override
+  late final GeneratedColumn<bool> isSynced = GeneratedColumn<bool>(
+    'is_synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    latitude,
+    longitude,
+    batteryLevel,
+    status,
+    googleMapsUrl,
+    triggeredAt,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isSynced,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sos_alerts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SosAlert> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('latitude')) {
+      context.handle(
+        _latitudeMeta,
+        latitude.isAcceptableOrUnknown(data['latitude']!, _latitudeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_latitudeMeta);
+    }
+    if (data.containsKey('longitude')) {
+      context.handle(
+        _longitudeMeta,
+        longitude.isAcceptableOrUnknown(data['longitude']!, _longitudeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_longitudeMeta);
+    }
+    if (data.containsKey('battery_level')) {
+      context.handle(
+        _batteryLevelMeta,
+        batteryLevel.isAcceptableOrUnknown(
+          data['battery_level']!,
+          _batteryLevelMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('google_maps_url')) {
+      context.handle(
+        _googleMapsUrlMeta,
+        googleMapsUrl.isAcceptableOrUnknown(
+          data['google_maps_url']!,
+          _googleMapsUrlMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_googleMapsUrlMeta);
+    }
+    if (data.containsKey('triggered_at')) {
+      context.handle(
+        _triggeredAtMeta,
+        triggeredAt.isAcceptableOrUnknown(
+          data['triggered_at']!,
+          _triggeredAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_synced')) {
+      context.handle(
+        _isSyncedMeta,
+        isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SosAlert map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SosAlert(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      latitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}latitude'],
+      )!,
+      longitude: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}longitude'],
+      )!,
+      batteryLevel: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}battery_level'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      googleMapsUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}google_maps_url'],
+      )!,
+      triggeredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}triggered_at'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isSynced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_synced'],
+      )!,
+    );
+  }
+
+  @override
+  $SosAlertsTable createAlias(String alias) {
+    return $SosAlertsTable(attachedDatabase, alias);
+  }
+}
+
+class SosAlert extends DataClass implements Insertable<SosAlert> {
+  final String id;
+  final double latitude;
+  final double longitude;
+  final int batteryLevel;
+  final String status;
+  final String googleMapsUrl;
+  final DateTime triggeredAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final bool isSynced;
+  const SosAlert({
+    required this.id,
+    required this.latitude,
+    required this.longitude,
+    required this.batteryLevel,
+    required this.status,
+    required this.googleMapsUrl,
+    required this.triggeredAt,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.isSynced,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['latitude'] = Variable<double>(latitude);
+    map['longitude'] = Variable<double>(longitude);
+    map['battery_level'] = Variable<int>(batteryLevel);
+    map['status'] = Variable<String>(status);
+    map['google_maps_url'] = Variable<String>(googleMapsUrl);
+    map['triggered_at'] = Variable<DateTime>(triggeredAt);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_synced'] = Variable<bool>(isSynced);
+    return map;
+  }
+
+  SosAlertsCompanion toCompanion(bool nullToAbsent) {
+    return SosAlertsCompanion(
+      id: Value(id),
+      latitude: Value(latitude),
+      longitude: Value(longitude),
+      batteryLevel: Value(batteryLevel),
+      status: Value(status),
+      googleMapsUrl: Value(googleMapsUrl),
+      triggeredAt: Value(triggeredAt),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isSynced: Value(isSynced),
+    );
+  }
+
+  factory SosAlert.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SosAlert(
+      id: serializer.fromJson<String>(json['id']),
+      latitude: serializer.fromJson<double>(json['latitude']),
+      longitude: serializer.fromJson<double>(json['longitude']),
+      batteryLevel: serializer.fromJson<int>(json['batteryLevel']),
+      status: serializer.fromJson<String>(json['status']),
+      googleMapsUrl: serializer.fromJson<String>(json['googleMapsUrl']),
+      triggeredAt: serializer.fromJson<DateTime>(json['triggeredAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isSynced: serializer.fromJson<bool>(json['isSynced']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'latitude': serializer.toJson<double>(latitude),
+      'longitude': serializer.toJson<double>(longitude),
+      'batteryLevel': serializer.toJson<int>(batteryLevel),
+      'status': serializer.toJson<String>(status),
+      'googleMapsUrl': serializer.toJson<String>(googleMapsUrl),
+      'triggeredAt': serializer.toJson<DateTime>(triggeredAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isSynced': serializer.toJson<bool>(isSynced),
+    };
+  }
+
+  SosAlert copyWith({
+    String? id,
+    double? latitude,
+    double? longitude,
+    int? batteryLevel,
+    String? status,
+    String? googleMapsUrl,
+    DateTime? triggeredAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isSynced,
+  }) => SosAlert(
+    id: id ?? this.id,
+    latitude: latitude ?? this.latitude,
+    longitude: longitude ?? this.longitude,
+    batteryLevel: batteryLevel ?? this.batteryLevel,
+    status: status ?? this.status,
+    googleMapsUrl: googleMapsUrl ?? this.googleMapsUrl,
+    triggeredAt: triggeredAt ?? this.triggeredAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isSynced: isSynced ?? this.isSynced,
+  );
+  SosAlert copyWithCompanion(SosAlertsCompanion data) {
+    return SosAlert(
+      id: data.id.present ? data.id.value : this.id,
+      latitude: data.latitude.present ? data.latitude.value : this.latitude,
+      longitude: data.longitude.present ? data.longitude.value : this.longitude,
+      batteryLevel: data.batteryLevel.present
+          ? data.batteryLevel.value
+          : this.batteryLevel,
+      status: data.status.present ? data.status.value : this.status,
+      googleMapsUrl: data.googleMapsUrl.present
+          ? data.googleMapsUrl.value
+          : this.googleMapsUrl,
+      triggeredAt: data.triggeredAt.present
+          ? data.triggeredAt.value
+          : this.triggeredAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SosAlert(')
+          ..write('id: $id, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('batteryLevel: $batteryLevel, ')
+          ..write('status: $status, ')
+          ..write('googleMapsUrl: $googleMapsUrl, ')
+          ..write('triggeredAt: $triggeredAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    latitude,
+    longitude,
+    batteryLevel,
+    status,
+    googleMapsUrl,
+    triggeredAt,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isSynced,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SosAlert &&
+          other.id == this.id &&
+          other.latitude == this.latitude &&
+          other.longitude == this.longitude &&
+          other.batteryLevel == this.batteryLevel &&
+          other.status == this.status &&
+          other.googleMapsUrl == this.googleMapsUrl &&
+          other.triggeredAt == this.triggeredAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isSynced == this.isSynced);
+}
+
+class SosAlertsCompanion extends UpdateCompanion<SosAlert> {
+  final Value<String> id;
+  final Value<double> latitude;
+  final Value<double> longitude;
+  final Value<int> batteryLevel;
+  final Value<String> status;
+  final Value<String> googleMapsUrl;
+  final Value<DateTime> triggeredAt;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isSynced;
+  final Value<int> rowid;
+  const SosAlertsCompanion({
+    this.id = const Value.absent(),
+    this.latitude = const Value.absent(),
+    this.longitude = const Value.absent(),
+    this.batteryLevel = const Value.absent(),
+    this.status = const Value.absent(),
+    this.googleMapsUrl = const Value.absent(),
+    this.triggeredAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SosAlertsCompanion.insert({
+    required String id,
+    required double latitude,
+    required double longitude,
+    this.batteryLevel = const Value.absent(),
+    this.status = const Value.absent(),
+    required String googleMapsUrl,
+    this.triggeredAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       latitude = Value(latitude),
+       longitude = Value(longitude),
+       googleMapsUrl = Value(googleMapsUrl);
+  static Insertable<SosAlert> custom({
+    Expression<String>? id,
+    Expression<double>? latitude,
+    Expression<double>? longitude,
+    Expression<int>? batteryLevel,
+    Expression<String>? status,
+    Expression<String>? googleMapsUrl,
+    Expression<DateTime>? triggeredAt,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isSynced,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
+      if (batteryLevel != null) 'battery_level': batteryLevel,
+      if (status != null) 'status': status,
+      if (googleMapsUrl != null) 'google_maps_url': googleMapsUrl,
+      if (triggeredAt != null) 'triggered_at': triggeredAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isSynced != null) 'is_synced': isSynced,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SosAlertsCompanion copyWith({
+    Value<String>? id,
+    Value<double>? latitude,
+    Value<double>? longitude,
+    Value<int>? batteryLevel,
+    Value<String>? status,
+    Value<String>? googleMapsUrl,
+    Value<DateTime>? triggeredAt,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isSynced,
+    Value<int>? rowid,
+  }) {
+    return SosAlertsCompanion(
+      id: id ?? this.id,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      batteryLevel: batteryLevel ?? this.batteryLevel,
+      status: status ?? this.status,
+      googleMapsUrl: googleMapsUrl ?? this.googleMapsUrl,
+      triggeredAt: triggeredAt ?? this.triggeredAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isSynced: isSynced ?? this.isSynced,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (latitude.present) {
+      map['latitude'] = Variable<double>(latitude.value);
+    }
+    if (longitude.present) {
+      map['longitude'] = Variable<double>(longitude.value);
+    }
+    if (batteryLevel.present) {
+      map['battery_level'] = Variable<int>(batteryLevel.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (googleMapsUrl.present) {
+      map['google_maps_url'] = Variable<String>(googleMapsUrl.value);
+    }
+    if (triggeredAt.present) {
+      map['triggered_at'] = Variable<DateTime>(triggeredAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isSynced.present) {
+      map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SosAlertsCompanion(')
+          ..write('id: $id, ')
+          ..write('latitude: $latitude, ')
+          ..write('longitude: $longitude, ')
+          ..write('batteryLevel: $batteryLevel, ')
+          ..write('status: $status, ')
+          ..write('googleMapsUrl: $googleMapsUrl, ')
+          ..write('triggeredAt: $triggeredAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $VisionScansTable extends VisionScans
+    with TableInfo<$VisionScansTable, VisionScan> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $VisionScansTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _modeMeta = const VerificationMeta('mode');
+  @override
+  late final GeneratedColumn<String> mode = GeneratedColumn<String>(
+    'mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _promptMeta = const VerificationMeta('prompt');
+  @override
+  late final GeneratedColumn<String> prompt = GeneratedColumn<String>(
+    'prompt',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _deletedAtMeta = const VerificationMeta(
+    'deletedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> deletedAt = GeneratedColumn<DateTime>(
+    'deleted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _isSyncedMeta = const VerificationMeta(
+    'isSynced',
+  );
+  @override
+  late final GeneratedColumn<bool> isSynced = GeneratedColumn<bool>(
+    'is_synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    mode,
+    prompt,
+    description,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isSynced,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'vision_scans';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<VisionScan> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('mode')) {
+      context.handle(
+        _modeMeta,
+        mode.isAcceptableOrUnknown(data['mode']!, _modeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_modeMeta);
+    }
+    if (data.containsKey('prompt')) {
+      context.handle(
+        _promptMeta,
+        prompt.isAcceptableOrUnknown(data['prompt']!, _promptMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_promptMeta);
+    }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_descriptionMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    if (data.containsKey('deleted_at')) {
+      context.handle(
+        _deletedAtMeta,
+        deletedAt.isAcceptableOrUnknown(data['deleted_at']!, _deletedAtMeta),
+      );
+    }
+    if (data.containsKey('is_synced')) {
+      context.handle(
+        _isSyncedMeta,
+        isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  VisionScan map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return VisionScan(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      mode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mode'],
+      )!,
+      prompt: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}prompt'],
+      )!,
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+      deletedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}deleted_at'],
+      ),
+      isSynced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_synced'],
+      )!,
+    );
+  }
+
+  @override
+  $VisionScansTable createAlias(String alias) {
+    return $VisionScansTable(attachedDatabase, alias);
+  }
+}
+
+class VisionScan extends DataClass implements Insertable<VisionScan> {
+  final String id;
+  final String mode;
+  final String prompt;
+  final String description;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+  final bool isSynced;
+  const VisionScan({
+    required this.id,
+    required this.mode,
+    required this.prompt,
+    required this.description,
+    required this.createdAt,
+    required this.updatedAt,
+    this.deletedAt,
+    required this.isSynced,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['mode'] = Variable<String>(mode);
+    map['prompt'] = Variable<String>(prompt);
+    map['description'] = Variable<String>(description);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || deletedAt != null) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt);
+    }
+    map['is_synced'] = Variable<bool>(isSynced);
+    return map;
+  }
+
+  VisionScansCompanion toCompanion(bool nullToAbsent) {
+    return VisionScansCompanion(
+      id: Value(id),
+      mode: Value(mode),
+      prompt: Value(prompt),
+      description: Value(description),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+      deletedAt: deletedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(deletedAt),
+      isSynced: Value(isSynced),
+    );
+  }
+
+  factory VisionScan.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return VisionScan(
+      id: serializer.fromJson<String>(json['id']),
+      mode: serializer.fromJson<String>(json['mode']),
+      prompt: serializer.fromJson<String>(json['prompt']),
+      description: serializer.fromJson<String>(json['description']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
+      isSynced: serializer.fromJson<bool>(json['isSynced']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'mode': serializer.toJson<String>(mode),
+      'prompt': serializer.toJson<String>(prompt),
+      'description': serializer.toJson<String>(description),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'deletedAt': serializer.toJson<DateTime?>(deletedAt),
+      'isSynced': serializer.toJson<bool>(isSynced),
+    };
+  }
+
+  VisionScan copyWith({
+    String? id,
+    String? mode,
+    String? prompt,
+    String? description,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    Value<DateTime?> deletedAt = const Value.absent(),
+    bool? isSynced,
+  }) => VisionScan(
+    id: id ?? this.id,
+    mode: mode ?? this.mode,
+    prompt: prompt ?? this.prompt,
+    description: description ?? this.description,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
+    isSynced: isSynced ?? this.isSynced,
+  );
+  VisionScan copyWithCompanion(VisionScansCompanion data) {
+    return VisionScan(
+      id: data.id.present ? data.id.value : this.id,
+      mode: data.mode.present ? data.mode.value : this.mode,
+      prompt: data.prompt.present ? data.prompt.value : this.prompt,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      deletedAt: data.deletedAt.present ? data.deletedAt.value : this.deletedAt,
+      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VisionScan(')
+          ..write('id: $id, ')
+          ..write('mode: $mode, ')
+          ..write('prompt: $prompt, ')
+          ..write('description: $description, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    mode,
+    prompt,
+    description,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    isSynced,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is VisionScan &&
+          other.id == this.id &&
+          other.mode == this.mode &&
+          other.prompt == this.prompt &&
+          other.description == this.description &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt &&
+          other.deletedAt == this.deletedAt &&
+          other.isSynced == this.isSynced);
+}
+
+class VisionScansCompanion extends UpdateCompanion<VisionScan> {
+  final Value<String> id;
+  final Value<String> mode;
+  final Value<String> prompt;
+  final Value<String> description;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<DateTime?> deletedAt;
+  final Value<bool> isSynced;
+  final Value<int> rowid;
+  const VisionScansCompanion({
+    this.id = const Value.absent(),
+    this.mode = const Value.absent(),
+    this.prompt = const Value.absent(),
+    this.description = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  VisionScansCompanion.insert({
+    required String id,
+    required String mode,
+    required String prompt,
+    required String description,
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.deletedAt = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       mode = Value(mode),
+       prompt = Value(prompt),
+       description = Value(description);
+  static Insertable<VisionScan> custom({
+    Expression<String>? id,
+    Expression<String>? mode,
+    Expression<String>? prompt,
+    Expression<String>? description,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<DateTime>? deletedAt,
+    Expression<bool>? isSynced,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (mode != null) 'mode': mode,
+      if (prompt != null) 'prompt': prompt,
+      if (description != null) 'description': description,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (deletedAt != null) 'deleted_at': deletedAt,
+      if (isSynced != null) 'is_synced': isSynced,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  VisionScansCompanion copyWith({
+    Value<String>? id,
+    Value<String>? mode,
+    Value<String>? prompt,
+    Value<String>? description,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<DateTime?>? deletedAt,
+    Value<bool>? isSynced,
+    Value<int>? rowid,
+  }) {
+    return VisionScansCompanion(
+      id: id ?? this.id,
+      mode: mode ?? this.mode,
+      prompt: prompt ?? this.prompt,
+      description: description ?? this.description,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      isSynced: isSynced ?? this.isSynced,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (mode.present) {
+      map['mode'] = Variable<String>(mode.value);
+    }
+    if (prompt.present) {
+      map['prompt'] = Variable<String>(prompt.value);
+    }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (deletedAt.present) {
+      map['deleted_at'] = Variable<DateTime>(deletedAt.value);
+    }
+    if (isSynced.present) {
+      map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('VisionScansCompanion(')
+          ..write('id: $id, ')
+          ..write('mode: $mode, ')
+          ..write('prompt: $prompt, ')
+          ..write('description: $description, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('deletedAt: $deletedAt, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -3109,6 +6147,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $MessagesVaultTable messagesVault = $MessagesVaultTable(this);
   late final $AlarmsTable alarms = $AlarmsTable(this);
   late final $FocusSessionsTable focusSessions = $FocusSessionsTable(this);
+  late final $AppSettingsTable appSettings = $AppSettingsTable(this);
+  late final $SosAlertsTable sosAlerts = $SosAlertsTable(this);
+  late final $VisionScansTable visionScans = $VisionScansTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -3121,24 +6162,33 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     messagesVault,
     alarms,
     focusSessions,
+    appSettings,
+    sosAlerts,
+    visionScans,
   ];
 }
 
 typedef $$VoiceMemosTableCreateCompanionBuilder =
     VoiceMemosCompanion Function({
-      Value<int> id,
+      required String id,
       required String title,
       required String content,
       Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 typedef $$VoiceMemosTableUpdateCompanionBuilder =
     VoiceMemosCompanion Function({
-      Value<int> id,
+      Value<String> id,
       Value<String> title,
       Value<String> content,
       Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 
 class $$VoiceMemosTableFilterComposer
@@ -3150,7 +6200,7 @@ class $$VoiceMemosTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get id => $composableBuilder(
+  ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
   );
@@ -3170,6 +6220,16 @@ class $$VoiceMemosTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnFilters(column),
@@ -3185,7 +6245,7 @@ class $$VoiceMemosTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get id => $composableBuilder(
+  ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
   );
@@ -3205,6 +6265,16 @@ class $$VoiceMemosTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnOrderings(column),
@@ -3220,7 +6290,7 @@ class $$VoiceMemosTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get id =>
+  GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
   GeneratedColumn<String> get title =>
@@ -3231,6 +6301,12 @@ class $$VoiceMemosTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
@@ -3267,31 +6343,43 @@ class $$VoiceMemosTableTableManager
               $$VoiceMemosTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                Value<String> id = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String> content = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => VoiceMemosCompanion(
                 id: id,
                 title: title,
                 content: content,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           createCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                required String id,
                 required String title,
                 required String content,
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => VoiceMemosCompanion.insert(
                 id: id,
                 title: title,
                 content: content,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -3326,23 +6414,29 @@ typedef $$VoiceMemosTableProcessedTableManager =
     >;
 typedef $$TasksTableCreateCompanionBuilder =
     TasksCompanion Function({
-      Value<int> id,
+      required String id,
       required String title,
       Value<DateTime?> dueDate,
       Value<String> priority,
       Value<bool> isCompleted,
       Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 typedef $$TasksTableUpdateCompanionBuilder =
     TasksCompanion Function({
-      Value<int> id,
+      Value<String> id,
       Value<String> title,
       Value<DateTime?> dueDate,
       Value<String> priority,
       Value<bool> isCompleted,
       Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 
 class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
@@ -3353,7 +6447,7 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get id => $composableBuilder(
+  ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
   );
@@ -3383,6 +6477,16 @@ class $$TasksTableFilterComposer extends Composer<_$AppDatabase, $TasksTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnFilters(column),
@@ -3398,7 +6502,7 @@ class $$TasksTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get id => $composableBuilder(
+  ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
   );
@@ -3428,6 +6532,16 @@ class $$TasksTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnOrderings(column),
@@ -3443,7 +6557,7 @@ class $$TasksTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get id =>
+  GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
   GeneratedColumn<String> get title =>
@@ -3462,6 +6576,12 @@ class $$TasksTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
@@ -3495,13 +6615,16 @@ class $$TasksTableTableManager
               $$TasksTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                Value<String> id = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<DateTime?> dueDate = const Value.absent(),
                 Value<String> priority = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => TasksCompanion(
                 id: id,
                 title: title,
@@ -3509,17 +6632,23 @@ class $$TasksTableTableManager
                 priority: priority,
                 isCompleted: isCompleted,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           createCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                required String id,
                 required String title,
                 Value<DateTime?> dueDate = const Value.absent(),
                 Value<String> priority = const Value.absent(),
                 Value<bool> isCompleted = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => TasksCompanion.insert(
                 id: id,
                 title: title,
@@ -3527,7 +6656,10 @@ class $$TasksTableTableManager
                 priority: priority,
                 isCompleted: isCompleted,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -3786,23 +6918,29 @@ typedef $$NotificationsDigestTableProcessedTableManager =
     >;
 typedef $$ContactsTableCreateCompanionBuilder =
     ContactsCompanion Function({
-      Value<int> id,
+      required String id,
       required String name,
       required String phoneNumber,
       Value<String?> relationship,
       Value<bool> isEmergency,
       Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 typedef $$ContactsTableUpdateCompanionBuilder =
     ContactsCompanion Function({
-      Value<int> id,
+      Value<String> id,
       Value<String> name,
       Value<String> phoneNumber,
       Value<String?> relationship,
       Value<bool> isEmergency,
       Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 
 class $$ContactsTableFilterComposer
@@ -3814,7 +6952,7 @@ class $$ContactsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get id => $composableBuilder(
+  ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
   );
@@ -3844,6 +6982,16 @@ class $$ContactsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnFilters(column),
@@ -3859,7 +7007,7 @@ class $$ContactsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get id => $composableBuilder(
+  ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
   );
@@ -3889,6 +7037,16 @@ class $$ContactsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnOrderings(column),
@@ -3904,7 +7062,7 @@ class $$ContactsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get id =>
+  GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
   GeneratedColumn<String> get name =>
@@ -3927,6 +7085,12 @@ class $$ContactsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
@@ -3960,13 +7124,16 @@ class $$ContactsTableTableManager
               $$ContactsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> phoneNumber = const Value.absent(),
                 Value<String?> relationship = const Value.absent(),
                 Value<bool> isEmergency = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => ContactsCompanion(
                 id: id,
                 name: name,
@@ -3974,17 +7141,23 @@ class $$ContactsTableTableManager
                 relationship: relationship,
                 isEmergency: isEmergency,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           createCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                required String id,
                 required String name,
                 required String phoneNumber,
                 Value<String?> relationship = const Value.absent(),
                 Value<bool> isEmergency = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => ContactsCompanion.insert(
                 id: id,
                 name: name,
@@ -3992,7 +7165,10 @@ class $$ContactsTableTableManager
                 relationship: relationship,
                 isEmergency: isEmergency,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -4027,7 +7203,7 @@ typedef $$ContactsTableProcessedTableManager =
     >;
 typedef $$MessagesVaultTableCreateCompanionBuilder =
     MessagesVaultCompanion Function({
-      Value<int> id,
+      required String id,
       required String contactIdentifier,
       required String senderName,
       required String messageText,
@@ -4035,11 +7211,15 @@ typedef $$MessagesVaultTableCreateCompanionBuilder =
       Value<bool> isOutgoing,
       Value<DateTime> timestamp,
       Value<bool> isRead,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 typedef $$MessagesVaultTableUpdateCompanionBuilder =
     MessagesVaultCompanion Function({
-      Value<int> id,
+      Value<String> id,
       Value<String> contactIdentifier,
       Value<String> senderName,
       Value<String> messageText,
@@ -4047,7 +7227,11 @@ typedef $$MessagesVaultTableUpdateCompanionBuilder =
       Value<bool> isOutgoing,
       Value<DateTime> timestamp,
       Value<bool> isRead,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 
 class $$MessagesVaultTableFilterComposer
@@ -4059,7 +7243,7 @@ class $$MessagesVaultTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get id => $composableBuilder(
+  ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
   );
@@ -4099,6 +7283,21 @@ class $$MessagesVaultTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnFilters(column),
@@ -4114,7 +7313,7 @@ class $$MessagesVaultTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get id => $composableBuilder(
+  ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
   );
@@ -4154,6 +7353,21 @@ class $$MessagesVaultTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnOrderings(column),
@@ -4169,7 +7383,7 @@ class $$MessagesVaultTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get id =>
+  GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
   GeneratedColumn<String> get contactIdentifier => $composableBuilder(
@@ -4200,6 +7414,15 @@ class $$MessagesVaultTableAnnotationComposer
 
   GeneratedColumn<bool> get isRead =>
       $composableBuilder(column: $table.isRead, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
@@ -4240,7 +7463,7 @@ class $$MessagesVaultTableTableManager
               $$MessagesVaultTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                Value<String> id = const Value.absent(),
                 Value<String> contactIdentifier = const Value.absent(),
                 Value<String> senderName = const Value.absent(),
                 Value<String> messageText = const Value.absent(),
@@ -4248,7 +7471,11 @@ class $$MessagesVaultTableTableManager
                 Value<bool> isOutgoing = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<bool> isRead = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => MessagesVaultCompanion(
                 id: id,
                 contactIdentifier: contactIdentifier,
@@ -4258,11 +7485,15 @@ class $$MessagesVaultTableTableManager
                 isOutgoing: isOutgoing,
                 timestamp: timestamp,
                 isRead: isRead,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           createCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                required String id,
                 required String contactIdentifier,
                 required String senderName,
                 required String messageText,
@@ -4270,7 +7501,11 @@ class $$MessagesVaultTableTableManager
                 Value<bool> isOutgoing = const Value.absent(),
                 Value<DateTime> timestamp = const Value.absent(),
                 Value<bool> isRead = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => MessagesVaultCompanion.insert(
                 id: id,
                 contactIdentifier: contactIdentifier,
@@ -4280,7 +7515,11 @@ class $$MessagesVaultTableTableManager
                 isOutgoing: isOutgoing,
                 timestamp: timestamp,
                 isRead: isRead,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -4318,25 +7557,31 @@ typedef $$MessagesVaultTableProcessedTableManager =
     >;
 typedef $$AlarmsTableCreateCompanionBuilder =
     AlarmsCompanion Function({
-      Value<int> id,
+      required String id,
       required int hour,
       required int minute,
       Value<String> label,
       Value<String> daysOfWeek,
       Value<bool> isActive,
       Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 typedef $$AlarmsTableUpdateCompanionBuilder =
     AlarmsCompanion Function({
-      Value<int> id,
+      Value<String> id,
       Value<int> hour,
       Value<int> minute,
       Value<String> label,
       Value<String> daysOfWeek,
       Value<bool> isActive,
       Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 
 class $$AlarmsTableFilterComposer
@@ -4348,7 +7593,7 @@ class $$AlarmsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get id => $composableBuilder(
+  ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
   );
@@ -4383,6 +7628,16 @@ class $$AlarmsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnFilters(column),
@@ -4398,7 +7653,7 @@ class $$AlarmsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get id => $composableBuilder(
+  ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
   );
@@ -4433,6 +7688,16 @@ class $$AlarmsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnOrderings(column),
@@ -4448,7 +7713,7 @@ class $$AlarmsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get id =>
+  GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
   GeneratedColumn<int> get hour =>
@@ -4470,6 +7735,12 @@ class $$AlarmsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
@@ -4503,14 +7774,17 @@ class $$AlarmsTableTableManager
               $$AlarmsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                Value<String> id = const Value.absent(),
                 Value<int> hour = const Value.absent(),
                 Value<int> minute = const Value.absent(),
                 Value<String> label = const Value.absent(),
                 Value<String> daysOfWeek = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => AlarmsCompanion(
                 id: id,
                 hour: hour,
@@ -4519,18 +7793,24 @@ class $$AlarmsTableTableManager
                 daysOfWeek: daysOfWeek,
                 isActive: isActive,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           createCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                required String id,
                 required int hour,
                 required int minute,
                 Value<String> label = const Value.absent(),
                 Value<String> daysOfWeek = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => AlarmsCompanion.insert(
                 id: id,
                 hour: hour,
@@ -4539,7 +7819,10 @@ class $$AlarmsTableTableManager
                 daysOfWeek: daysOfWeek,
                 isActive: isActive,
                 createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -4574,19 +7857,27 @@ typedef $$AlarmsTableProcessedTableManager =
     >;
 typedef $$FocusSessionsTableCreateCompanionBuilder =
     FocusSessionsCompanion Function({
-      Value<int> id,
+      required String id,
       required int durationMinutes,
       Value<String> sessionType,
       Value<DateTime> completedAt,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 typedef $$FocusSessionsTableUpdateCompanionBuilder =
     FocusSessionsCompanion Function({
-      Value<int> id,
+      Value<String> id,
       Value<int> durationMinutes,
       Value<String> sessionType,
       Value<DateTime> completedAt,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
       Value<bool> isSynced,
+      Value<int> rowid,
     });
 
 class $$FocusSessionsTableFilterComposer
@@ -4598,7 +7889,7 @@ class $$FocusSessionsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get id => $composableBuilder(
+  ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnFilters(column),
   );
@@ -4618,6 +7909,21 @@ class $$FocusSessionsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnFilters(column),
@@ -4633,7 +7939,7 @@ class $$FocusSessionsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get id => $composableBuilder(
+  ColumnOrderings<String> get id => $composableBuilder(
     column: $table.id,
     builder: (column) => ColumnOrderings(column),
   );
@@ -4653,6 +7959,21 @@ class $$FocusSessionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get isSynced => $composableBuilder(
     column: $table.isSynced,
     builder: (column) => ColumnOrderings(column),
@@ -4668,7 +7989,7 @@ class $$FocusSessionsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get id =>
+  GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
   GeneratedColumn<int> get durationMinutes => $composableBuilder(
@@ -4685,6 +8006,15 @@ class $$FocusSessionsTableAnnotationComposer
     column: $table.completedAt,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
 
   GeneratedColumn<bool> get isSynced =>
       $composableBuilder(column: $table.isSynced, builder: (column) => column);
@@ -4721,31 +8051,47 @@ class $$FocusSessionsTableTableManager
               $$FocusSessionsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                Value<String> id = const Value.absent(),
                 Value<int> durationMinutes = const Value.absent(),
                 Value<String> sessionType = const Value.absent(),
                 Value<DateTime> completedAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => FocusSessionsCompanion(
                 id: id,
                 durationMinutes: durationMinutes,
                 sessionType: sessionType,
                 completedAt: completedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           createCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                required String id,
                 required int durationMinutes,
                 Value<String> sessionType = const Value.absent(),
                 Value<DateTime> completedAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
                 Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => FocusSessionsCompanion.insert(
                 id: id,
                 durationMinutes: durationMinutes,
                 sessionType: sessionType,
                 completedAt: completedAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
                 isSynced: isSynced,
+                rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map(
@@ -4781,6 +8127,1104 @@ typedef $$FocusSessionsTableProcessedTableManager =
       FocusSession,
       PrefetchHooks Function()
     >;
+typedef $$AppSettingsTableCreateCompanionBuilder =
+    AppSettingsCompanion Function({
+      required String id,
+      Value<double> speechRate,
+      Value<bool> hapticsEnabled,
+      Value<bool> soundCuesEnabled,
+      Value<bool> isHighContrast,
+      Value<String> defaultPriority,
+      Value<bool> autoArchiveCompleted,
+      Value<bool> speakDueDatesAloud,
+      Value<bool> autoDialEmergency,
+      Value<bool> shareGpsOnSos,
+      Value<bool> speakIncomingSms,
+      Value<bool> voiceChimeHalfway,
+      Value<bool> vibrateOnSessionFinish,
+      Value<bool> syncAlarmsWithAndroidClock,
+      Value<String> visionInspectionDetail,
+      Value<bool> autoFlashlightInDark,
+      Value<String> preferredCurrency,
+      Value<DateTime> updatedAt,
+      Value<bool> isSynced,
+      Value<int> rowid,
+    });
+typedef $$AppSettingsTableUpdateCompanionBuilder =
+    AppSettingsCompanion Function({
+      Value<String> id,
+      Value<double> speechRate,
+      Value<bool> hapticsEnabled,
+      Value<bool> soundCuesEnabled,
+      Value<bool> isHighContrast,
+      Value<String> defaultPriority,
+      Value<bool> autoArchiveCompleted,
+      Value<bool> speakDueDatesAloud,
+      Value<bool> autoDialEmergency,
+      Value<bool> shareGpsOnSos,
+      Value<bool> speakIncomingSms,
+      Value<bool> voiceChimeHalfway,
+      Value<bool> vibrateOnSessionFinish,
+      Value<bool> syncAlarmsWithAndroidClock,
+      Value<String> visionInspectionDetail,
+      Value<bool> autoFlashlightInDark,
+      Value<String> preferredCurrency,
+      Value<DateTime> updatedAt,
+      Value<bool> isSynced,
+      Value<int> rowid,
+    });
+
+class $$AppSettingsTableFilterComposer
+    extends Composer<_$AppDatabase, $AppSettingsTable> {
+  $$AppSettingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get speechRate => $composableBuilder(
+    column: $table.speechRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hapticsEnabled => $composableBuilder(
+    column: $table.hapticsEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get soundCuesEnabled => $composableBuilder(
+    column: $table.soundCuesEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isHighContrast => $composableBuilder(
+    column: $table.isHighContrast,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get defaultPriority => $composableBuilder(
+    column: $table.defaultPriority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoArchiveCompleted => $composableBuilder(
+    column: $table.autoArchiveCompleted,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get speakDueDatesAloud => $composableBuilder(
+    column: $table.speakDueDatesAloud,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoDialEmergency => $composableBuilder(
+    column: $table.autoDialEmergency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get shareGpsOnSos => $composableBuilder(
+    column: $table.shareGpsOnSos,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get speakIncomingSms => $composableBuilder(
+    column: $table.speakIncomingSms,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get voiceChimeHalfway => $composableBuilder(
+    column: $table.voiceChimeHalfway,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get vibrateOnSessionFinish => $composableBuilder(
+    column: $table.vibrateOnSessionFinish,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get syncAlarmsWithAndroidClock => $composableBuilder(
+    column: $table.syncAlarmsWithAndroidClock,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get visionInspectionDetail => $composableBuilder(
+    column: $table.visionInspectionDetail,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get autoFlashlightInDark => $composableBuilder(
+    column: $table.autoFlashlightInDark,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get preferredCurrency => $composableBuilder(
+    column: $table.preferredCurrency,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppSettingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $AppSettingsTable> {
+  $$AppSettingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get speechRate => $composableBuilder(
+    column: $table.speechRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hapticsEnabled => $composableBuilder(
+    column: $table.hapticsEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get soundCuesEnabled => $composableBuilder(
+    column: $table.soundCuesEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isHighContrast => $composableBuilder(
+    column: $table.isHighContrast,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get defaultPriority => $composableBuilder(
+    column: $table.defaultPriority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get autoArchiveCompleted => $composableBuilder(
+    column: $table.autoArchiveCompleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get speakDueDatesAloud => $composableBuilder(
+    column: $table.speakDueDatesAloud,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get autoDialEmergency => $composableBuilder(
+    column: $table.autoDialEmergency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get shareGpsOnSos => $composableBuilder(
+    column: $table.shareGpsOnSos,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get speakIncomingSms => $composableBuilder(
+    column: $table.speakIncomingSms,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get voiceChimeHalfway => $composableBuilder(
+    column: $table.voiceChimeHalfway,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get vibrateOnSessionFinish => $composableBuilder(
+    column: $table.vibrateOnSessionFinish,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get syncAlarmsWithAndroidClock => $composableBuilder(
+    column: $table.syncAlarmsWithAndroidClock,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get visionInspectionDetail => $composableBuilder(
+    column: $table.visionInspectionDetail,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get autoFlashlightInDark => $composableBuilder(
+    column: $table.autoFlashlightInDark,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get preferredCurrency => $composableBuilder(
+    column: $table.preferredCurrency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppSettingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $AppSettingsTable> {
+  $$AppSettingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<double> get speechRate => $composableBuilder(
+    column: $table.speechRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get hapticsEnabled => $composableBuilder(
+    column: $table.hapticsEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get soundCuesEnabled => $composableBuilder(
+    column: $table.soundCuesEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isHighContrast => $composableBuilder(
+    column: $table.isHighContrast,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get defaultPriority => $composableBuilder(
+    column: $table.defaultPriority,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get autoArchiveCompleted => $composableBuilder(
+    column: $table.autoArchiveCompleted,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get speakDueDatesAloud => $composableBuilder(
+    column: $table.speakDueDatesAloud,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get autoDialEmergency => $composableBuilder(
+    column: $table.autoDialEmergency,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get shareGpsOnSos => $composableBuilder(
+    column: $table.shareGpsOnSos,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get speakIncomingSms => $composableBuilder(
+    column: $table.speakIncomingSms,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get voiceChimeHalfway => $composableBuilder(
+    column: $table.voiceChimeHalfway,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get vibrateOnSessionFinish => $composableBuilder(
+    column: $table.vibrateOnSessionFinish,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get syncAlarmsWithAndroidClock => $composableBuilder(
+    column: $table.syncAlarmsWithAndroidClock,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get visionInspectionDetail => $composableBuilder(
+    column: $table.visionInspectionDetail,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get autoFlashlightInDark => $composableBuilder(
+    column: $table.autoFlashlightInDark,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get preferredCurrency => $composableBuilder(
+    column: $table.preferredCurrency,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSynced =>
+      $composableBuilder(column: $table.isSynced, builder: (column) => column);
+}
+
+class $$AppSettingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $AppSettingsTable,
+          AppSetting,
+          $$AppSettingsTableFilterComposer,
+          $$AppSettingsTableOrderingComposer,
+          $$AppSettingsTableAnnotationComposer,
+          $$AppSettingsTableCreateCompanionBuilder,
+          $$AppSettingsTableUpdateCompanionBuilder,
+          (
+            AppSetting,
+            BaseReferences<_$AppDatabase, $AppSettingsTable, AppSetting>,
+          ),
+          AppSetting,
+          PrefetchHooks Function()
+        > {
+  $$AppSettingsTableTableManager(_$AppDatabase db, $AppSettingsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppSettingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<double> speechRate = const Value.absent(),
+                Value<bool> hapticsEnabled = const Value.absent(),
+                Value<bool> soundCuesEnabled = const Value.absent(),
+                Value<bool> isHighContrast = const Value.absent(),
+                Value<String> defaultPriority = const Value.absent(),
+                Value<bool> autoArchiveCompleted = const Value.absent(),
+                Value<bool> speakDueDatesAloud = const Value.absent(),
+                Value<bool> autoDialEmergency = const Value.absent(),
+                Value<bool> shareGpsOnSos = const Value.absent(),
+                Value<bool> speakIncomingSms = const Value.absent(),
+                Value<bool> voiceChimeHalfway = const Value.absent(),
+                Value<bool> vibrateOnSessionFinish = const Value.absent(),
+                Value<bool> syncAlarmsWithAndroidClock = const Value.absent(),
+                Value<String> visionInspectionDetail = const Value.absent(),
+                Value<bool> autoFlashlightInDark = const Value.absent(),
+                Value<String> preferredCurrency = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppSettingsCompanion(
+                id: id,
+                speechRate: speechRate,
+                hapticsEnabled: hapticsEnabled,
+                soundCuesEnabled: soundCuesEnabled,
+                isHighContrast: isHighContrast,
+                defaultPriority: defaultPriority,
+                autoArchiveCompleted: autoArchiveCompleted,
+                speakDueDatesAloud: speakDueDatesAloud,
+                autoDialEmergency: autoDialEmergency,
+                shareGpsOnSos: shareGpsOnSos,
+                speakIncomingSms: speakIncomingSms,
+                voiceChimeHalfway: voiceChimeHalfway,
+                vibrateOnSessionFinish: vibrateOnSessionFinish,
+                syncAlarmsWithAndroidClock: syncAlarmsWithAndroidClock,
+                visionInspectionDetail: visionInspectionDetail,
+                autoFlashlightInDark: autoFlashlightInDark,
+                preferredCurrency: preferredCurrency,
+                updatedAt: updatedAt,
+                isSynced: isSynced,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<double> speechRate = const Value.absent(),
+                Value<bool> hapticsEnabled = const Value.absent(),
+                Value<bool> soundCuesEnabled = const Value.absent(),
+                Value<bool> isHighContrast = const Value.absent(),
+                Value<String> defaultPriority = const Value.absent(),
+                Value<bool> autoArchiveCompleted = const Value.absent(),
+                Value<bool> speakDueDatesAloud = const Value.absent(),
+                Value<bool> autoDialEmergency = const Value.absent(),
+                Value<bool> shareGpsOnSos = const Value.absent(),
+                Value<bool> speakIncomingSms = const Value.absent(),
+                Value<bool> voiceChimeHalfway = const Value.absent(),
+                Value<bool> vibrateOnSessionFinish = const Value.absent(),
+                Value<bool> syncAlarmsWithAndroidClock = const Value.absent(),
+                Value<String> visionInspectionDetail = const Value.absent(),
+                Value<bool> autoFlashlightInDark = const Value.absent(),
+                Value<String> preferredCurrency = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppSettingsCompanion.insert(
+                id: id,
+                speechRate: speechRate,
+                hapticsEnabled: hapticsEnabled,
+                soundCuesEnabled: soundCuesEnabled,
+                isHighContrast: isHighContrast,
+                defaultPriority: defaultPriority,
+                autoArchiveCompleted: autoArchiveCompleted,
+                speakDueDatesAloud: speakDueDatesAloud,
+                autoDialEmergency: autoDialEmergency,
+                shareGpsOnSos: shareGpsOnSos,
+                speakIncomingSms: speakIncomingSms,
+                voiceChimeHalfway: voiceChimeHalfway,
+                vibrateOnSessionFinish: vibrateOnSessionFinish,
+                syncAlarmsWithAndroidClock: syncAlarmsWithAndroidClock,
+                visionInspectionDetail: visionInspectionDetail,
+                autoFlashlightInDark: autoFlashlightInDark,
+                preferredCurrency: preferredCurrency,
+                updatedAt: updatedAt,
+                isSynced: isSynced,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$AppSettingsTable, AppSetting>(table),
+                  BaseReferences<_$AppDatabase, $AppSettingsTable, AppSetting>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppSettingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $AppSettingsTable,
+      AppSetting,
+      $$AppSettingsTableFilterComposer,
+      $$AppSettingsTableOrderingComposer,
+      $$AppSettingsTableAnnotationComposer,
+      $$AppSettingsTableCreateCompanionBuilder,
+      $$AppSettingsTableUpdateCompanionBuilder,
+      (
+        AppSetting,
+        BaseReferences<_$AppDatabase, $AppSettingsTable, AppSetting>,
+      ),
+      AppSetting,
+      PrefetchHooks Function()
+    >;
+typedef $$SosAlertsTableCreateCompanionBuilder =
+    SosAlertsCompanion Function({
+      required String id,
+      required double latitude,
+      required double longitude,
+      Value<int> batteryLevel,
+      Value<String> status,
+      required String googleMapsUrl,
+      Value<DateTime> triggeredAt,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isSynced,
+      Value<int> rowid,
+    });
+typedef $$SosAlertsTableUpdateCompanionBuilder =
+    SosAlertsCompanion Function({
+      Value<String> id,
+      Value<double> latitude,
+      Value<double> longitude,
+      Value<int> batteryLevel,
+      Value<String> status,
+      Value<String> googleMapsUrl,
+      Value<DateTime> triggeredAt,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isSynced,
+      Value<int> rowid,
+    });
+
+class $$SosAlertsTableFilterComposer
+    extends Composer<_$AppDatabase, $SosAlertsTable> {
+  $$SosAlertsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get batteryLevel => $composableBuilder(
+    column: $table.batteryLevel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get googleMapsUrl => $composableBuilder(
+    column: $table.googleMapsUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get triggeredAt => $composableBuilder(
+    column: $table.triggeredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SosAlertsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SosAlertsTable> {
+  $$SosAlertsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get latitude => $composableBuilder(
+    column: $table.latitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get longitude => $composableBuilder(
+    column: $table.longitude,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get batteryLevel => $composableBuilder(
+    column: $table.batteryLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get googleMapsUrl => $composableBuilder(
+    column: $table.googleMapsUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get triggeredAt => $composableBuilder(
+    column: $table.triggeredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SosAlertsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SosAlertsTable> {
+  $$SosAlertsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<double> get latitude =>
+      $composableBuilder(column: $table.latitude, builder: (column) => column);
+
+  GeneratedColumn<double> get longitude =>
+      $composableBuilder(column: $table.longitude, builder: (column) => column);
+
+  GeneratedColumn<int> get batteryLevel => $composableBuilder(
+    column: $table.batteryLevel,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get googleMapsUrl => $composableBuilder(
+    column: $table.googleMapsUrl,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get triggeredAt => $composableBuilder(
+    column: $table.triggeredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSynced =>
+      $composableBuilder(column: $table.isSynced, builder: (column) => column);
+}
+
+class $$SosAlertsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SosAlertsTable,
+          SosAlert,
+          $$SosAlertsTableFilterComposer,
+          $$SosAlertsTableOrderingComposer,
+          $$SosAlertsTableAnnotationComposer,
+          $$SosAlertsTableCreateCompanionBuilder,
+          $$SosAlertsTableUpdateCompanionBuilder,
+          (SosAlert, BaseReferences<_$AppDatabase, $SosAlertsTable, SosAlert>),
+          SosAlert,
+          PrefetchHooks Function()
+        > {
+  $$SosAlertsTableTableManager(_$AppDatabase db, $SosAlertsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SosAlertsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SosAlertsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SosAlertsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<double> latitude = const Value.absent(),
+                Value<double> longitude = const Value.absent(),
+                Value<int> batteryLevel = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> googleMapsUrl = const Value.absent(),
+                Value<DateTime> triggeredAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SosAlertsCompanion(
+                id: id,
+                latitude: latitude,
+                longitude: longitude,
+                batteryLevel: batteryLevel,
+                status: status,
+                googleMapsUrl: googleMapsUrl,
+                triggeredAt: triggeredAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isSynced: isSynced,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required double latitude,
+                required double longitude,
+                Value<int> batteryLevel = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                required String googleMapsUrl,
+                Value<DateTime> triggeredAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SosAlertsCompanion.insert(
+                id: id,
+                latitude: latitude,
+                longitude: longitude,
+                batteryLevel: batteryLevel,
+                status: status,
+                googleMapsUrl: googleMapsUrl,
+                triggeredAt: triggeredAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isSynced: isSynced,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$SosAlertsTable, SosAlert>(table),
+                  BaseReferences<_$AppDatabase, $SosAlertsTable, SosAlert>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SosAlertsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SosAlertsTable,
+      SosAlert,
+      $$SosAlertsTableFilterComposer,
+      $$SosAlertsTableOrderingComposer,
+      $$SosAlertsTableAnnotationComposer,
+      $$SosAlertsTableCreateCompanionBuilder,
+      $$SosAlertsTableUpdateCompanionBuilder,
+      (SosAlert, BaseReferences<_$AppDatabase, $SosAlertsTable, SosAlert>),
+      SosAlert,
+      PrefetchHooks Function()
+    >;
+typedef $$VisionScansTableCreateCompanionBuilder =
+    VisionScansCompanion Function({
+      required String id,
+      required String mode,
+      required String prompt,
+      required String description,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isSynced,
+      Value<int> rowid,
+    });
+typedef $$VisionScansTableUpdateCompanionBuilder =
+    VisionScansCompanion Function({
+      Value<String> id,
+      Value<String> mode,
+      Value<String> prompt,
+      Value<String> description,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<DateTime?> deletedAt,
+      Value<bool> isSynced,
+      Value<int> rowid,
+    });
+
+class $$VisionScansTableFilterComposer
+    extends Composer<_$AppDatabase, $VisionScansTable> {
+  $$VisionScansTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get prompt => $composableBuilder(
+    column: $table.prompt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$VisionScansTableOrderingComposer
+    extends Composer<_$AppDatabase, $VisionScansTable> {
+  $$VisionScansTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mode => $composableBuilder(
+    column: $table.mode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get prompt => $composableBuilder(
+    column: $table.prompt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get deletedAt => $composableBuilder(
+    column: $table.deletedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$VisionScansTableAnnotationComposer
+    extends Composer<_$AppDatabase, $VisionScansTable> {
+  $$VisionScansTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get mode =>
+      $composableBuilder(column: $table.mode, builder: (column) => column);
+
+  GeneratedColumn<String> get prompt =>
+      $composableBuilder(column: $table.prompt, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get deletedAt =>
+      $composableBuilder(column: $table.deletedAt, builder: (column) => column);
+
+  GeneratedColumn<bool> get isSynced =>
+      $composableBuilder(column: $table.isSynced, builder: (column) => column);
+}
+
+class $$VisionScansTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $VisionScansTable,
+          VisionScan,
+          $$VisionScansTableFilterComposer,
+          $$VisionScansTableOrderingComposer,
+          $$VisionScansTableAnnotationComposer,
+          $$VisionScansTableCreateCompanionBuilder,
+          $$VisionScansTableUpdateCompanionBuilder,
+          (
+            VisionScan,
+            BaseReferences<_$AppDatabase, $VisionScansTable, VisionScan>,
+          ),
+          VisionScan,
+          PrefetchHooks Function()
+        > {
+  $$VisionScansTableTableManager(_$AppDatabase db, $VisionScansTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$VisionScansTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$VisionScansTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$VisionScansTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> mode = const Value.absent(),
+                Value<String> prompt = const Value.absent(),
+                Value<String> description = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VisionScansCompanion(
+                id: id,
+                mode: mode,
+                prompt: prompt,
+                description: description,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isSynced: isSynced,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String mode,
+                required String prompt,
+                required String description,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<DateTime?> deletedAt = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => VisionScansCompanion.insert(
+                id: id,
+                mode: mode,
+                prompt: prompt,
+                description: description,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt,
+                isSynced: isSynced,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$VisionScansTable, VisionScan>(table),
+                  BaseReferences<_$AppDatabase, $VisionScansTable, VisionScan>(
+                    db,
+                    table,
+                    e,
+                  ),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$VisionScansTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $VisionScansTable,
+      VisionScan,
+      $$VisionScansTableFilterComposer,
+      $$VisionScansTableOrderingComposer,
+      $$VisionScansTableAnnotationComposer,
+      $$VisionScansTableCreateCompanionBuilder,
+      $$VisionScansTableUpdateCompanionBuilder,
+      (
+        VisionScan,
+        BaseReferences<_$AppDatabase, $VisionScansTable, VisionScan>,
+      ),
+      VisionScan,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -4799,4 +9243,10 @@ class $AppDatabaseManager {
       $$AlarmsTableTableManager(_db, _db.alarms);
   $$FocusSessionsTableTableManager get focusSessions =>
       $$FocusSessionsTableTableManager(_db, _db.focusSessions);
+  $$AppSettingsTableTableManager get appSettings =>
+      $$AppSettingsTableTableManager(_db, _db.appSettings);
+  $$SosAlertsTableTableManager get sosAlerts =>
+      $$SosAlertsTableTableManager(_db, _db.sosAlerts);
+  $$VisionScansTableTableManager get visionScans =>
+      $$VisionScansTableTableManager(_db, _db.visionScans);
 }
