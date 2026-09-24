@@ -16,13 +16,16 @@ class WaveformIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!isListening) return const SizedBox(height: 70);
 
-    final scale = (1.0 + (soundLevel.clamp(0, 10) / 5)).clamp(1.0, 2.0);
+    // 🌟 التجاوب البيولوجي العضوي للصوت
+    final scale = (1.0 + (soundLevel.clamp(0, 10) / 4.5)).clamp(1.0, 2.2);
 
     return SizedBox(
       height: 80,
       child: Center(
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
+          // مدة أطول قليلاً مع منحنى فيزيائي لمحاكاة النبض الطبيعي
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOutCirc,
           width: 60 * scale,
           height: 60 * scale,
           decoration: BoxDecoration(

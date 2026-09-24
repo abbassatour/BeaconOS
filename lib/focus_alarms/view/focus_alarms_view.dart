@@ -26,8 +26,10 @@ class _FocusAlarmsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: AppTheme.warmPaper,
+      backgroundColor: context.scaffoldBg,
       body: SafeArea(
         child: BlocBuilder<FocusAlarmsCubit, FocusAlarmsState>(
           builder: (context, state) {
@@ -39,17 +41,18 @@ class _FocusAlarmsContent extends StatelessWidget {
                 // 1. الترويسة التحريرية
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    // زيادة الهامش العلوي لتجنب التداخل مع البوصلة
+                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'FOCUS & ALARMS',
                               style: TextStyle(
-                                color: AppTheme.carbonInk,
+                                color: colors.onSurface,
                                 fontSize: 26,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.5,
@@ -57,21 +60,21 @@ class _FocusAlarmsContent extends StatelessWidget {
                             ),
                             IconButton.filledTonal(
                               style: IconButton.styleFrom(
-                                backgroundColor: AppTheme.softBorder,
-                                foregroundColor: AppTheme.carbonInk,
+                                backgroundColor: colors.surface,
+                                foregroundColor: colors.onSurface,
+                                side: BorderSide(color: colors.outline),
                               ),
                               icon: const Icon(Icons.alarm_add_rounded),
                               tooltip: 'Add Alarm',
-                              onPressed: () =>
-                                  _showAddAlarmDialog(context, cubit),
+                              onPressed: () => _showAddAlarmDialog(context, cubit),
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Swipe RIGHT ➡️ or tap with two fingers to return to Core.',
                           style: TextStyle(
-                            color: AppTheme.mutedInk,
+                            color: colors.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -88,22 +91,22 @@ class _FocusAlarmsContent extends StatelessWidget {
                   ),
                 ),
 
-                // 3. ساعة المنبهات المجدولة (Quiet Alarms Section)
+                // 3. ساعة المنبهات المجدولة
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.access_time_rounded,
-                          color: AppTheme.terracotta,
+                          color: colors.primary,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'SCHEDULED ALARMS (${state.alarms.length})',
-                          style: const TextStyle(
-                            color: AppTheme.carbonInk,
+                          style: TextStyle(
+                            color: colors.onSurface,
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.2,
@@ -114,16 +117,16 @@ class _FocusAlarmsContent extends StatelessWidget {
                   ),
                 ),
                 if (state.alarms.isEmpty)
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 12,
                       ),
                       child: Text(
                         'No alarms scheduled. Tap + to set a silent system alarm.',
                         style: TextStyle(
-                          color: AppTheme.mutedInk,
+                          color: colors.onSurfaceVariant,
                           fontSize: 14,
                         ),
                       ),
@@ -136,7 +139,7 @@ class _FocusAlarmsContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final alarm = state.alarms[index];
-                          return _buildAlarmCard(alarm, cubit);
+                          return _buildAlarmCard(context, alarm, cubit);
                         },
                         childCount: state.alarms.length,
                       ),
@@ -156,18 +159,19 @@ class _FocusAlarmsContent extends StatelessWidget {
     FocusAlarmsState state,
     FocusAlarmsCubit cubit,
   ) {
+    final colors = context.colors;
     final minutes = (state.remainingSeconds ~/ 60).toString().padLeft(2, '0');
     final seconds = (state.remainingSeconds % 60).toString().padLeft(2, '0');
 
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppTheme.cardSurface,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.softBorder, width: 1.5),
+        border: Border.all(color: colors.outline, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.carbonInk.withValues(alpha: 0.04),
+            color: colors.onSurface.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -178,10 +182,10 @@ class _FocusAlarmsContent extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'STUDY CYCLE',
                 style: TextStyle(
-                  color: AppTheme.mutedInk,
+                  color: colors.onSurfaceVariant,
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
@@ -193,13 +197,13 @@ class _FocusAlarmsContent extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.warmPaper,
+                  color: context.scaffoldBg,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   'Today: ${state.totalFocusMinutesToday}m Focused',
-                  style: const TextStyle(
-                    color: AppTheme.terracotta,
+                  style: TextStyle(
+                    color: colors.primary,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -209,11 +213,11 @@ class _FocusAlarmsContent extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // العداد الرقمي العريض
+          // العداد الرقمي
           Text(
             '$minutes:$seconds',
-            style: const TextStyle(
-              color: AppTheme.carbonInk,
+            style: TextStyle(
+              color: colors.onSurface,
               fontSize: 54,
               fontWeight: FontWeight.w900,
               letterSpacing: -1,
@@ -221,7 +225,7 @@ class _FocusAlarmsContent extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // خيارات فترات المذاكرة (15m / 25m / 45m / 60m)
+          // خيارات فترات المذاكرة
           Wrap(
             spacing: 8,
             children: [15, 25, 45, 60].map((mins) {
@@ -229,10 +233,10 @@ class _FocusAlarmsContent extends StatelessWidget {
               return ChoiceChip(
                 label: Text('${mins}m'),
                 selected: isSelected,
-                selectedColor: AppTheme.terracotta,
-                backgroundColor: AppTheme.warmPaper,
+                selectedColor: colors.primary,
+                backgroundColor: context.scaffoldBg,
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : AppTheme.carbonInk,
+                  color: isSelected ? colors.surface : colors.onSurface,
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
@@ -242,16 +246,16 @@ class _FocusAlarmsContent extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // أزرار التحكم اللمسية العريضة
+          // أزرار التحكم اللمسية
           Row(
             children: [
               Expanded(
                 child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: state.isTimerRunning
-                        ? AppTheme.warmAmber
-                        : AppTheme.terracotta,
-                    foregroundColor: Colors.white,
+                        ? colors.secondary
+                        : colors.primary,
+                    foregroundColor: colors.surface,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -278,8 +282,8 @@ class _FocusAlarmsContent extends StatelessWidget {
                 const SizedBox(width: 10),
                 IconButton.filledTonal(
                   style: IconButton.styleFrom(
-                    backgroundColor: AppTheme.warmPaper,
-                    foregroundColor: AppTheme.mutedInk,
+                    backgroundColor: context.scaffoldBg,
+                    foregroundColor: colors.onSurfaceVariant,
                     padding: const EdgeInsets.all(14),
                   ),
                   icon: const Icon(Icons.refresh_rounded),
@@ -294,44 +298,45 @@ class _FocusAlarmsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildAlarmCard(Alarm alarm, FocusAlarmsCubit cubit) {
+  Widget _buildAlarmCard(BuildContext context, Alarm alarm, FocusAlarmsCubit cubit) {
+    final colors = context.colors;
     final hourStr = alarm.hour.toString().padLeft(2, '0');
     final minuteStr = alarm.minute.toString().padLeft(2, '0');
 
     return Card(
-      color: AppTheme.cardSurface,
+      color: colors.surface,
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.softBorder, width: 1.2),
+        side: BorderSide(color: colors.outline, width: 1.2),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Text(
           '$hourStr:$minuteStr',
           style: TextStyle(
-            color: alarm.isActive ? AppTheme.carbonInk : AppTheme.mutedInk,
+            color: alarm.isActive ? colors.onSurface : colors.onSurfaceVariant,
             fontWeight: FontWeight.w900,
             fontSize: 24,
           ),
         ),
         subtitle: Text(
           '${alarm.label} • ${alarm.daysOfWeek}',
-          style: const TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Switch(
-              activeColor: AppTheme.terracotta,
+              activeColor: colors.primary,
               value: alarm.isActive,
               onChanged: (_) => cubit.toggleAlarm(alarm),
             ),
             IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.delete_outline_rounded,
-                color: AppTheme.mutedInk,
+                color: colors.onSurfaceVariant,
                 size: 20,
               ),
               onPressed: () => cubit.deleteAlarm(alarm),
@@ -343,17 +348,17 @@ class _FocusAlarmsContent extends StatelessWidget {
   }
 
   void _showAddAlarmDialog(BuildContext context, FocusAlarmsCubit cubit) async {
+    final colors = context.colors;
     final pickedTime = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
       builder: (ctx, child) {
         return Theme(
-          data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppTheme.terracotta,
-              onPrimary: Colors.white,
-              surface: AppTheme.cardSurface,
-              onSurface: AppTheme.carbonInk,
+          data: ThemeData(
+            colorScheme: colors,
+            timePickerTheme: TimePickerThemeData(
+              backgroundColor: colors.surface,
+              dialBackgroundColor: context.scaffoldBg,
             ),
           ),
           child: child!,

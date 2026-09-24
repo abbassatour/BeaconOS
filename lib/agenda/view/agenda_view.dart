@@ -27,16 +27,18 @@ class _AgendaContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: AppTheme.warmPaper,
+      backgroundColor: context.scaffoldBg,
       body: SafeArea(
         child: BlocBuilder<AgendaCubit, AgendaState>(
           builder: (context, state) {
             final cubit = context.read<AgendaCubit>();
 
             if (state.status == AgendaStatus.loading) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppTheme.terracotta),
+              return Center(
+                child: CircularProgressIndicator(color: colors.primary),
               );
             }
 
@@ -46,17 +48,18 @@ class _AgendaContent extends StatelessWidget {
                 // 1. ترويسة الغرفة التحريرية
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    // زيادة الهامش لتجنب شريط البوصلة
+                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'AGENDA & TASKS',
                               style: TextStyle(
-                                color: AppTheme.carbonInk,
+                                color: colors.onSurface,
                                 fontSize: 26,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.5,
@@ -64,21 +67,21 @@ class _AgendaContent extends StatelessWidget {
                             ),
                             IconButton.filledTonal(
                               style: IconButton.styleFrom(
-                                backgroundColor: AppTheme.softBorder,
-                                foregroundColor: AppTheme.carbonInk,
+                                backgroundColor: colors.surface,
+                                foregroundColor: colors.onSurface,
+                                side: BorderSide(color: colors.outline),
                               ),
                               icon: const Icon(Icons.add_task_rounded),
                               tooltip: 'Add Task',
-                              onPressed: () =>
-                                  _showAddTaskDialog(context, cubit),
+                              onPressed: () => _showAddTaskDialog(context, cubit),
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Swipe DOWN ⬇️ or double-tap with two fingers to return to Core.',
                           style: TextStyle(
-                            color: AppTheme.mutedInk,
+                            color: colors.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -93,16 +96,16 @@ class _AgendaContent extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.radio_button_unchecked_rounded,
-                          color: AppTheme.terracotta,
+                          color: colors.primary,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'PENDING TASKS (${state.pendingTasks.length})',
-                          style: const TextStyle(
-                            color: AppTheme.carbonInk,
+                          style: TextStyle(
+                            color: colors.onSurface,
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.2,
@@ -113,16 +116,16 @@ class _AgendaContent extends StatelessWidget {
                   ),
                 ),
                 if (state.pendingTasks.isEmpty)
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 12,
                       ),
                       child: Text(
                         'Your day is completely clear. No pending tasks.',
                         style: TextStyle(
-                          color: AppTheme.mutedInk,
+                          color: colors.onSurfaceVariant,
                           fontSize: 14,
                         ),
                       ),
@@ -135,7 +138,7 @@ class _AgendaContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final task = state.pendingTasks[index];
-                          return _buildTaskCard(task, cubit);
+                          return _buildTaskCard(context, task, cubit);
                         },
                         childCount: state.pendingTasks.length,
                       ),
@@ -149,16 +152,16 @@ class _AgendaContent extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.mic_none_rounded,
-                            color: AppTheme.warmAmber,
+                            color: colors.secondary,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'VOICE & AI NOTES (${state.memos.length})',
-                            style: const TextStyle(
-                              color: AppTheme.carbonInk,
+                            style: TextStyle(
+                              color: colors.onSurface,
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
@@ -174,7 +177,7 @@ class _AgendaContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final memo = state.memos[index];
-                          return _buildMemoCard(memo, cubit);
+                          return _buildMemoCard(context, memo, cubit);
                         },
                         childCount: state.memos.length,
                       ),
@@ -189,16 +192,16 @@ class _AgendaContent extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.check_circle_outline_rounded,
-                            color: AppTheme.mutedInk,
+                            color: colors.onSurfaceVariant,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'COMPLETED (${state.completedTasks.length})',
-                            style: const TextStyle(
-                              color: AppTheme.mutedInk,
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
@@ -214,7 +217,7 @@ class _AgendaContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final task = state.completedTasks[index];
-                          return _buildTaskCard(task, cubit);
+                          return _buildTaskCard(context, task, cubit);
                         },
                         childCount: state.completedTasks.length,
                       ),
@@ -230,22 +233,21 @@ class _AgendaContent extends StatelessWidget {
     );
   }
 
-  Widget _buildTaskCard(Task task, AgendaCubit cubit) {
+  Widget _buildTaskCard(BuildContext context, Task task, AgendaCubit cubit) {
+    final colors = context.colors;
     final isDone = task.isCompleted;
-    Color priorityColor = AppTheme.mutedInk;
-    if (task.priority == 'high') priorityColor = AppTheme.errorRed;
-    if (task.priority == 'medium') priorityColor = AppTheme.warmAmber;
+    Color priorityColor = colors.onSurfaceVariant;
+    if (task.priority == 'high') priorityColor = colors.error;
+    if (task.priority == 'medium') priorityColor = colors.secondary;
 
     return Card(
-      color: AppTheme.cardSurface,
+      color: colors.surface,
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isDone
-              ? AppTheme.softBorder
-              : priorityColor.withValues(alpha: 0.5),
+          color: isDone ? colors.outline : priorityColor.withValues(alpha: 0.5),
           width: 1.2,
         ),
       ),
@@ -254,7 +256,7 @@ class _AgendaContent extends StatelessWidget {
         leading: IconButton(
           icon: Icon(
             isDone ? Icons.check_circle_rounded : Icons.circle_outlined,
-            color: isDone ? AppTheme.mutedInk : priorityColor,
+            color: isDone ? colors.onSurfaceVariant : priorityColor,
             size: 26,
           ),
           onPressed: () => cubit.toggleTask(task),
@@ -262,7 +264,7 @@ class _AgendaContent extends StatelessWidget {
         title: Text(
           task.title,
           style: TextStyle(
-            color: isDone ? AppTheme.mutedInk : AppTheme.carbonInk,
+            color: isDone ? colors.onSurfaceVariant : colors.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w800,
             decoration: isDone ? TextDecoration.lineThrough : null,
@@ -271,36 +273,38 @@ class _AgendaContent extends StatelessWidget {
         subtitle: task.dueDate != null
             ? Text(
                 'Due: ${DateFormat('EEE, MMM d • h:mm a').format(task.dueDate!)}',
-                style: const TextStyle(color: AppTheme.mutedInk, fontSize: 12),
+                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
               )
             : null,
         trailing: IconButton(
-          icon: const Icon(Icons.volume_up_rounded, color: AppTheme.terracotta),
+          icon: Icon(Icons.volume_up_rounded, color: colors.primary),
           onPressed: () => cubit.readTaskAloud(task),
         ),
       ),
     );
   }
 
-  Widget _buildMemoCard(VoiceMemo memo, AgendaCubit cubit) {
+  Widget _buildMemoCard(BuildContext context, VoiceMemo memo, AgendaCubit cubit) {
+    final colors = context.colors;
+
     return Card(
-      color: AppTheme.cardSurface,
+      color: colors.surface,
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.softBorder, width: 1.2),
+        side: BorderSide(color: colors.outline, width: 1.2),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFFFEF3C7),
-          child: Icon(Icons.notes_rounded, color: AppTheme.warmAmber),
+        leading: CircleAvatar(
+          backgroundColor: colors.secondary.withValues(alpha: 0.15),
+          child: Icon(Icons.notes_rounded, color: colors.secondary),
         ),
         title: Text(
           memo.title,
-          style: const TextStyle(
-            color: AppTheme.carbonInk,
+          style: TextStyle(
+            color: colors.onSurface,
             fontWeight: FontWeight.w800,
             fontSize: 16,
           ),
@@ -309,11 +313,11 @@ class _AgendaContent extends StatelessWidget {
           memo.content,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.touch_app_rounded,
-          color: AppTheme.warmAmber,
+          color: colors.secondary,
         ),
         onTap: () => cubit.readMemoAloud(memo),
       ),
@@ -321,6 +325,7 @@ class _AgendaContent extends StatelessWidget {
   }
 
   void _showAddTaskDialog(BuildContext context, AgendaCubit cubit) {
+    final colors = context.colors;
     final titleController = TextEditingController();
     String priority = 'medium';
 
@@ -328,15 +333,15 @@ class _AgendaContent extends StatelessWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: AppTheme.cardSurface,
+          backgroundColor: colors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: AppTheme.softBorder, width: 1.5),
+            side: BorderSide(color: colors.outline, width: 1.5),
           ),
-          title: const Text(
+          title: Text(
             'New Task',
             style: TextStyle(
-              color: AppTheme.carbonInk,
+              color: colors.onSurface,
               fontWeight: FontWeight.w900,
               fontSize: 20,
             ),
@@ -347,46 +352,42 @@ class _AgendaContent extends StatelessWidget {
               TextField(
                 controller: titleController,
                 autofocus: true,
-                decoration: const InputDecoration(
+                style: TextStyle(color: colors.onSurface),
+                decoration: InputDecoration(
                   labelText: 'Task title...',
-                  labelStyle: TextStyle(color: AppTheme.mutedInk),
+                  labelStyle: TextStyle(color: colors.onSurfaceVariant),
                 ),
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 value: priority,
-                decoration: const InputDecoration(
+                dropdownColor: colors.surface,
+                style: TextStyle(color: colors.onSurface),
+                decoration: InputDecoration(
                   labelText: 'Priority',
-                  labelStyle: TextStyle(color: AppTheme.mutedInk),
+                  labelStyle: TextStyle(color: colors.onSurfaceVariant),
                 ),
                 items: const [
-                  DropdownMenuItem(
-                    value: 'high',
-                    child: Text('High Priority 🔴'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'medium',
-                    child: Text('Medium Priority 🟡'),
-                  ),
+                  DropdownMenuItem(value: 'high', child: Text('High Priority 🔴')),
+                  DropdownMenuItem(value: 'medium', child: Text('Medium Priority 🟡')),
                   DropdownMenuItem(value: 'low', child: Text('Low Priority ⚪')),
                 ],
-                onChanged: (val) =>
-                    setDialogState(() => priority = val ?? 'medium'),
+                onChanged: (val) => setDialogState(() => priority = val ?? 'medium'),
               ),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text(
+              child: Text(
                 'Cancel',
-                style: TextStyle(color: AppTheme.mutedInk),
+                style: TextStyle(color: colors.onSurfaceVariant),
               ),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.terracotta,
-                foregroundColor: AppTheme.cardSurface,
+                backgroundColor: colors.primary,
+                foregroundColor: colors.surface,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),

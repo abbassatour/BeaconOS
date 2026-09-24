@@ -25,8 +25,10 @@ class _SpatialVisionContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: AppTheme.warmPaper,
+      backgroundColor: context.scaffoldBg,
       body: SafeArea(
         child: BlocBuilder<SpatialVisionCubit, SpatialVisionState>(
           builder: (context, state) {
@@ -37,27 +39,28 @@ class _SpatialVisionContent extends StatelessWidget {
               children: [
                 // 1. الترويسة وأدوات الكشاف
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                  // زيادة الهامش العلوي لمنع التداخل مع البوصلة
+                  padding: const EdgeInsets.fromLTRB(20, 60, 20, 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'AI VISION STUDIO',
                             style: TextStyle(
-                              color: AppTheme.carbonInk,
+                              color: colors.onSurface,
                               fontSize: 22,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.5,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
                             'Swipe LEFT ⬅️ to return to Core',
                             style: TextStyle(
-                              color: AppTheme.mutedInk,
+                              color: colors.onSurfaceVariant,
                               fontSize: 12,
                             ),
                           ),
@@ -66,11 +69,12 @@ class _SpatialVisionContent extends StatelessWidget {
                       IconButton.filledTonal(
                         style: IconButton.styleFrom(
                           backgroundColor: state.isTorchOn
-                              ? AppTheme.warmAmber
-                              : AppTheme.softBorder,
+                              ? colors.secondary
+                              : colors.surface,
                           foregroundColor: state.isTorchOn
-                              ? AppTheme.cardSurface
-                              : AppTheme.carbonInk,
+                              ? colors.surface
+                              : colors.onSurface,
+                          side: BorderSide(color: colors.outline),
                         ),
                         icon: Icon(
                           state.isTorchOn
@@ -96,29 +100,31 @@ class _SpatialVisionContent extends StatelessWidget {
                     child: Row(
                       children: [
                         _buildModeChip(
+                          context: context,
                           title: 'Surroundings',
                           icon: Icons.explore_rounded,
-                          isSelected:
-                              state.activeMode == VisionMode.surroundings,
+                          isSelected: state.activeMode == VisionMode.surroundings,
                           onTap: () => cubit.setMode(VisionMode.surroundings),
                         ),
                         _buildModeChip(
+                          context: context,
                           title: 'Text / Doc',
                           icon: Icons.document_scanner_rounded,
                           isSelected: state.activeMode == VisionMode.textReader,
                           onTap: () => cubit.setMode(VisionMode.textReader),
                         ),
                         _buildModeChip(
+                          context: context,
                           title: 'Currency',
                           icon: Icons.payments_rounded,
                           isSelected: state.activeMode == VisionMode.currency,
                           onTap: () => cubit.setMode(VisionMode.currency),
                         ),
                         _buildModeChip(
+                          context: context,
                           title: 'Product / Expiry',
                           icon: Icons.qr_code_scanner_rounded,
-                          isSelected:
-                              state.activeMode == VisionMode.productExpiry,
+                          isSelected: state.activeMode == VisionMode.productExpiry,
                           onTap: () => cubit.setMode(VisionMode.productExpiry),
                         ),
                       ],
@@ -135,13 +141,13 @@ class _SpatialVisionContent extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          _buildRadarScanner(state),
+                          _buildRadarScanner(context, state),
                           const SizedBox(height: 24),
                           Text(
                             _getStatusTitle(state),
                             textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: AppTheme.carbonInk,
+                            style: TextStyle(
+                              color: colors.onSurface,
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.2,
@@ -152,8 +158,8 @@ class _SpatialVisionContent extends StatelessWidget {
                             state.isBusy
                                 ? 'Gemini 2.0 Flash is inspecting scene...'
                                 : 'Tap anywhere on screen to scan',
-                            style: const TextStyle(
-                              color: AppTheme.mutedInk,
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
                               fontSize: 13,
                             ),
                           ),
@@ -169,15 +175,15 @@ class _SpatialVisionContent extends StatelessWidget {
                     margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                     padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardSurface,
+                      color: colors.surface,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: AppTheme.softBorder,
+                        color: colors.outline,
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.carbonInk.withValues(alpha: 0.05),
+                          color: colors.onSurface.withValues(alpha: 0.05),
                           blurRadius: 16,
                           offset: const Offset(0, 6),
                         ),
@@ -189,18 +195,18 @@ class _SpatialVisionContent extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Row(
+                            Row(
                               children: [
                                 Icon(
                                   Icons.remove_red_eye_rounded,
-                                  color: AppTheme.terracotta,
+                                  color: colors.primary,
                                   size: 18,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
                                   'SCENE DESCRIPTION',
                                   style: TextStyle(
-                                    color: AppTheme.terracotta,
+                                    color: colors.primary,
                                     fontSize: 11,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 1.1,
@@ -211,18 +217,18 @@ class _SpatialVisionContent extends StatelessWidget {
                             Row(
                               children: [
                                 IconButton(
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.volume_up_rounded,
-                                    color: AppTheme.terracotta,
+                                    color: colors.primary,
                                     size: 20,
                                   ),
                                   tooltip: 'Replay Description',
                                   onPressed: cubit.replayDescription,
                                 ),
                                 IconButton(
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.bookmark_add_rounded,
-                                    color: AppTheme.terracotta,
+                                    color: colors.primary,
                                     size: 20,
                                   ),
                                   tooltip: 'Save to Notes',
@@ -235,8 +241,8 @@ class _SpatialVisionContent extends StatelessWidget {
                         const SizedBox(height: 8),
                         Text(
                           state.lastSpokenResult,
-                          style: const TextStyle(
-                            color: AppTheme.carbonInk,
+                          style: TextStyle(
+                            color: colors.onSurface,
                             fontSize: 15,
                             height: 1.45,
                           ),
@@ -253,26 +259,29 @@ class _SpatialVisionContent extends StatelessWidget {
   }
 
   Widget _buildModeChip({
+    required BuildContext context,
     required String title,
     required IconData icon,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final colors = context.colors;
+
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: FilterChip(
         avatar: Icon(
           icon,
-          color: isSelected ? AppTheme.cardSurface : AppTheme.terracotta,
+          color: isSelected ? colors.surface : colors.primary,
           size: 18,
         ),
         label: Text(title),
         selected: isSelected,
-        selectedColor: AppTheme.terracotta,
-        backgroundColor: AppTheme.cardSurface,
-        side: const BorderSide(color: AppTheme.softBorder, width: 1.2),
+        selectedColor: colors.primary,
+        backgroundColor: colors.surface,
+        side: BorderSide(color: colors.outline, width: 1.2),
         labelStyle: TextStyle(
-          color: isSelected ? AppTheme.cardSurface : AppTheme.carbonInk,
+          color: isSelected ? colors.surface : colors.onSurface,
           fontWeight: FontWeight.bold,
           fontSize: 12,
         ),
@@ -281,7 +290,8 @@ class _SpatialVisionContent extends StatelessWidget {
     );
   }
 
-  Widget _buildRadarScanner(SpatialVisionState state) {
+  Widget _buildRadarScanner(BuildContext context, SpatialVisionState state) {
+    final colors = context.colors;
     final isBusy = state.isBusy;
 
     return AnimatedContainer(
@@ -290,15 +300,15 @@ class _SpatialVisionContent extends StatelessWidget {
       height: isBusy ? 160 : 130,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppTheme.terracotta.withValues(alpha: isBusy ? 0.15 : 0.06),
+        color: colors.primary.withValues(alpha: isBusy ? 0.15 : 0.06),
         border: Border.all(
-          color: AppTheme.terracotta,
+          color: colors.primary,
           width: isBusy ? 3.0 : 1.8,
         ),
         boxShadow: [
           if (isBusy)
             BoxShadow(
-              color: AppTheme.terracotta.withValues(alpha: 0.25),
+              color: colors.primary.withValues(alpha: 0.25),
               blurRadius: 28,
               spreadRadius: 4,
             ),
@@ -307,7 +317,7 @@ class _SpatialVisionContent extends StatelessWidget {
       child: Center(
         child: Icon(
           isBusy ? Icons.camera_rounded : Icons.center_focus_strong_rounded,
-          color: AppTheme.terracotta,
+          color: colors.primary,
           size: isBusy ? 54 : 46,
         ),
       ),

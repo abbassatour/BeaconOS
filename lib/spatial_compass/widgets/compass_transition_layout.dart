@@ -20,53 +20,77 @@ class CompassTransitionLayout extends StatelessWidget {
   final Widget eastChild;
   final Widget westChild;
 
-  Offset _getTargetOffset() {
-    switch (direction) {
-      case CompassDirection.center:
-        return Offset.zero;
-      case CompassDirection.north:
-        return const Offset(0, 1);
-      case CompassDirection.south:
-        return const Offset(0, -1);
-      case CompassDirection.east:
-        return const Offset(-1, 0);
-      case CompassDirection.west:
-        return const Offset(1, 0);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return AnimatedSlide(
-      offset: _getTargetOffset(),
-      duration: const Duration(milliseconds: 240),
-      curve: Curves.easeOutExpo,
-      child: Stack(
-        children: [
-          // 🔘 المركز: قمرة اليوم
-          _buildRoomLayer(centerChild, Offset.zero),
-
-          // ⬆️ الشمال: الأجندة
-          _buildRoomLayer(northChild, const Offset(0, -1)),
-
-          // ⬇️ الجنوب: التواصل
-          _buildRoomLayer(southChild, const Offset(0, 1)),
-
-          // ➡️ الشرق: الرؤية
-          _buildRoomLayer(eastChild, const Offset(1, 0)),
-
-          // ⬅️ الغرب: التركيز والمنبهات
-          _buildRoomLayer(westChild, const Offset(-1, 0)),
-        ],
-      ),
+    // 🚀 إزالة AnimatedSlide بالكامل
+    // محرك الفيزياء (SpringSimulation) في الشاشة الأب هو من يتولى الآن
+    // تحريك الطابق بأكمله (Translation) لحظة بلحظة، مما يمنع التضارب الحركي.
+    return Stack(
+      children: [
+        _buildRoomLayer(
+          child: centerChild,
+          translation: Offset.zero,
+          roomDir: CompassDirection.center,
+        ),
+        _buildRoomLayer(
+          child: northChild,
+          translation: const Offset(0, -1),
+          roomDir: CompassDirection.north,
+        ),
+        _buildRoomLayer(
+          child: southChild,
+          translation: const Offset(0, 1),
+          roomDir: CompassDirection.south,
+        ),
+        _buildRoomLayer(
+          child: eastChild,
+          translation: const Offset(1, 0),
+          roomDir: CompassDirection.east,
+        ),
+        _buildRoomLayer(
+          child: westChild,
+          translation: const Offset(-1, 0),
+          roomDir: CompassDirection.west,
+        ),
+      ],
     );
   }
 
-  Widget _buildRoomLayer(Widget child, Offset translation) {
+  /// ⚡️ ترشيد الرندر والفرز الفضائي (Spatial Culling & GPU Optimization)
+  Widget _buildRoomLayer({
+    required Widget child,
+    required Offset translation,
+    required CompassDirection roomDir,
+  }) {
+    // نحدد ما إذا كانت هذه الغرفة هي التي يقف فيها المستخدم حالياً
+    final isActive = direction == roomDir;
+    final isCenter = roomDir == CompassDirection.center;
+
+    // المركز دائماً مسموح له بالمعالجة لتسهيل العودة، أما الغرف الأخرى فتُجمّد إن لم تكن نشطة
+    final isProcessingAllowed = isActive || isCenter;
+
     return FractionalTranslation(
       translation: translation,
+      // 1. عزل حدود إعادة الرسم (Repaint Boundary)
+      // يمنع "تلوث الطلاء"، فإذا كان عداد المنبه يعمل في غرفة التركيز، 
+      // لن يقوم فلاتر بإعادة رسم باقي الغرف أو البوصلة، مما يثبت الإطارات عند 120fps.
       child: RepaintBoundary(
-        child: child,
+        // 2. تجميد محركات الأنيميشن (TickerMode)
+        // يوفر طاقة معالج الهاتف (CPU/Battery) عبر إيقاف الأنيميشن في الغرف غير المرئية.
+        child: TickerMode(
+          enabled: isProcessingAllowed,
+          // 3. عزل قارئ الشاشة (ExcludeSemantics)
+          // يمنع (TalkBack / VoiceOver) من قراءة أزرار غرف غير موجودة على الشاشة.
+          child: ExcludeSemantics(
+            excluding: !isActive,
+            // 4. عزل التركيز (FocusScope)
+            // يمنع لوحة المفاتيح من التركيز على حقل نصي موجود في غرفة أخرى.
+            child: FocusScope(
+              canRequestFocus: isActive,
+              child: child,
+            ),
+          ),
+        ),
       ),
     );
   }

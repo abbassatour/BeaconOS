@@ -27,36 +27,39 @@ class _CommunicationsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return Scaffold(
-      backgroundColor: AppTheme.warmPaper,
+      backgroundColor: context.scaffoldBg,
       body: SafeArea(
         child: BlocBuilder<CommunicationsCubit, CommunicationsState>(
           builder: (context, state) {
             final cubit = context.read<CommunicationsCubit>();
 
             if (state.status == CommunicationsStatus.loading) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppTheme.terracotta),
+              return Center(
+                child: CircularProgressIndicator(color: colors.primary),
               );
             }
 
             return CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
-                // 1. ترويسة الغرفة التحريرية ومؤشر العودة للمركز
+                // 1. ترويسة الغرفة
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    // زيادة الهامش لمنع التداخل مع البوصلة
+                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'COMMUNICATIONS',
                               style: TextStyle(
-                                color: AppTheme.carbonInk,
+                                color: colors.onSurface,
                                 fontSize: 26,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 1.5,
@@ -64,8 +67,9 @@ class _CommunicationsContent extends StatelessWidget {
                             ),
                             IconButton.filledTonal(
                               style: IconButton.styleFrom(
-                                backgroundColor: AppTheme.softBorder,
-                                foregroundColor: AppTheme.carbonInk,
+                                backgroundColor: colors.surface,
+                                foregroundColor: colors.onSurface,
+                                side: BorderSide(color: colors.outline),
                               ),
                               icon: const Icon(Icons.person_add_alt_1_rounded),
                               tooltip: 'Add Contact',
@@ -74,10 +78,10 @@ class _CommunicationsContent extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Swipe UP ⬆️ or double-tap with two fingers to return to Core.',
                           style: TextStyle(
-                            color: AppTheme.mutedInk,
+                            color: colors.onSurfaceVariant,
                             fontSize: 13,
                           ),
                         ),
@@ -86,23 +90,23 @@ class _CommunicationsContent extends StatelessWidget {
                   ),
                 ),
 
-                // 2. قسم أرقام الطوارئ ورادار الاستغاثة (Emergency Radar)
+                // 2. قسم أرقام الطوارئ ورادار الاستغاثة
                 if (state.emergencyContacts.isNotEmpty) ...[
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
                       child: Row(
                         children: [
                           Icon(
                             Icons.shield_rounded,
-                            color: AppTheme.errorRed,
+                            color: colors.error,
                             size: 20,
                           ),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
                             'EMERGENCY RADAR CONTACTS',
                             style: TextStyle(
-                              color: AppTheme.errorRed,
+                              color: colors.error,
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
@@ -118,7 +122,7 @@ class _CommunicationsContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final contact = state.emergencyContacts[index];
-                          return _buildEmergencyCard(contact, cubit);
+                          return _buildEmergencyCard(context, contact, cubit);
                         },
                         childCount: state.emergencyContacts.length,
                       ),
@@ -126,22 +130,22 @@ class _CommunicationsContent extends StatelessWidget {
                   ),
                 ],
 
-                // 3. قسم أرشيف الرسائل الواردة والتراسل الصامت (Messages Vault)
-                const SliverToBoxAdapter(
+                // 3. قسم أرشيف الرسائل الواردة والتراسل الصامت
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                     child: Row(
                       children: [
                         Icon(
                           Icons.mark_chat_unread_rounded,
-                          color: AppTheme.terracotta,
+                          color: colors.primary,
                           size: 20,
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
                           'MESSAGING VAULT (TAP TO LISTEN)',
                           style: TextStyle(
-                            color: AppTheme.carbonInk,
+                            color: colors.onSurface,
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
                             letterSpacing: 1.2,
@@ -152,16 +156,16 @@ class _CommunicationsContent extends StatelessWidget {
                   ),
                 ),
                 if (state.recentMessages.isEmpty)
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 12,
                       ),
                       child: Text(
                         'No unread messages. Your inbox is completely quiet.',
                         style: TextStyle(
-                          color: AppTheme.mutedInk,
+                          color: colors.onSurfaceVariant,
                           fontSize: 14,
                         ),
                       ),
@@ -174,21 +178,21 @@ class _CommunicationsContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final msg = state.recentMessages[index];
-                          return _buildMessageTile(msg, cubit);
+                          return _buildMessageTile(context, msg, cubit);
                         },
                         childCount: state.recentMessages.length,
                       ),
                     ),
                   ),
 
-                // 4. دليل جهات الاتصال العادية (Directory)
-                const SliverToBoxAdapter(
+                // 4. دليل جهات الاتصال العادية
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(20, 24, 20, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                     child: Text(
                       'PHONE DIRECTORY',
                       style: TextStyle(
-                        color: AppTheme.carbonInk,
+                        color: colors.onSurface,
                         fontSize: 13,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.2,
@@ -197,16 +201,16 @@ class _CommunicationsContent extends StatelessWidget {
                   ),
                 ),
                 if (state.regularContacts.isEmpty)
-                  const SliverToBoxAdapter(
+                  SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(
+                      padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 12,
                       ),
                       child: Text(
                         'No contacts saved yet. Tap + to add.',
                         style: TextStyle(
-                          color: AppTheme.mutedInk,
+                          color: colors.onSurfaceVariant,
                           fontSize: 14,
                         ),
                       ),
@@ -219,7 +223,7 @@ class _CommunicationsContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final contact = state.regularContacts[index];
-                          return _buildRegularContactCard(contact, cubit);
+                          return _buildRegularContactCard(context, contact, cubit);
                         },
                         childCount: state.regularContacts.length,
                       ),
@@ -238,73 +242,76 @@ class _CommunicationsContent extends StatelessWidget {
     showDialog<void>(
       context: context,
       builder: (_) => AddContactDialog(
-        onSave:
-            ({
-              required name,
-              required phoneNumber,
-              relationship,
-              required isEmergency,
-            }) {
-              cubit.addNewContact(
-                name: name,
-                phoneNumber: phoneNumber,
-                relationship: relationship,
-                isEmergency: isEmergency,
-              );
-            },
+        onSave: ({
+          required name,
+          required phoneNumber,
+          relationship,
+          required isEmergency,
+        }) {
+          cubit.addNewContact(
+            name: name,
+            phoneNumber: phoneNumber,
+            relationship: relationship,
+            isEmergency: isEmergency,
+          );
+        },
       ),
     );
   }
 
-  Widget _buildEmergencyCard(Contact contact, CommunicationsCubit cubit) {
+  Widget _buildEmergencyCard(BuildContext context, Contact contact, CommunicationsCubit cubit) {
+    final colors = context.colors;
+
     return Card(
-      color: AppTheme.cardSurface,
+      color: colors.surface,
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.errorRed, width: 1.5),
+        side: BorderSide(color: colors.error, width: 1.5),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: const CircleAvatar(
-          backgroundColor: Color(0xFFFEE2E2),
-          child: Icon(Icons.phone_in_talk_rounded, color: AppTheme.errorRed),
+        leading: CircleAvatar(
+          backgroundColor: colors.error.withValues(alpha: 0.15),
+          child: Icon(Icons.phone_in_talk_rounded, color: colors.error),
         ),
         title: Text(
           contact.name,
-          style: const TextStyle(
-            color: AppTheme.carbonInk,
+          style: TextStyle(
+            color: colors.onSurface,
             fontWeight: FontWeight.w900,
             fontSize: 17,
           ),
         ),
         subtitle: Text(
           '${contact.relationship ?? 'Emergency'} • ${contact.phoneNumber}',
-          style: const TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
         ),
-        trailing: const Icon(Icons.touch_app_rounded, color: AppTheme.errorRed),
+        trailing: Icon(Icons.touch_app_rounded, color: colors.error),
         onTap: () => cubit.callContact(contact),
       ),
     );
   }
 
-  Widget _buildMessageTile(MessagesVaultData msg, CommunicationsCubit cubit) {
+  Widget _buildMessageTile(BuildContext context, MessagesVaultData msg, CommunicationsCubit cubit) {
+    final colors = context.colors;
+
     return Card(
-      color: AppTheme.cardSurface,
+      color: colors.surface,
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppTheme.softBorder, width: 1.5),
+        side: BorderSide(color: colors.outline, width: 1.5),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: AppTheme.warmPaper,
+          backgroundColor: context.scaffoldBg,
           child: Icon(
             msg.platform == 'whatsapp' ? Icons.chat_rounded : Icons.sms_rounded,
-            color: AppTheme.terracotta,
+            color: colors.primary,
           ),
         ),
         title: Row(
@@ -312,16 +319,16 @@ class _CommunicationsContent extends StatelessWidget {
           children: [
             Text(
               msg.senderName,
-              style: const TextStyle(
-                color: AppTheme.carbonInk,
+              style: TextStyle(
+                color: colors.onSurface,
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
               ),
             ),
             Text(
               msg.platform.toUpperCase(),
-              style: const TextStyle(
-                color: AppTheme.terracotta,
+              style: TextStyle(
+                color: colors.primary,
                 fontWeight: FontWeight.w900,
                 fontSize: 11,
               ),
@@ -332,31 +339,33 @@ class _CommunicationsContent extends StatelessWidget {
           msg.messageText,
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: AppTheme.carbonInk, fontSize: 14),
+          style: TextStyle(color: colors.onSurface, fontSize: 14),
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.volume_up_rounded,
-          color: AppTheme.terracotta,
+          color: colors.primary,
         ),
         onTap: () => cubit.readMessageAloud(msg),
       ),
     );
   }
 
-  Widget _buildRegularContactCard(Contact contact, CommunicationsCubit cubit) {
+  Widget _buildRegularContactCard(BuildContext context, Contact contact, CommunicationsCubit cubit) {
+    final colors = context.colors;
+
     return Card(
-      color: AppTheme.cardSurface,
+      color: colors.surface,
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppTheme.softBorder, width: 1.2),
+        side: BorderSide(color: colors.outline, width: 1.2),
       ),
       child: ListTile(
         title: Text(
           contact.name,
-          style: const TextStyle(
-            color: AppTheme.carbonInk,
+          style: TextStyle(
+            color: colors.onSurface,
             fontWeight: FontWeight.w800,
             fontSize: 16,
           ),
@@ -365,10 +374,10 @@ class _CommunicationsContent extends StatelessWidget {
           contact.relationship != null
               ? '${contact.relationship} • ${contact.phoneNumber}'
               : contact.phoneNumber,
-          style: const TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
         ),
         trailing: IconButton(
-          icon: const Icon(Icons.call_rounded, color: AppTheme.terracotta),
+          icon: Icon(Icons.call_rounded, color: colors.primary),
           onPressed: () => cubit.callContact(contact),
         ),
       ),
