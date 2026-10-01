@@ -37,27 +37,45 @@ class _SettingsCoreRoomState extends State<SettingsCoreRoom> {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
+            // 5. دليل التنقل الفضائي لغرف الإعدادات (مطابق للطابق الأول تماماً)
             SliverToBoxAdapter(
               child: Padding(
-                // 🛠️ تم زيادة الـ Padding العلوي من 16 إلى 60 لتجنب التداخل مع البوصلة العلوية
-                padding: const EdgeInsets.fromLTRB(20, 60, 20, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'CORE & SYSTEM',
-                      style: TextStyle(
-                        color: colors.onSurface,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: colors.surface.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: colors.outline),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'SETTINGS COMPASS GESTURES',
+                        style: TextStyle(
+                          color: colors.onSurfaceVariant,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.2,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Pinch out to return to Cockpit • Swipe across for room settings',
-                      style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Text('⬇️ Agenda', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colors.onSurface)),
+                          Text('⬆️ Comms', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colors.onSurface)),
+                          Text('➡️ Focus', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colors.onSurface)),
+                          Text('⬅️ Vision', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colors.onSurface)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '🤏 Pinch with 2 fingers or tap HUD to ascend to Floor 1',
+                        style: TextStyle(fontSize: 11, color: colors.primary, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

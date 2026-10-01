@@ -32,46 +32,71 @@ part 'app_database.g.dart';
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(openConnection());
 
+  // ===========================================================================
+  // ⚙️ الثوابت وكائنات التوليد
+  // ===========================================================================
+  static const String defaultSettingsId = 'local_device_settings';
+  final _uuid = const Uuid();
+
+  // 1. ترقية رقم الإصدار إلى 6
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
-  static const _uuid = Uuid();
-  static const defaultSettingsId = 'local_device_settings';
-
+  // 2. تحديث استراتيجية الترقية الآمنة
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
       onCreate: (Migrator m) async {
         await m.createAll();
-        // تهيئة الإعدادات الافتراضية عند أول تشغيل
         await into(appSettings).insert(
           AppSettingsCompanion.insert(id: defaultSettingsId),
         );
       },
       onUpgrade: (Migrator m, int from, int to) async {
         if (from < 5) {
-          // ترقية هيكلية الجداول للنسخة الحديثة 5.0
           await m.createTable(appSettings);
           await m.createTable(sosAlerts);
           await m.createTable(visionScans);
-          
-          // إدخال الإعدادات الافتراضية
           await into(appSettings).insert(
             AppSettingsCompanion.insert(id: defaultSettingsId),
             mode: InsertMode.insertOrIgnore,
           );
+        }
+        // الترقية الآمنة للنسخة 6 بإضافة أعمدة الهوية والتهيئة
+        if (from < 6) {
+          await m.addColumn(appSettings, appSettings.userPersona);
+          await m.addColumn(appSettings, appSettings.hasCompletedOnboarding);
         }
       },
     );
   }
 
   // ===========================================================================
-  // ⚙️ 1. إدارة الإعدادات الشاملة (App Settings Engine)
+  // 🎛️ 1. إدارة الإعدادات والهوية (Settings & Persona Engine)
   // ===========================================================================
 
-  Stream<AppSetting> watchSettings() {
-    return (select(appSettings)..where((s) => s.id.equals(defaultSettingsId)))
-        .watchSingle();
+  Stream<AppSetting> watchSettings() => (select(appSettings)
+        ..where((s) => s.id.equals(defaultSettingsId)))
+      .watchSingle();
+
+  Future<bool> hasCompletedOnboarding() async {
+    final settings = await getSettings();
+    return settings.hasCompletedOnboarding;
+  }
+
+  Future<void> completeOnboarding({
+    required String persona,
+    required bool isHighContrast,
+    required double speechRate,
+  }) async {
+    await updateSettings(
+      AppSettingsCompanion(
+        userPersona: Value(persona),
+        hasCompletedOnboarding: const Value(true),
+        isHighContrast: Value(isHighContrast),
+        speechRate: Value(speechRate),
+      ),
+    );
   }
 
   Future<AppSetting> getSettings() async {
@@ -81,7 +106,6 @@ class AppDatabase extends _$AppDatabase {
 
     if (existing != null) return existing;
 
-    // في حال عدم وجودها، يتم إنشاؤها فوراً
     await into(appSettings).insert(
       AppSettingsCompanion.insert(id: defaultSettingsId),
       mode: InsertMode.insertOrIgnore,
@@ -384,7 +408,6 @@ class AppDatabase extends _$AppDatabase {
   // 💬 9. الرسائل والإشعارات (Messages & Notifications)
   // ===========================================================================
 
-  /// 1. بث حي لرسائل جهة اتصال محددة مرتبة زمنياً
   Stream<List<MessagesVaultData>> watchMessagesForContact(
     String contactIdentifier,
   ) {
@@ -396,7 +419,6 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
-  /// 2. جلب أحدث الرسائل غير المحذوفة
   Future<List<MessagesVaultData>> getRecentMessages({int limit = 50}) =>
       (select(messagesVault)
             ..where((m) => m.deletedAt.isNull())
@@ -404,12 +426,10 @@ class AppDatabase extends _$AppDatabase {
             ..limit(limit))
           .get();
 
-  /// 3. جلب الرسائل غير المقروءة (دالتك الحالية)
   Future<List<MessagesVaultData>> getUnreadMessages() => (select(messagesVault)
         ..where((m) => m.deletedAt.isNull() & m.isRead.equals(false)))
       .get();
 
-  /// 4. إدخال رسالة جديدة وتوليد UUID لها (دالتك الحالية)
   Future<String> insertMessage({
     required String contactIdentifier,
     required String senderName,
@@ -431,7 +451,6 @@ class AppDatabase extends _$AppDatabase {
     return msgId;
   }
 
-  /// 5. تمييز الرسائل كمقروءة وتحديث طابع التعديل (دالتك الحالية)
   Future<void> markMessagesAsRead(String contactIdentifier) {
     return (update(messagesVault)
           ..where((m) => m.contactIdentifier.equals(contactIdentifier)))
@@ -441,8 +460,6 @@ class AppDatabase extends _$AppDatabase {
           isSynced: const Value(false),
         ));
   }
-
-  // --- دوال جدول ملخص الإشعارات (Notifications Digest) ---
 
   Future<List<NotificationsDigestData>> getUnreadNotifications() =>
       (select(notificationsDigest)..where((t) => t.isRead.equals(false))).get();
@@ -459,9 +476,6 @@ class AppDatabase extends _$AppDatabase {
   // 🧹 عمليات الحذف النهائي (Hard Deletes for Sync Cleanup)
   // ===========================================================================
 
-  /// تُستخدم هذه الدوال فقط بواسطة محرك المزامنة بالخلفية لتنظيف مساحة الهاتف
-  /// بعد التأكد من أن السجلات حُذفت بنجاح من سحابة Supabase.
-  
   Future<int> deleteTask(String id) =>
       (delete(tasks)..where((t) => t.id.equals(id))).go();
 

@@ -13,6 +13,7 @@ import 'package:launcher_repository/launcher_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voice_ai_api/voice_ai_api.dart';
 
+// ✅ الإبقاء على مراقب الـ Bloc الأصلي بالكامل
 class AppBlocObserver extends BlocObserver {
   const AppBlocObserver();
 
@@ -70,5 +71,16 @@ Future<void> bootstrap() async {
     llmAgent: llmAgent,
   );
 
-  runApp(App(launcherRepository: launcherRepository));
+  // ⚡️ الإضافة الجديدة (1): تهيئة الصوت فوراً عند الإقلاع للمكفوفين
+  await launcherRepository.initializeEngines();
+
+  // 🎨 الإضافة الجديدة (2): قراءة الثيم وحالة التهيئة لتفادي وميض الشاشة
+  final initialSettings = await launcherRepository.getSettings();
+
+  runApp(
+    App(
+      launcherRepository: launcherRepository,
+      initialSettings: initialSettings,
+    ),
+  );
 }

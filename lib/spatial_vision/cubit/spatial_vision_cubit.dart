@@ -1,6 +1,7 @@
 // lib/spatial_vision/cubit/spatial_vision_cubit.dart
 import 'dart:developer';
 import 'package:beacon_os/core/audio/sound_controller.dart';
+import 'package:beacon_os/core/audio/sound_cue.dart';
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/core/services/camera_service.dart';
 import 'package:beacon_os/spatial_vision/cubit/spatial_vision_state.dart';
@@ -60,13 +61,13 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
     if (state.isBusy) return;
 
     try {
-      await _sound.stop();
+      await _sound.stopAll();
       await _repository.stopSpeaking();
 
       // 1. بدء الالتقاط بنبضة تكتيكية وصوت المعالجة
       emit(state.copyWith(status: VisionStatus.capturing));
       await _haptics.successNotification();
-      await _sound.playProcessingCue();
+      await _sound.play(SoundCue.processing);
 
       final base64Image = await _camera.captureAsBase64();
       if (base64Image == null || base64Image.isEmpty) {
@@ -76,6 +77,7 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
             errorMessage: 'Unable to capture frame from camera.',
           ),
         );
+        await _sound.play(SoundCue.error);
         await _repository.speak('Camera capture failed. Please try again.');
         return;
       }
@@ -91,7 +93,7 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
 
       // 3. تأكيد النجاح ونطق الإجابة فوراً للكفيف
       await _haptics.successNotification();
-      await _sound.playSuccessCue();
+      await _sound.play(SoundCue.success);
 
       emit(
         state.copyWith(
@@ -111,6 +113,7 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
         ),
       );
       await _haptics.errorAlert();
+      await _sound.play(SoundCue.error);
       await _repository.speak('Visual analysis error. Please try again.');
     }
   }
@@ -133,6 +136,7 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
       description: state.lastSpokenResult,
     );
     await _haptics.successNotification();
+    await _sound.play(SoundCue.success);
     await _repository.speak('Vision scan saved to notes vault.');
   }
 

@@ -15,9 +15,10 @@ class SettingsCommsRoom extends StatelessWidget {
     final compassCubit = context.read<SpatialCompassCubit>();
     final settingsCubit = context.read<SettingsCubit>();
     final repository = context.read<LauncherRepository>();
+    final colors = context.colors;
 
     return Scaffold(
-      backgroundColor: AppTheme.warmPaper,
+      backgroundColor: context.scaffoldBg,
       body: SafeArea(
         child: BlocBuilder<SettingsCubit, SettingsState>(
           builder: (context, state) {
@@ -26,25 +27,26 @@ class SettingsCommsRoom extends StatelessWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    // 🛠️ زيادة الهامش العلوي إلى 60
+                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Row(
+                            Row(
                               children: [
                                 Icon(
                                   Icons.shield_rounded,
-                                  color: AppTheme.errorRed,
+                                  color: colors.error,
                                   size: 20,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
                                   'FLOOR 2 • COMMS & SOS ENGINE',
                                   style: TextStyle(
-                                    color: AppTheme.errorRed,
+                                    color: colors.error,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 1.5,
@@ -52,12 +54,13 @@ class SettingsCommsRoom extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            // زر العودة للمركز
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.cardSurface,
-                                foregroundColor: AppTheme.carbonInk,
+                                backgroundColor: colors.surface,
+                                foregroundColor: colors.onSurface,
                                 elevation: 0,
-                                side: const BorderSide(color: AppTheme.softBorder),
+                                side: BorderSide(color: colors.outline),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
                                   vertical: 4,
@@ -67,32 +70,36 @@ class SettingsCommsRoom extends StatelessWidget {
                                 ),
                               ),
                               icon: const Icon(
-                                Icons.arrow_downward_rounded,
+                                Icons.close_fullscreen_rounded,
                                 size: 16,
                               ),
                               label: const Text(
-                                'Comms',
+                                'Core',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              onPressed: compassCubit.returnToGroundFloor,
+                              onPressed: compassCubit.returnToCenter,
                             ),
                           ],
                         ),
                         const SizedBox(height: 6),
-                        const Text(
+                        Text(
                           'SAFETY & RADAR',
                           style: TextStyle(
-                            color: AppTheme.carbonInk,
+                            color: colors.onSurface,
                             fontSize: 26,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        const Text(
-                          'Emergency radar triggers and hands-free messaging rules',
-                          style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Swipe UP ⬆️ to return to Core Engine.',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -104,17 +111,17 @@ class SettingsCommsRoom extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: AppTheme.cardSurface,
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: AppTheme.softBorder, width: 1.2),
+                        border: Border.all(color: colors.outline, width: 1.2),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'EMERGENCY SOS BEHAVIOR',
                             style: TextStyle(
-                              color: AppTheme.errorRed,
+                              color: colors.error,
                               fontSize: 11,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.2,
@@ -123,54 +130,54 @@ class SettingsCommsRoom extends StatelessWidget {
                           const SizedBox(height: 8),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text(
+                            title: Text(
                               'Auto-Dial Primary Contact',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: TextStyle(fontWeight: FontWeight.bold, color: colors.onSurface),
                             ),
-                            subtitle: const Text(
+                            subtitle: Text(
                               'Call emergency contact instantly when SOS triggers.',
                               style: TextStyle(
-                                color: AppTheme.mutedInk,
+                                color: colors.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
-                            activeColor: AppTheme.errorRed,
+                            activeColor: colors.error,
                             value: state.autoDialEmergency,
                             onChanged: (v) => settingsCubit.toggleAutoDialEmergency(v),
                           ),
-                          const Divider(color: AppTheme.softBorder),
+                          Divider(color: colors.outline),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text(
+                            title: Text(
                               'Broadcast Live GPS Coordinates',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: TextStyle(fontWeight: FontWeight.bold, color: colors.onSurface),
                             ),
-                            subtitle: const Text(
+                            subtitle: Text(
                               'Stream live position to family radar.',
                               style: TextStyle(
-                                color: AppTheme.mutedInk,
+                                color: colors.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
-                            activeColor: AppTheme.errorRed,
+                            activeColor: colors.error,
                             value: state.shareGpsOnSos,
                             onChanged: (v) => settingsCubit.toggleShareGpsOnSos(v),
                           ),
-                          const Divider(color: AppTheme.softBorder),
+                          Divider(color: colors.outline),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text(
+                            title: Text(
                               'Announce Sender on Tap',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: TextStyle(fontWeight: FontWeight.bold, color: colors.onSurface),
                             ),
-                            subtitle: const Text(
+                            subtitle: Text(
                               'Read incoming SMS and sender name with one touch.',
                               style: TextStyle(
-                                color: AppTheme.mutedInk,
+                                color: colors.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
-                            activeColor: AppTheme.terracotta,
+                            activeColor: colors.primary,
                             value: state.speakIncomingSms,
                             onChanged: (v) => settingsCubit.toggleSpeakIncomingSms(v),
                           ),
@@ -178,8 +185,8 @@ class SettingsCommsRoom extends StatelessWidget {
                           Center(
                             child: OutlinedButton.icon(
                               style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: AppTheme.errorRed),
-                                foregroundColor: AppTheme.errorRed,
+                                side: BorderSide(color: colors.error),
+                                foregroundColor: colors.error,
                               ),
                               icon: const Icon(
                                 Icons.warning_amber_rounded,
@@ -196,6 +203,7 @@ class SettingsCommsRoom extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
               ],
             );
           },

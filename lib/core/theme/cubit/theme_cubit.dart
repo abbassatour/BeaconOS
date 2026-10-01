@@ -5,7 +5,13 @@ import 'package:bloc/bloc.dart';
 enum AppThemeMode { warmPaper, highContrastOled }
 
 class ThemeCubit extends Cubit<AppThemeMode> {
-  ThemeCubit() : super(AppThemeMode.warmPaper);
+  // استقبال الثيم الأولي المقروء من قاعدة البيانات
+  ThemeCubit({bool isHighContrast = false})
+      : super(
+          isHighContrast
+              ? AppThemeMode.highContrastOled
+              : AppThemeMode.warmPaper,
+        );
 
   /// تغيير الثيم بناءً على خيار المستخدم
   void toggleTheme({required bool isHighContrast}) {

@@ -1,25 +1,15 @@
 // lib/spatial_compass/view/spatial_compass_page.dart
-import 'dart:developer';
-import 'package:beacon_os/agenda/view/agenda_view.dart';
-import 'package:beacon_os/cockpit_dashboard/view/cockpit_dashboard_view.dart';
-import 'package:beacon_os/communications/view/communications_view.dart';
 import 'package:beacon_os/core/physics/spatial_physics.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
-import 'package:beacon_os/focus_alarms/view/focus_alarms_view.dart';
-import 'package:beacon_os/settings/rooms/settings_agenda_room.dart';
-import 'package:beacon_os/settings/rooms/settings_comms_room.dart';
-import 'package:beacon_os/settings/rooms/settings_core_room.dart';
-import 'package:beacon_os/settings/rooms/settings_focus_room.dart';
-import 'package:beacon_os/settings/rooms/settings_vision_room.dart';
+import 'package:beacon_os/settings/cubit/settings_cubit.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_cubit.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
-import 'package:beacon_os/spatial_compass/widgets/compass_transition_layout.dart';
-import 'package:beacon_os/spatial_vision/view/spatial_vision_view.dart';
+import 'package:beacon_os/spatial_compass/widgets/floor_layouts.dart';
+import 'package:beacon_os/spatial_compass/widgets/spatial_compass_hud.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
-import 'package:beacon_os/settings/cubit/settings_cubit.dart';
 
 class SpatialCompassPage extends StatelessWidget {
   const SpatialCompassPage({super.key});
@@ -386,29 +376,22 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
 
                   return Stack(
                     children: [
-                      // ⚙️ الطبقة العميقة (الطابق الثاني - الإعدادات)
+                      // ⚙️ الطبقة العميقة (الطابق الثاني)
                       Transform(
                         alignment: Alignment.center,
                         transform: Matrix4.identity()
-                          ..translate(_panX.value, _panY.value) // 🌟 تم إضافة إحداثيات السحب هنا ليتحرك الطابق الثاني!
+                          ..translate(_panX.value, _panY.value)
                           ..scale(settingsScale, settingsScale),
                         child: Opacity(
                           opacity: settingsOpacity,
                           child: IgnorePointer(
                             ignoring: zFloor < 0.5,
-                            child: CompassTransitionLayout(
-                              direction: state.currentDirection,
-                              centerChild: const SettingsCoreRoom(),
-                              northChild: const SettingsAgendaRoom(),
-                              southChild: const SettingsCommsRoom(),
-                              westChild: const SettingsFocusRoom(),
-                              eastChild: const SettingsVisionRoom(),
-                            ),
+                            child: SettingsFloorLayout(direction: state.currentDirection),
                           ),
                         ),
                       ),
 
-                      // 🏠 الطبقة السطحية (الطابق الأول - الغرف الأساسية)
+                      // 🏠 الطبقة السطحية (الطابق الأول)
                       Transform(
                         alignment: Alignment.center,
                         transform: Matrix4.identity()
@@ -418,20 +401,13 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                           opacity: coreOpacity,
                           child: IgnorePointer(
                             ignoring: zFloor > 0.5,
-                            child: CompassTransitionLayout(
-                              direction: state.currentDirection,
-                              centerChild: const CockpitDashboardView(),
-                              northChild: const AgendaView(),
-                              southChild: const CommunicationsView(),
-                              westChild: const FocusAlarmsView(),
-                              eastChild: const SpatialVisionView(),
-                            ),
+                            child: CoreFloorLayout(direction: state.currentDirection),
                           ),
                         ),
                       ),
 
-                      // 🗺️ شريط الـ HUD العائم والمستقل تماماً عن حركة الطوابق
-                      _SpatialCompassHud(
+                      // 🗺️ شريط الـ HUD العائم والمستقل تماماً
+                      SpatialCompassHud(
                         direction: state.currentDirection,
                         isSettingsFloor: state.isSettingsFloor,
                         onCenterTap: cubit.returnToCenter,
@@ -446,160 +422,5 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         ),
       ),
     );
-  }
-}
-
-class _SpatialCompassHud extends StatelessWidget {
-  const _SpatialCompassHud({
-    required this.direction,
-    required this.isSettingsFloor,
-    required this.onCenterTap,
-    required this.onFloorToggle,
-  });
-
-  final CompassDirection direction;
-  final bool isSettingsFloor;
-  final VoidCallback onCenterTap;
-  final VoidCallback onFloorToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final isAtCenter = direction == CompassDirection.center;
-    final colors = context.colors;
-
-    return Positioned(
-      top: 10,
-      left: 18,
-      right: 18,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // 🌟 تم إضافة Expanded و Flexible لمنع خطأ الـ RenderFlex Overflow
-          Expanded(
-            child: GestureDetector(
-              onTap: isAtCenter ? null : onCenterTap,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: colors.surface.withValues(alpha: 0.94),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isSettingsFloor ? colors.primary : colors.outline,
-                    width: isSettingsFloor ? 1.5 : 1.2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: colors.onSurface.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildMiniCompassCross(context, direction, isSettingsFloor),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        _getDirectionLabel(direction, isSettingsFloor),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis, // 🌟 يضع النقاط "..." إذا كان النص طويلاً
-                        style: TextStyle(
-                          color: isSettingsFloor ? colors.primary : colors.onSurface,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 1.1,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Row(
-            children: [
-              IconButton.filledTonal(
-                style: IconButton.styleFrom(
-                  backgroundColor: isSettingsFloor ? colors.primary : colors.surface,
-                  foregroundColor: isSettingsFloor ? colors.onPrimary : colors.onSurface,
-                  side: BorderSide(color: colors.outline, width: 1.2),
-                  minimumSize: const Size(36, 36),
-                  padding: EdgeInsets.zero,
-                ),
-                icon: Icon(
-                  isSettingsFloor ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                  size: 18,
-                ),
-                tooltip: isSettingsFloor ? 'Ascend to Floor 1' : 'Dive to Floor 2 Settings',
-                onPressed: onFloorToggle,
-              ),
-              if (!isAtCenter) ...[
-                const SizedBox(width: 6),
-                IconButton.filledTonal(
-                  style: IconButton.styleFrom(
-                    backgroundColor: colors.surface,
-                    foregroundColor: colors.onSurface,
-                    side: BorderSide(color: colors.outline, width: 1.2),
-                    minimumSize: const Size(36, 36),
-                    padding: EdgeInsets.zero,
-                  ),
-                  icon: const Icon(Icons.close_fullscreen_rounded, size: 18),
-                  tooltip: 'Return to Center',
-                  onPressed: onCenterTap,
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMiniCompassCross(BuildContext context, CompassDirection activeDir, bool isSettings) {
-    final colors = context.colors;
-    final activeColor = isSettings ? colors.primary : colors.onSurface;
-    final inactiveColor = colors.outline;
-
-    return SizedBox(
-      width: 18,
-      height: 18,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned(top: 0, child: _dot(activeDir == CompassDirection.north, activeColor, inactiveColor)),
-          Positioned(bottom: 0, child: _dot(activeDir == CompassDirection.south, activeColor, inactiveColor)),
-          Positioned(right: 0, child: _dot(activeDir == CompassDirection.east, activeColor, inactiveColor)),
-          Positioned(left: 0, child: _dot(activeDir == CompassDirection.west, activeColor, inactiveColor)),
-          Positioned(child: _dot(activeDir == CompassDirection.center, activeColor, inactiveColor, isCenter: true)),
-        ],
-      ),
-    );
-  }
-
-  Widget _dot(bool isActive, Color activeColor, Color inactiveColor, {bool isCenter = false}) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOutBack,
-      width: isActive ? (isCenter ? 5 : 4) : 3,
-      height: isActive ? (isCenter ? 5 : 4) : 3,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: isActive ? activeColor : inactiveColor,
-      ),
-    );
-  }
-
-  String _getDirectionLabel(CompassDirection dir, bool isSettings) {
-    final prefix = isSettings ? 'FL2 • ' : '';
-    switch (dir) {
-      case CompassDirection.center: return isSettings ? '${prefix}CORE ENGINE' : 'TODAY COCKPIT';
-      case CompassDirection.north:  return '${prefix}AGENDA SETTINGS';
-      case CompassDirection.south:  return '${prefix}COMMS & SOS';
-      case CompassDirection.east:   return '${prefix}VISION ENGINE';
-      case CompassDirection.west:   return '${prefix}FOCUS TUNING';
-    }
   }
 }

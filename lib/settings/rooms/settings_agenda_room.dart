@@ -13,9 +13,10 @@ class SettingsAgendaRoom extends StatelessWidget {
   Widget build(BuildContext context) {
     final compassCubit = context.read<SpatialCompassCubit>();
     final settingsCubit = context.read<SettingsCubit>();
+    final colors = context.colors;
 
     return Scaffold(
-      backgroundColor: AppTheme.warmPaper,
+      backgroundColor: context.scaffoldBg,
       body: SafeArea(
         child: BlocBuilder<SettingsCubit, SettingsState>(
           builder: (context, state) {
@@ -24,25 +25,26 @@ class SettingsAgendaRoom extends StatelessWidget {
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    // 🛠️ زيادة الهامش العلوي إلى 60 لمنع التداخل مع البوصلة
+                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Row(
+                            Row(
                               children: [
                                 Icon(
                                   Icons.edit_calendar_rounded,
-                                  color: AppTheme.terracotta,
+                                  color: colors.primary,
                                   size: 20,
                                 ),
-                                SizedBox(width: 8),
+                                const SizedBox(width: 8),
                                 Text(
                                   'FLOOR 2 • AGENDA ENGINE',
                                   style: TextStyle(
-                                    color: AppTheme.terracotta,
+                                    color: colors.primary,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w900,
                                     letterSpacing: 1.5,
@@ -50,12 +52,13 @@ class SettingsAgendaRoom extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            // زر العودة للمركز
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.cardSurface,
-                                foregroundColor: AppTheme.carbonInk,
+                                backgroundColor: colors.surface,
+                                foregroundColor: colors.onSurface,
                                 elevation: 0,
-                                side: const BorderSide(color: AppTheme.softBorder),
+                                side: BorderSide(color: colors.outline),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 10,
                                   vertical: 4,
@@ -65,32 +68,36 @@ class SettingsAgendaRoom extends StatelessWidget {
                                 ),
                               ),
                               icon: const Icon(
-                                Icons.arrow_downward_rounded,
+                                Icons.close_fullscreen_rounded,
                                 size: 16,
                               ),
                               label: const Text(
-                                'Agenda',
+                                'Core',
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              onPressed: compassCubit.returnToGroundFloor,
+                              onPressed: compassCubit.returnToCenter,
                             ),
                           ],
                         ),
                         const SizedBox(height: 6),
-                        const Text(
+                        Text(
                           'AGENDA PREFERENCES',
                           style: TextStyle(
-                            color: AppTheme.carbonInk,
+                            color: colors.onSurface,
                             fontSize: 26,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
-                        const Text(
-                          'Configure how voice tasks and notes are structured',
-                          style: TextStyle(color: AppTheme.mutedInk, fontSize: 13),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Swipe DOWN ⬇️ to return to Core Engine.',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -102,17 +109,17 @@ class SettingsAgendaRoom extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: AppTheme.cardSurface,
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: AppTheme.softBorder, width: 1.2),
+                        border: Border.all(color: colors.outline, width: 1.2),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'DEFAULT TASK PRIORITY',
                             style: TextStyle(
-                              color: AppTheme.terracotta,
+                              color: colors.primary,
                               fontSize: 11,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.2,
@@ -121,6 +128,8 @@ class SettingsAgendaRoom extends StatelessWidget {
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
                             value: state.defaultPriority,
+                            dropdownColor: colors.surface,
+                            style: TextStyle(color: colors.onSurface),
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                             ),
@@ -147,36 +156,36 @@ class SettingsAgendaRoom extends StatelessWidget {
                           const SizedBox(height: 16),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text(
+                            title: Text(
                               'Auto-Archive Completed Tasks',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: TextStyle(fontWeight: FontWeight.bold, color: colors.onSurface),
                             ),
-                            subtitle: const Text(
+                            subtitle: Text(
                               'Keep the visual and speech list clean.',
                               style: TextStyle(
-                                color: AppTheme.mutedInk,
+                                color: colors.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
-                            activeColor: AppTheme.terracotta,
+                            activeColor: colors.primary,
                             value: state.autoArchiveCompleted,
                             onChanged: (v) => settingsCubit.toggleAutoArchive(v),
                           ),
-                          const Divider(color: AppTheme.softBorder),
+                          Divider(color: colors.outline),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
-                            title: const Text(
+                            title: Text(
                               'Speak Deadlines Aloud',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: TextStyle(fontWeight: FontWeight.bold, color: colors.onSurface),
                             ),
-                            subtitle: const Text(
+                            subtitle: Text(
                               'Always announce due date when reading tasks.',
                               style: TextStyle(
-                                color: AppTheme.mutedInk,
+                                color: colors.onSurfaceVariant,
                                 fontSize: 12,
                               ),
                             ),
-                            activeColor: AppTheme.terracotta,
+                            activeColor: colors.primary,
                             value: state.speakDueDatesAloud,
                             onChanged: (v) => settingsCubit.toggleSpeakDueDates(v),
                           ),
@@ -185,6 +194,7 @@ class SettingsAgendaRoom extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SliverToBoxAdapter(child: SizedBox(height: 40)),
               ],
             );
           },

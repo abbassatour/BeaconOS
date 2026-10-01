@@ -3822,6 +3822,33 @@ class $AppSettingsTable extends AppSettings
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _userPersonaMeta = const VerificationMeta(
+    'userPersona',
+  );
+  @override
+  late final GeneratedColumn<String> userPersona = GeneratedColumn<String>(
+    'user_persona',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('digital_minimalist'),
+  );
+  static const VerificationMeta _hasCompletedOnboardingMeta =
+      const VerificationMeta('hasCompletedOnboarding');
+  @override
+  late final GeneratedColumn<bool> hasCompletedOnboarding =
+      GeneratedColumn<bool>(
+        'has_completed_onboarding',
+        aliasedName,
+        false,
+        type: DriftSqlType.bool,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("has_completed_onboarding" IN (0, 1))',
+        ),
+        defaultValue: const Constant(false),
+      );
   static const VerificationMeta _speechRateMeta = const VerificationMeta(
     'speechRate',
   );
@@ -4078,6 +4105,8 @@ class $AppSettingsTable extends AppSettings
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    userPersona,
+    hasCompletedOnboarding,
     speechRate,
     hapticsEnabled,
     soundCuesEnabled,
@@ -4113,6 +4142,24 @@ class $AppSettingsTable extends AppSettings
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
+    }
+    if (data.containsKey('user_persona')) {
+      context.handle(
+        _userPersonaMeta,
+        userPersona.isAcceptableOrUnknown(
+          data['user_persona']!,
+          _userPersonaMeta,
+        ),
+      );
+    }
+    if (data.containsKey('has_completed_onboarding')) {
+      context.handle(
+        _hasCompletedOnboardingMeta,
+        hasCompletedOnboarding.isAcceptableOrUnknown(
+          data['has_completed_onboarding']!,
+          _hasCompletedOnboardingMeta,
+        ),
+      );
     }
     if (data.containsKey('speech_rate')) {
       context.handle(
@@ -4280,6 +4327,14 @@ class $AppSettingsTable extends AppSettings
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
+      userPersona: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_persona'],
+      )!,
+      hasCompletedOnboarding: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}has_completed_onboarding'],
+      )!,
       speechRate: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
         data['${effectivePrefix}speech_rate'],
@@ -4362,8 +4417,14 @@ class $AppSettingsTable extends AppSettings
 }
 
 class AppSetting extends DataClass implements Insertable<AppSetting> {
-  /// معرّف الإعدادات (نستخدم 'local_settings' كمعرف ثابت للمستخدم النشط)
+  /// معرّف الإعدادات (نستخدم 'local_device_settings' كمعرف ثابت للمستخدم النشط)
   final String id;
+
+  /// هوية الاستخدام الأساسية: 'blind_accessible' أو 'digital_minimalist'
+  final String userPersona;
+
+  /// هل أتم المستخدم الشاشات التعريفية والتخصيص الأولي؟
+  final bool hasCompletedOnboarding;
   final double speechRate;
   final bool hapticsEnabled;
   final bool soundCuesEnabled;
@@ -4384,6 +4445,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   final bool isSynced;
   const AppSetting({
     required this.id,
+    required this.userPersona,
+    required this.hasCompletedOnboarding,
     required this.speechRate,
     required this.hapticsEnabled,
     required this.soundCuesEnabled,
@@ -4407,6 +4470,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
+    map['user_persona'] = Variable<String>(userPersona);
+    map['has_completed_onboarding'] = Variable<bool>(hasCompletedOnboarding);
     map['speech_rate'] = Variable<double>(speechRate);
     map['haptics_enabled'] = Variable<bool>(hapticsEnabled);
     map['sound_cues_enabled'] = Variable<bool>(soundCuesEnabled);
@@ -4433,6 +4498,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   AppSettingsCompanion toCompanion(bool nullToAbsent) {
     return AppSettingsCompanion(
       id: Value(id),
+      userPersona: Value(userPersona),
+      hasCompletedOnboarding: Value(hasCompletedOnboarding),
       speechRate: Value(speechRate),
       hapticsEnabled: Value(hapticsEnabled),
       soundCuesEnabled: Value(soundCuesEnabled),
@@ -4461,6 +4528,10 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return AppSetting(
       id: serializer.fromJson<String>(json['id']),
+      userPersona: serializer.fromJson<String>(json['userPersona']),
+      hasCompletedOnboarding: serializer.fromJson<bool>(
+        json['hasCompletedOnboarding'],
+      ),
       speechRate: serializer.fromJson<double>(json['speechRate']),
       hapticsEnabled: serializer.fromJson<bool>(json['hapticsEnabled']),
       soundCuesEnabled: serializer.fromJson<bool>(json['soundCuesEnabled']),
@@ -4496,6 +4567,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
+      'userPersona': serializer.toJson<String>(userPersona),
+      'hasCompletedOnboarding': serializer.toJson<bool>(hasCompletedOnboarding),
       'speechRate': serializer.toJson<double>(speechRate),
       'hapticsEnabled': serializer.toJson<bool>(hapticsEnabled),
       'soundCuesEnabled': serializer.toJson<bool>(soundCuesEnabled),
@@ -4523,6 +4596,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
 
   AppSetting copyWith({
     String? id,
+    String? userPersona,
+    bool? hasCompletedOnboarding,
     double? speechRate,
     bool? hapticsEnabled,
     bool? soundCuesEnabled,
@@ -4543,6 +4618,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     bool? isSynced,
   }) => AppSetting(
     id: id ?? this.id,
+    userPersona: userPersona ?? this.userPersona,
+    hasCompletedOnboarding:
+        hasCompletedOnboarding ?? this.hasCompletedOnboarding,
     speechRate: speechRate ?? this.speechRate,
     hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
     soundCuesEnabled: soundCuesEnabled ?? this.soundCuesEnabled,
@@ -4568,6 +4646,12 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   AppSetting copyWithCompanion(AppSettingsCompanion data) {
     return AppSetting(
       id: data.id.present ? data.id.value : this.id,
+      userPersona: data.userPersona.present
+          ? data.userPersona.value
+          : this.userPersona,
+      hasCompletedOnboarding: data.hasCompletedOnboarding.present
+          ? data.hasCompletedOnboarding.value
+          : this.hasCompletedOnboarding,
       speechRate: data.speechRate.present
           ? data.speechRate.value
           : this.speechRate,
@@ -4625,6 +4709,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   String toString() {
     return (StringBuffer('AppSetting(')
           ..write('id: $id, ')
+          ..write('userPersona: $userPersona, ')
+          ..write('hasCompletedOnboarding: $hasCompletedOnboarding, ')
           ..write('speechRate: $speechRate, ')
           ..write('hapticsEnabled: $hapticsEnabled, ')
           ..write('soundCuesEnabled: $soundCuesEnabled, ')
@@ -4648,8 +4734,10 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
+    userPersona,
+    hasCompletedOnboarding,
     speechRate,
     hapticsEnabled,
     soundCuesEnabled,
@@ -4668,12 +4756,14 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     preferredCurrency,
     updatedAt,
     isSynced,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is AppSetting &&
           other.id == this.id &&
+          other.userPersona == this.userPersona &&
+          other.hasCompletedOnboarding == this.hasCompletedOnboarding &&
           other.speechRate == this.speechRate &&
           other.hapticsEnabled == this.hapticsEnabled &&
           other.soundCuesEnabled == this.soundCuesEnabled &&
@@ -4696,6 +4786,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
 
 class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   final Value<String> id;
+  final Value<String> userPersona;
+  final Value<bool> hasCompletedOnboarding;
   final Value<double> speechRate;
   final Value<bool> hapticsEnabled;
   final Value<bool> soundCuesEnabled;
@@ -4717,6 +4809,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   final Value<int> rowid;
   const AppSettingsCompanion({
     this.id = const Value.absent(),
+    this.userPersona = const Value.absent(),
+    this.hasCompletedOnboarding = const Value.absent(),
     this.speechRate = const Value.absent(),
     this.hapticsEnabled = const Value.absent(),
     this.soundCuesEnabled = const Value.absent(),
@@ -4739,6 +4833,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   });
   AppSettingsCompanion.insert({
     required String id,
+    this.userPersona = const Value.absent(),
+    this.hasCompletedOnboarding = const Value.absent(),
     this.speechRate = const Value.absent(),
     this.hapticsEnabled = const Value.absent(),
     this.soundCuesEnabled = const Value.absent(),
@@ -4761,6 +4857,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   }) : id = Value(id);
   static Insertable<AppSetting> custom({
     Expression<String>? id,
+    Expression<String>? userPersona,
+    Expression<bool>? hasCompletedOnboarding,
     Expression<double>? speechRate,
     Expression<bool>? hapticsEnabled,
     Expression<bool>? soundCuesEnabled,
@@ -4783,6 +4881,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (userPersona != null) 'user_persona': userPersona,
+      if (hasCompletedOnboarding != null)
+        'has_completed_onboarding': hasCompletedOnboarding,
       if (speechRate != null) 'speech_rate': speechRate,
       if (hapticsEnabled != null) 'haptics_enabled': hapticsEnabled,
       if (soundCuesEnabled != null) 'sound_cues_enabled': soundCuesEnabled,
@@ -4813,6 +4914,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
 
   AppSettingsCompanion copyWith({
     Value<String>? id,
+    Value<String>? userPersona,
+    Value<bool>? hasCompletedOnboarding,
     Value<double>? speechRate,
     Value<bool>? hapticsEnabled,
     Value<bool>? soundCuesEnabled,
@@ -4835,6 +4938,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   }) {
     return AppSettingsCompanion(
       id: id ?? this.id,
+      userPersona: userPersona ?? this.userPersona,
+      hasCompletedOnboarding:
+          hasCompletedOnboarding ?? this.hasCompletedOnboarding,
       speechRate: speechRate ?? this.speechRate,
       hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
       soundCuesEnabled: soundCuesEnabled ?? this.soundCuesEnabled,
@@ -4865,6 +4971,14 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (userPersona.present) {
+      map['user_persona'] = Variable<String>(userPersona.value);
+    }
+    if (hasCompletedOnboarding.present) {
+      map['has_completed_onboarding'] = Variable<bool>(
+        hasCompletedOnboarding.value,
+      );
     }
     if (speechRate.present) {
       map['speech_rate'] = Variable<double>(speechRate.value);
@@ -4940,6 +5054,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   String toString() {
     return (StringBuffer('AppSettingsCompanion(')
           ..write('id: $id, ')
+          ..write('userPersona: $userPersona, ')
+          ..write('hasCompletedOnboarding: $hasCompletedOnboarding, ')
           ..write('speechRate: $speechRate, ')
           ..write('hapticsEnabled: $hapticsEnabled, ')
           ..write('soundCuesEnabled: $soundCuesEnabled, ')
@@ -8130,6 +8246,8 @@ typedef $$FocusSessionsTableProcessedTableManager =
 typedef $$AppSettingsTableCreateCompanionBuilder =
     AppSettingsCompanion Function({
       required String id,
+      Value<String> userPersona,
+      Value<bool> hasCompletedOnboarding,
       Value<double> speechRate,
       Value<bool> hapticsEnabled,
       Value<bool> soundCuesEnabled,
@@ -8153,6 +8271,8 @@ typedef $$AppSettingsTableCreateCompanionBuilder =
 typedef $$AppSettingsTableUpdateCompanionBuilder =
     AppSettingsCompanion Function({
       Value<String> id,
+      Value<String> userPersona,
+      Value<bool> hasCompletedOnboarding,
       Value<double> speechRate,
       Value<bool> hapticsEnabled,
       Value<bool> soundCuesEnabled,
@@ -8185,6 +8305,16 @@ class $$AppSettingsTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userPersona => $composableBuilder(
+    column: $table.userPersona,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hasCompletedOnboarding => $composableBuilder(
+    column: $table.hasCompletedOnboarding,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8293,6 +8423,16 @@ class $$AppSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get userPersona => $composableBuilder(
+    column: $table.userPersona,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hasCompletedOnboarding => $composableBuilder(
+    column: $table.hasCompletedOnboarding,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<double> get speechRate => $composableBuilder(
     column: $table.speechRate,
     builder: (column) => ColumnOrderings(column),
@@ -8395,6 +8535,16 @@ class $$AppSettingsTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userPersona => $composableBuilder(
+    column: $table.userPersona,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get hasCompletedOnboarding => $composableBuilder(
+    column: $table.hasCompletedOnboarding,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<double> get speechRate => $composableBuilder(
     column: $table.speechRate,
@@ -8515,6 +8665,8 @@ class $$AppSettingsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
+                Value<String> userPersona = const Value.absent(),
+                Value<bool> hasCompletedOnboarding = const Value.absent(),
                 Value<double> speechRate = const Value.absent(),
                 Value<bool> hapticsEnabled = const Value.absent(),
                 Value<bool> soundCuesEnabled = const Value.absent(),
@@ -8536,6 +8688,8 @@ class $$AppSettingsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsCompanion(
                 id: id,
+                userPersona: userPersona,
+                hasCompletedOnboarding: hasCompletedOnboarding,
                 speechRate: speechRate,
                 hapticsEnabled: hapticsEnabled,
                 soundCuesEnabled: soundCuesEnabled,
@@ -8559,6 +8713,8 @@ class $$AppSettingsTableTableManager
           createCompanionCallback:
               ({
                 required String id,
+                Value<String> userPersona = const Value.absent(),
+                Value<bool> hasCompletedOnboarding = const Value.absent(),
                 Value<double> speechRate = const Value.absent(),
                 Value<bool> hapticsEnabled = const Value.absent(),
                 Value<bool> soundCuesEnabled = const Value.absent(),
@@ -8580,6 +8736,8 @@ class $$AppSettingsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsCompanion.insert(
                 id: id,
+                userPersona: userPersona,
+                hasCompletedOnboarding: hasCompletedOnboarding,
                 speechRate: speechRate,
                 hapticsEnabled: hapticsEnabled,
                 soundCuesEnabled: soundCuesEnabled,

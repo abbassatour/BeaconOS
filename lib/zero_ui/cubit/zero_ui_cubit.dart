@@ -1,5 +1,6 @@
 // lib/zero_ui/cubit/zero_ui_cubit.dart
 import 'package:beacon_os/core/audio/sound_controller.dart';
+import 'package:beacon_os/core/audio/sound_cue.dart';
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/core/services/camera_service.dart';
 import 'package:beacon_os/zero_ui/cubit/zero_ui_state.dart';
@@ -27,15 +28,14 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
 
   Future<void> _initEngines() async {
     await _repository.initializeEngines();
-    // تشغيل الكاميرا بالخلفية
   }
 
   Future<void> onTouchStarted() async {
-    await _sound.stop();
+    await _sound.stopAll();
     await _repository.stopSpeaking();
 
     _haptics.startListeningPulse();
-    await _sound.playListeningCue();
+    await _sound.play(SoundCue.wake);
 
     emit(
       state.copyWith(
@@ -60,7 +60,6 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
   Future<void> onTouchReleased() async {
     _haptics.stopListeningPulse();
 
-    // مهلة قصيرة لإعطاء مايك المحاكي فرصة لإكمال تفريغ آخر كلمة
     await Future<void>.delayed(const Duration(milliseconds: 300));
 
     final finalWords = await _repository.stopListening();
@@ -68,7 +67,6 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
         ? finalWords
         : state.recognizedText.trim();
 
-    // الميزة السحرية: إذا لم ينطق بشيء، نعتبرها طلب رؤية للمحيط
     if (query.isEmpty) {
       await submitQuery("What is in front of me?");
       return;
@@ -77,7 +75,6 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
     await submitQuery(query);
   }
 
-  /// دالة مساعدة لمعرفة هل الطلب يتطلب فتح الكاميرا
   bool _isVisualQuery(String query) {
     final text = query.toLowerCase();
     return text.contains('look') ||
@@ -89,12 +86,11 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
         text.contains('color');
   }
 
-  /// تنفيذ أمر صوتي أو كتابي مباشرة وتحديث الواجهة
   Future<void> submitQuery(String query) async {
     final clean = query.trim();
     if (clean.isEmpty) return;
 
-    await _sound.stop();
+    await _sound.stopAll();
     await _repository.stopSpeaking();
 
     emit(
@@ -103,22 +99,20 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
         recognizedText: clean,
       ),
     );
-    await _sound.playProcessingCue();
+    await _sound.play(SoundCue.processing);
 
-    // التقاط الصورة إذا كان الأمر يتطلب رؤية
     String? base64Image;
     if (_isVisualQuery(clean)) {
       base64Image = await _camera.captureAsBase64();
     }
 
-    // إرسال الأمر (مع أو بدون الصورة) للمستودع (Repository)
     final result = await _repository.dispatchVoiceCommand(
       clean,
       base64Image: base64Image,
     );
 
     await _haptics.successNotification();
-    await _sound.playSuccessCue();
+    await _sound.play(SoundCue.success);
 
     emit(
       state.copyWith(
@@ -151,7 +145,7 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
   Future<void> triggerEmergencySos() async {
     emit(state.copyWith(status: ZeroUiStatus.sosTriggered));
     await _haptics.emergencyAlarmPulse();
-    await _sound.playSosAlarm();
+    await _sound.play(SoundCue.sosAlarm);
     await _repository.speak('Emergency SOS broadcasted.');
     await _repository.triggerEmergencySos(latitude: 0.0, longitude: 0.0);
   }
@@ -159,8 +153,8 @@ class ZeroUiCubit extends Cubit<ZeroUiState> {
   @override
   Future<void> close() {
     _haptics.dispose();
-    _sound.dispose();
-    _camera.dispose(); // إغلاق الكاميرا عند الخروج
+    _sound.stopAll(); // 🛡️ إيقاف الأصوات فقط دون تدمير الـ Singleton
+    _camera.dispose();
     return super.close();
   }
 }

@@ -75,7 +75,9 @@ class LauncherRepository {
       if (cloudSettings != null) {
         await _db.updateSettings(
           AppSettingsCompanion(
-            speechRate: Value(cloudSettings['speech_rate'] as double? ?? 0.5),
+            userPersona: Value(cloudSettings['user_persona'] as String? ?? 'digital_minimalist'),
+            hasCompletedOnboarding: Value(cloudSettings['has_completed_onboarding'] as bool? ?? false),
+            speechRate: Value(cloudSettings['speech_rate'] as double? ?? 0.5),            
             hapticsEnabled: Value(cloudSettings['haptics_enabled'] as bool? ?? true),
             soundCuesEnabled: Value(cloudSettings['sound_cues_enabled'] as bool? ?? true),
             isHighContrast: Value(cloudSettings['is_high_contrast'] as bool? ?? false),
@@ -252,6 +254,55 @@ class LauncherRepository {
   }
 
 
+  // ===========================================================================
+  // 🧭 0.2 إدارة الإعداد الأولي وهوية المستخدم (Onboarding & Persona Lifecycle)
+  // ===========================================================================
+
+  /// فحص هل أتم المستخدم التهيئة المسبقة
+  Future<bool> isOnboardingCompleted() => _db.hasCompletedOnboarding();
+
+  /// اعتماد إتمام التهيئة وتطبيق تفضيلات الهوية فوراً على المحركات
+  Future<void> completeOnboarding({
+    required String persona,
+    required bool isHighContrast,
+    required double speechRate,
+  }) async {
+    // 1. تحديث قاعدة البيانات المحلية في Drift
+    await _db.completeOnboarding(
+      persona: persona,
+      isHighContrast: isHighContrast,
+      speechRate: speechRate,
+    );
+
+    // 2. تطبيق سرعة النطق فوراً على محرك TTS
+    await setSpeechRate(speechRate);
+
+    // 3. مزامنة الحالة مع السحابة في حال توفر اتصال
+    final current = await _db.getSettings();
+    await _cloud.syncSettings({
+      'id': current.id,
+      'user_persona': current.userPersona,
+      'has_completed_onboarding': current.hasCompletedOnboarding,
+      'speech_rate': current.speechRate,
+      'is_high_contrast': current.isHighContrast,
+      'haptics_enabled': current.hapticsEnabled,
+      'sound_cues_enabled': current.soundCuesEnabled,
+      'default_priority': current.defaultPriority,
+      'auto_archive_completed': current.autoArchiveCompleted,
+      'speak_due_dates_aloud': current.speakDueDatesAloud,
+      'auto_dial_emergency': current.autoDialEmergency,
+      'share_gps_on_sos': current.shareGpsOnSos,
+      'speak_incoming_sms': current.speakIncomingSms,
+      'voice_chime_halfway': current.voiceChimeHalfway,
+      'vibrate_on_session_finish': current.vibrateOnSessionFinish,
+      'sync_alarms_with_android_clock': current.syncAlarmsWithAndroidClock,
+      'vision_inspection_detail': current.visionInspectionDetail,
+      'auto_flashlight_in_dark': current.autoFlashlightInDark,
+      'preferred_currency': current.preferredCurrency,
+    });
+
+    log('LauncherRepository: Onboarding completed for persona: $persona (HighContrast: $isHighContrast)');
+  }
 
 
   // ===========================================================================
