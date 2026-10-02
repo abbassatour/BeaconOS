@@ -12,6 +12,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:launcher_repository/launcher_repository.dart';
 import 'package:local_vault_api/local_vault_api.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart';
 
 class CockpitDashboardView extends StatelessWidget {
   const CockpitDashboardView({super.key});
@@ -728,8 +729,9 @@ class _SpatialNavigationGuideFooter extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
+          // 🌟 استدعاء النص التوضيحي الموحد
           Text(
-            '🤏 Pinch with 2 fingers to enter Floor 2 (Settings)',
+            SpatialGesture.ascendToSettings.visualHint,
             style: TextStyle(
               fontSize: 11,
               color: colors.primary,

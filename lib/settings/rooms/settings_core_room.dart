@@ -7,6 +7,7 @@ import 'package:cloud_sync_api/cloud_sync_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart';
 
 class SettingsCoreRoom extends StatefulWidget {
   const SettingsCoreRoom({super.key});
@@ -71,7 +72,7 @@ class _SettingsCoreRoomState extends State<SettingsCoreRoom> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '🤏 Pinch with 2 fingers or tap HUD to ascend to Floor 1',
+                        SpatialGesture.descendToGround.visualHint,
                         style: TextStyle(fontSize: 11, color: colors.primary, fontWeight: FontWeight.bold),
                       ),
                     ],

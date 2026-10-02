@@ -2,6 +2,7 @@
 import 'package:beacon_os/core/theme/app_theme.dart';
 import 'package:beacon_os/onboarding/blind_flow/cubit/blind_onboarding_cubit.dart';
 import 'package:beacon_os/onboarding/blind_flow/cubit/blind_onboarding_state.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -16,6 +17,11 @@ class BlindCompassStep extends StatelessWidget {
       builder: (context, state) {
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
+          onScaleEnd: (details) {
+            if (details.pointerCount >= 2) {
+              cubit.handleTrainingPinch();
+            }
+          },
           onVerticalDragEnd: (details) {
             final vy = details.primaryVelocity ?? 0;
             if (vy < -250) {
@@ -37,26 +43,25 @@ class BlindCompassStep extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                // المؤشرات البصرية/الحسية للإتقان
+                // المؤشرات البصرية/الحسية للإتقان مستدعاة من القاموس الموحد
                 Column(
                   children: [
                     _buildCheckTile(
-                      label: 'Swipe UP ⬆️ to visit Agenda',
+                      label: SpatialGesture.swipeToFocus.onboardingStepLabel,
                       isMastered: state.hasMasteredNorthSwipe,
                     ),
                     const SizedBox(height: 14),
                     _buildCheckTile(
-                      label: 'Swipe DOWN ⬇️ to visit Communications',
+                      label: SpatialGesture.swipeToComms.onboardingStepLabel,
                       isMastered: state.hasMasteredSouthSwipe,
                     ),
                     const SizedBox(height: 14),
                     _buildCheckTile(
-                      label: 'Pinch 🤏 to dive into Settings Floor',
+                      label: SpatialGesture.ascendToSettings.onboardingStepLabel,
                       isMastered: state.hasMasteredPinch,
                     ),
                   ],
                 ),
-                // زر المتابعة يُفعّل بعد تجربة إيماءة واحدة على الأقل
                 SizedBox(
                   width: double.infinity,
                   height: 56,
@@ -71,7 +76,9 @@ class BlindCompassStep extends StatelessWidget {
                     ),
                     onPressed: state.hasMasteredNorthSwipe ? cubit.nextStep : null,
                     child: Text(
-                      state.hasMasteredNorthSwipe ? 'Next: Test Camera Eyes ➡️' : 'Swipe UP to practice',
+                      state.hasMasteredNorthSwipe
+                          ? 'Next: Test Camera Eyes ➡️'
+                          : 'Swipe UP to practice',
                       style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
                     ),
                   ),

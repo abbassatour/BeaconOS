@@ -8,6 +8,7 @@ import 'package:cloud_sync_api/cloud_sync_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart';
 
 class SettingsFloorView extends StatefulWidget {
   const SettingsFloorView({super.key});
@@ -109,8 +110,9 @@ class _SettingsFloorViewState extends State<SettingsFloorView> {
                       ),
                     ),
                     const SizedBox(height: 2),
+                    // 🌟 استدعاء النص التوضيحي الموحد للهبوط
                     Text(
-                      'Pinch out or swipe DOWN ⬇️ to return to Today Cockpit.',
+                      SpatialGesture.descendToGround.visualHint,
                       style: TextStyle(
                         color: colors.onSurfaceVariant,
                         fontSize: 13,

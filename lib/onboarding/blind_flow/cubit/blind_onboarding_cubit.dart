@@ -5,6 +5,7 @@ import 'package:beacon_os/core/audio/sound_cue.dart';
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/core/services/camera_service.dart';
 import 'package:beacon_os/onboarding/blind_flow/cubit/blind_onboarding_state.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart';
 import 'package:bloc/bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
 
@@ -19,7 +20,6 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const BlindOnboardingState()) {
-    // إطلاق التعليمات الصوتية فور دخول الخطوة الأولى
     announceCurrentStep(BlindStep.audioTuning);
   }
 
@@ -29,7 +29,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
   final SoundController _sound;
 
   // ===========================================================================
-  // 🔊 1. منطق الخطوة الأولى: معايرة سرعة الصوت والنبضات اللمسية
+  // 🔊 1. منطق الخطوة الأولى: معايرة سرعة الصوت
   // ===========================================================================
 
   Future<void> increaseSpeechRate() async {
@@ -62,7 +62,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     await _haptics.successNotification();
     emit(state.copyWith(hasMasteredNorthSwipe: true));
     await _repository.speak(
-      'Excellent. That is the North Agenda tone. Now, swipe down to discover Communications.',
+      'Excellent. That is the North Focus & Alarms chime. Now, swipe down to discover Communications.',
     );
   }
 
@@ -72,7 +72,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     emit(state.copyWith(hasMasteredSouthSwipe: true));
     await _repository.speak(
       'Great job! That is the South Communications chime. '
-      'Double tap with two fingers anywhere on screen to proceed to the Vision test.',
+      'Now pinch your fingers together to test the elevator, or tap continue to proceed.',
     );
   }
 
@@ -80,13 +80,12 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     await _sound.play(SoundCue.elevatorUp);
     await _haptics.emergencyAlarmPulse();
     emit(state.copyWith(hasMasteredPinch: true));
-    await _repository.speak(
-      'Elevator activated. Pinching with two fingers ascends to the Settings floor.',
-    );
+    // 🌟 استدعاء النطق مباشرة من القاموس الموحد
+    await _repository.speak(SpatialGesture.ascendToSettings.spokenPrompt);
   }
 
   // ===========================================================================
-  // 👁️ 3. منطق الخطوة الثالثة: تجربة "العيون الذكية" (AI Vision Test)
+  // 👁️ 3. منطق الخطوة الثالثة: تجربة الكاميرا الذكية
   // ===========================================================================
 
   Future<void> captureAndTestVision() async {
@@ -123,7 +122,6 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
       await _sound.play(SoundCue.success);
       await _repository.speak(result);
 
-      // تأكيد تلقائي للانتقال للخطوة التالية بعد نجاح الفحص
       await Future<void>.delayed(const Duration(seconds: 2));
       await _repository.speak(
         'AI vision is verified. Double tap anywhere to move to the final Safety step.',
@@ -137,7 +135,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
   }
 
   // ===========================================================================
-  // 🔄 4. التنقل بين الخطوات والتوجيه الصوتي
+  // 🔄 4. التنقل بين الخطوات
   // ===========================================================================
 
   void nextStep() {
@@ -177,7 +175,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
       case BlindStep.compassTraining:
         await _repository.speak(
           'Step 2: Spatial Navigation Training. '
-          'Swipe up now to hear the North Agenda chime.',
+          'Swipe up now to hear the North Focus chime.',
         );
         break;
 
@@ -197,13 +195,12 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
   }
 
   // ===========================================================================
-  // 🏁 5. إنهاء الإعداد واعتماد هوية الكفيف في قاعدة البيانات
+  // 🏁 5. إنهاء الإعداد واعتماد الهوية
   // ===========================================================================
 
   Future<void> finishBlindOnboarding() async {
     emit(state.copyWith(status: BlindFlowStatus.completing));
     try {
-      // حفظ الهوية رسمياً: blind_accessible + ثيم التباين العالي + سرعة الصوت المختارة
       await _repository.completeOnboarding(
         persona: 'blind_accessible',
         isHighContrast: true,
