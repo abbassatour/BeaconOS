@@ -3,6 +3,7 @@ import 'package:beacon_os/communications/cubit/communications_cubit.dart';
 import 'package:beacon_os/communications/cubit/communications_state.dart';
 import 'package:beacon_os/communications/widgets/add_contact_dialog.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_room.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
@@ -28,6 +29,8 @@ class _CommunicationsContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final returnHint =
+        CompassRegistry.directionOf(RoomId.communications).returnGestureHint;
 
     return Scaffold(
       backgroundColor: context.scaffoldBg,
@@ -48,7 +51,6 @@ class _CommunicationsContent extends StatelessWidget {
                 // 1. ترويسة الغرفة
                 SliverToBoxAdapter(
                   child: Padding(
-                    // زيادة الهامش لمنع التداخل مع البوصلة
                     padding: const EdgeInsets.fromLTRB(20, 60, 20, 8),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,10 +81,11 @@ class _CommunicationsContent extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Swipe UP ⬆️ or double-tap with two fingers to return to Core.',
+                          '$returnHint or double-tap to return to Cockpit.',
                           style: TextStyle(
                             color: colors.onSurfaceVariant,
-                            fontSize: 13,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -90,26 +93,122 @@ class _CommunicationsContent extends StatelessWidget {
                   ),
                 ),
 
-                // 2. قسم أرقام الطوارئ ورادار الاستغاثة
+                // 2. بطاقة رادار الاستغاثة والطوارئ التكتيكية (Emergency SOS Radar Banner)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    child: Semantics(
+                      label:
+                          'Emergency SOS Radar. Tap to trigger distress broadcast and call primary contact.',
+                      button: true,
+                      child: Material(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(18),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: cubit.triggerEmergencySos,
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: colors.error,
+                                width: 2,
+                              ),
+                              color: colors.error.withValues(
+                                alpha: state.isSosBroadcasting ? 0.15 : 0.04,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor: colors.error,
+                                  child: Icon(
+                                    state.isSosBroadcasting
+                                        ? Icons.wifi_tethering_rounded
+                                        : Icons.warning_amber_rounded,
+                                    color: colors.surface,
+                                    size: 26,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        state.isSosBroadcasting
+                                            ? 'BROADCASTING SOS RADAR...'
+                                            : 'EMERGENCY RADAR & SOS',
+                                        style: TextStyle(
+                                          color: colors.error,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Tap to sound alarm, stream GPS & call emergency primary.',
+                                        style: TextStyle(
+                                          color: colors.onSurface,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Icon(
+                                  Icons.emergency_rounded,
+                                  color: colors.error,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 3. قسم جهات اتصال الطوارئ
                 if (state.emergencyContacts.isNotEmpty) ...[
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(
-                            Icons.shield_rounded,
-                            color: colors.error,
-                            size: 20,
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.shield_rounded,
+                                color: colors.error,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'EMERGENCY CONTACTS (${state.emergencyContacts.length})',
+                                style: TextStyle(
+                                  color: colors.error,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
                           Text(
-                            'EMERGENCY RADAR CONTACTS',
+                            'Swipe left to delete',
                             style: TextStyle(
-                              color: colors.error,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
+                              color: colors.onSurfaceVariant,
+                              fontSize: 10,
                             ),
                           ),
                         ],
@@ -122,7 +221,11 @@ class _CommunicationsContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final contact = state.emergencyContacts[index];
-                          return _buildEmergencyCard(context, contact, cubit);
+                          return _buildDismissibleEmergencyCard(
+                            context,
+                            contact,
+                            cubit,
+                          );
                         },
                         childCount: state.emergencyContacts.length,
                       ),
@@ -130,25 +233,25 @@ class _CommunicationsContent extends StatelessWidget {
                   ),
                 ],
 
-                // 3. قسم أرشيف الرسائل الواردة والتراسل الصامت
+                // 4. قسم أرشيف الرسائل الواردة غير المقروءة
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                     child: Row(
                       children: [
                         Icon(
                           Icons.mark_chat_unread_rounded,
                           color: colors.primary,
-                          size: 20,
+                          size: 18,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'MESSAGING VAULT (TAP TO LISTEN)',
+                          'UNREAD MESSAGES (${state.recentMessages.length})',
                           style: TextStyle(
                             color: colors.onSurface,
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
+                            letterSpacing: 1.1,
                           ),
                         ),
                       ],
@@ -160,13 +263,21 @@ class _CommunicationsContent extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
-                        vertical: 12,
+                        vertical: 8,
                       ),
-                      child: Text(
-                        'No unread messages. Your inbox is completely quiet.',
-                        style: TextStyle(
-                          color: colors.onSurfaceVariant,
-                          fontSize: 14,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: colors.outline),
+                        ),
+                        child: Text(
+                          'No unread messages. Your messaging vault is completely quiet.',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ),
@@ -185,18 +296,40 @@ class _CommunicationsContent extends StatelessWidget {
                     ),
                   ),
 
-                // 4. دليل جهات الاتصال العادية
+                // 5. دليل جهات الاتصال العادية
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-                    child: Text(
-                      'PHONE DIRECTORY',
-                      style: TextStyle(
-                        color: colors.onSurface,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                      ),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.contacts_rounded,
+                              color: colors.primary,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'PHONE DIRECTORY (${state.regularContacts.length})',
+                              style: TextStyle(
+                                color: colors.onSurface,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          'Swipe left to delete',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -205,13 +338,21 @@ class _CommunicationsContent extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
-                        vertical: 12,
+                        vertical: 8,
                       ),
-                      child: Text(
-                        'No contacts saved yet. Tap + to add.',
-                        style: TextStyle(
-                          color: colors.onSurfaceVariant,
-                          fontSize: 14,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: colors.outline),
+                        ),
+                        child: Text(
+                          'No standard contacts saved. Tap + above to add one.',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ),
@@ -223,13 +364,18 @@ class _CommunicationsContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final contact = state.regularContacts[index];
-                          return _buildRegularContactCard(context, contact, cubit);
+                          return _buildDismissibleRegularCard(
+                            context,
+                            contact,
+                            cubit,
+                          );
                         },
                         childCount: state.regularContacts.length,
                       ),
                     ),
                   ),
-                const SliverToBoxAdapter(child: SizedBox(height: 40)),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 60)),
               ],
             );
           },
@@ -259,126 +405,289 @@ class _CommunicationsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildEmergencyCard(BuildContext context, Contact contact, CommunicationsCubit cubit) {
+  Widget _buildDismissibleEmergencyCard(
+    BuildContext context,
+    Contact contact,
+    CommunicationsCubit cubit,
+  ) {
     final colors = context.colors;
 
-    return Card(
-      color: colors.surface,
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colors.error, width: 1.5),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: colors.error.withValues(alpha: 0.15),
-          child: Icon(Icons.phone_in_talk_rounded, color: colors.error),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Dismissible(
+        key: Key(contact.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: colors.error.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(Icons.delete_outline_rounded, color: colors.error),
         ),
-        title: Text(
-          contact.name,
-          style: TextStyle(
-            color: colors.onSurface,
-            fontWeight: FontWeight.w900,
-            fontSize: 17,
+        onDismissed: (_) => cubit.deleteContact(contact),
+        child: Semantics(
+          label:
+              'Emergency contact ${contact.name}, relationship ${contact.relationship ?? 'None'}. Tap to hear details, or tap phone icon to dial.',
+          button: true,
+          child: Material(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => cubit.readContactDetailsAloud(contact),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.error, width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: colors.error.withValues(alpha: 0.15),
+                      child: Icon(
+                        Icons.phone_in_talk_rounded,
+                        color: colors.error,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            contact.name,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            '${contact.relationship ?? 'Emergency'} • ${contact.phoneNumber}',
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.volume_up_rounded,
+                        color: colors.primary,
+                        size: 20,
+                      ),
+                      tooltip: 'Read details',
+                      onPressed: () =>
+                          cubit.readContactDetailsAloud(contact),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.call_rounded,
+                        color: colors.error,
+                        size: 22,
+                      ),
+                      tooltip: 'Call emergency contact',
+                      onPressed: () => cubit.callContact(contact),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
-        subtitle: Text(
-          '${contact.relationship ?? 'Emergency'} • ${contact.phoneNumber}',
-          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
-        ),
-        trailing: Icon(Icons.touch_app_rounded, color: colors.error),
-        onTap: () => cubit.callContact(contact),
       ),
     );
   }
 
-  Widget _buildMessageTile(BuildContext context, MessagesVaultData msg, CommunicationsCubit cubit) {
+  Widget _buildMessageTile(
+    BuildContext context,
+    MessagesVaultData msg,
+    CommunicationsCubit cubit,
+  ) {
     final colors = context.colors;
 
-    return Card(
-      color: colors.surface,
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colors.outline, width: 1.5),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: context.scaffoldBg,
-          child: Icon(
-            msg.platform == 'whatsapp' ? Icons.chat_rounded : Icons.sms_rounded,
-            color: colors.primary,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Semantics(
+        label:
+            'Unread message from ${msg.senderName} on ${msg.platform}. Tap to listen and mark as read.',
+        button: true,
+        child: Material(
+          color: colors.surface,
+          borderRadius: BorderRadius.circular(16),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () => cubit.readMessageAloud(msg),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.outline, width: 1.2),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: colors.primary.withValues(alpha: 0.12),
+                    child: Icon(
+                      msg.platform == 'whatsapp'
+                          ? Icons.chat_rounded
+                          : Icons.sms_rounded,
+                      color: colors.primary,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              msg.senderName,
+                              style: TextStyle(
+                                color: colors.onSurface,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
+                            Text(
+                              msg.platform.toUpperCase(),
+                              style: TextStyle(
+                                color: colors.primary,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          msg.messageText,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.volume_up_rounded,
+                    color: colors.primary,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              msg.senderName,
-              style: TextStyle(
-                color: colors.onSurface,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-            Text(
-              msg.platform.toUpperCase(),
-              style: TextStyle(
-                color: colors.primary,
-                fontWeight: FontWeight.w900,
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-        subtitle: Text(
-          msg.messageText,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: colors.onSurface, fontSize: 14),
-        ),
-        trailing: Icon(
-          Icons.volume_up_rounded,
-          color: colors.primary,
-        ),
-        onTap: () => cubit.readMessageAloud(msg),
       ),
     );
   }
 
-  Widget _buildRegularContactCard(BuildContext context, Contact contact, CommunicationsCubit cubit) {
+  Widget _buildDismissibleRegularCard(
+    BuildContext context,
+    Contact contact,
+    CommunicationsCubit cubit,
+  ) {
     final colors = context.colors;
 
-    return Card(
-      color: colors.surface,
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: colors.outline, width: 1.2),
-      ),
-      child: ListTile(
-        title: Text(
-          contact.name,
-          style: TextStyle(
-            color: colors.onSurface,
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Dismissible(
+        key: Key(contact.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: colors.error.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
           ),
+          child: Icon(Icons.delete_outline_rounded, color: colors.error),
         ),
-        subtitle: Text(
-          contact.relationship != null
-              ? '${contact.relationship} • ${contact.phoneNumber}'
-              : contact.phoneNumber,
-          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
-        ),
-        trailing: IconButton(
-          icon: Icon(Icons.call_rounded, color: colors.primary),
-          onPressed: () => cubit.callContact(contact),
+        onDismissed: (_) => cubit.deleteContact(contact),
+        child: Semantics(
+          label:
+              'Contact ${contact.name}, ${contact.relationship ?? ''}. Tap to hear details, or call icon to dial.',
+          button: true,
+          child: Material(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => cubit.readContactDetailsAloud(contact),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: colors.outline, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: context.scaffoldBg,
+                      child: Icon(
+                        Icons.person_rounded,
+                        color: colors.onSurfaceVariant,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            contact.name,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            contact.relationship != null
+                                ? '${contact.relationship} • ${contact.phoneNumber}'
+                                : contact.phoneNumber,
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.call_rounded,
+                        color: colors.primary,
+                        size: 20,
+                      ),
+                      tooltip: 'Call contact',
+                      onPressed: () => cubit.callContact(contact),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

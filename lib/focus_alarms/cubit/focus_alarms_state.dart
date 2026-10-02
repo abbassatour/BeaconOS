@@ -20,13 +20,26 @@ class FocusAlarmsState extends Equatable {
   final List<FocusSession> todayCompletedSessions;
 
   bool get isTimerRunning => timerStatus == TimerStatus.running;
+  bool get isPaused => timerStatus == TimerStatus.paused;
+  bool get isBreakTime => timerStatus == TimerStatus.breakTime;
 
   /// إجمالي دقائق التركيز المنجزة اليوم
   int get totalFocusMinutesToday =>
       todayCompletedSessions.fold<int>(0, (sum, s) => sum + s.durationMinutes);
 
-  double get progress =>
-      1.0 - (remainingSeconds / (selectedDurationMinutes * 60));
+  /// نسبة تقدم المؤقت من 0.0 إلى 1.0
+  double get progress {
+    final totalSec = selectedDurationMinutes * 60;
+    if (totalSec == 0) return 0.0;
+    return (1.0 - (remainingSeconds / totalSec)).clamp(0.0, 1.0);
+  }
+
+  /// الوقت المتبقي بصيغة MM:SS
+  String get formattedRemainingTime {
+    final mins = (remainingSeconds ~/ 60).toString().padLeft(2, '0');
+    final secs = (remainingSeconds % 60).toString().padLeft(2, '0');
+    return '$mins:$secs';
+  }
 
   FocusAlarmsState copyWith({
     TimerStatus? timerStatus,
@@ -48,10 +61,10 @@ class FocusAlarmsState extends Equatable {
 
   @override
   List<Object?> get props => [
-    timerStatus,
-    selectedDurationMinutes,
-    remainingSeconds,
-    alarms,
-    todayCompletedSessions,
-  ];
+        timerStatus,
+        selectedDurationMinutes,
+        remainingSeconds,
+        alarms,
+        todayCompletedSessions,
+      ];
 }

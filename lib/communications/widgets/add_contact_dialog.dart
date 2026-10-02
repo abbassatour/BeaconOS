@@ -10,8 +10,7 @@ class AddContactDialog extends StatefulWidget {
     required String phoneNumber,
     String? relationship,
     required bool isEmergency,
-  })
-  onSave;
+  }) onSave;
 
   @override
   State<AddContactDialog> createState() => _AddContactDialogState();
@@ -33,16 +32,18 @@ class _AddContactDialogState extends State<AddContactDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.colors;
+
     return AlertDialog(
-      backgroundColor: AppTheme.cardSurface,
+      backgroundColor: colors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: AppTheme.softBorder, width: 1.5),
+        side: BorderSide(color: colors.outline, width: 1.5),
       ),
-      title: const Text(
+      title: Text(
         'Add Contact',
         style: TextStyle(
-          color: AppTheme.carbonInk,
+          color: colors.onSurface,
           fontWeight: FontWeight.w900,
           fontSize: 20,
         ),
@@ -53,44 +54,48 @@ class _AddContactDialogState extends State<AddContactDialog> {
           children: [
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
+              autofocus: true,
+              style: TextStyle(color: colors.onSurface),
+              decoration: InputDecoration(
                 labelText: 'Name (e.g. John Doe, Mom)',
-                labelStyle: TextStyle(color: AppTheme.mutedInk),
+                labelStyle: TextStyle(color: colors.onSurfaceVariant),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
+              style: TextStyle(color: colors.onSurface),
+              decoration: InputDecoration(
                 labelText: 'Phone Number',
-                labelStyle: TextStyle(color: AppTheme.mutedInk),
+                labelStyle: TextStyle(color: colors.onSurfaceVariant),
               ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _relationController,
-              decoration: const InputDecoration(
+              style: TextStyle(color: colors.onSurface),
+              decoration: InputDecoration(
                 labelText: 'Relationship (e.g. Father, Doctor)',
-                labelStyle: TextStyle(color: AppTheme.mutedInk),
+                labelStyle: TextStyle(color: colors.onSurfaceVariant),
               ),
             ),
             const SizedBox(height: 16),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text(
+              title: Text(
                 'Emergency SOS Contact',
                 style: TextStyle(
-                  color: AppTheme.carbonInk,
+                  color: colors.onSurface,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 'Auto-receive GPS radar when SOS triggers',
-                style: TextStyle(color: AppTheme.mutedInk, fontSize: 12),
+                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
               ),
-              activeColor: AppTheme.errorRed,
+              activeColor: colors.error,
               value: _isEmergency,
               onChanged: (val) => setState(() => _isEmergency = val),
             ),
@@ -100,17 +105,15 @@ class _AddContactDialogState extends State<AddContactDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text(
+          child: Text(
             'Cancel',
-            style: TextStyle(color: AppTheme.mutedInk),
+            style: TextStyle(color: colors.onSurfaceVariant),
           ),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
-            backgroundColor: _isEmergency
-                ? AppTheme.errorRed
-                : AppTheme.terracotta,
-            foregroundColor: AppTheme.cardSurface,
+            backgroundColor: _isEmergency ? colors.error : colors.primary,
+            foregroundColor: colors.surface,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),

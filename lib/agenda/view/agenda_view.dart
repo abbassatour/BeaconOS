@@ -2,6 +2,7 @@
 import 'package:beacon_os/agenda/cubit/agenda_cubit.dart';
 import 'package:beacon_os/agenda/cubit/agenda_state.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_room.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -28,6 +29,8 @@ class _AgendaContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final returnHint =
+        CompassRegistry.directionOf(RoomId.agenda).returnGestureHint;
 
     return Scaffold(
       backgroundColor: context.scaffoldBg,
@@ -45,11 +48,10 @@ class _AgendaContent extends StatelessWidget {
             return CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
-                // 1. ترويسة الغرفة التحريرية
+                // 1. ترويسة الغرفة وأزرار الإضافة السريعة
                 SliverToBoxAdapter(
                   child: Padding(
-                    // زيادة الهامش لتجنب شريط البوصلة
-                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 60, 20, 12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -62,27 +64,45 @@ class _AgendaContent extends StatelessWidget {
                                 color: colors.onSurface,
                                 fontSize: 26,
                                 fontWeight: FontWeight.w900,
-                                letterSpacing: 1.5,
+                                letterSpacing: 1.2,
                               ),
                             ),
-                            IconButton.filledTonal(
-                              style: IconButton.styleFrom(
-                                backgroundColor: colors.surface,
-                                foregroundColor: colors.onSurface,
-                                side: BorderSide(color: colors.outline),
-                              ),
-                              icon: const Icon(Icons.add_task_rounded),
-                              tooltip: 'Add Task',
-                              onPressed: () => _showAddTaskDialog(context, cubit),
+                            Row(
+                              children: [
+                                IconButton.filledTonal(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: colors.surface,
+                                    foregroundColor: colors.onSurface,
+                                    side: BorderSide(color: colors.outline),
+                                  ),
+                                  icon: const Icon(Icons.note_add_rounded),
+                                  tooltip: 'Add Note',
+                                  onPressed: () =>
+                                      _showAddMemoDialog(context, cubit),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton.filledTonal(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: colors.surface,
+                                    foregroundColor: colors.onSurface,
+                                    side: BorderSide(color: colors.outline),
+                                  ),
+                                  icon: const Icon(Icons.add_task_rounded),
+                                  tooltip: 'Add Task',
+                                  onPressed: () =>
+                                      _showAddTaskDialog(context, cubit),
+                                ),
+                              ],
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Swipe DOWN ⬇️ or double-tap with two fingers to return to Core.',
+                          '$returnHint or double-tap to return to Cockpit.',
                           style: TextStyle(
                             color: colors.onSurfaceVariant,
-                            fontSize: 13,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -90,43 +110,52 @@ class _AgendaContent extends StatelessWidget {
                   ),
                 ),
 
-                // 2. المهام قيد الانتظار (Pending Tasks)
+                // 2. المهام قيد الانتظار (Pending Priorities)
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                     child: Row(
                       children: [
                         Icon(
                           Icons.radio_button_unchecked_rounded,
                           color: colors.primary,
-                          size: 20,
+                          size: 18,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'PENDING TASKS (${state.pendingTasks.length})',
+                          'PENDING PRIORITIES (${state.pendingTasks.length})',
                           style: TextStyle(
                             color: colors.onSurface,
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 1.2,
+                            letterSpacing: 1.1,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
+
                 if (state.pendingTasks.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
-                        vertical: 12,
+                        vertical: 8,
                       ),
-                      child: Text(
-                        'Your day is completely clear. No pending tasks.',
-                        style: TextStyle(
-                          color: colors.onSurfaceVariant,
-                          fontSize: 14,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: colors.outline),
+                        ),
+                        child: Text(
+                          'Your agenda is clear with zero pending tasks. Tap + to add one.',
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ),
@@ -138,33 +167,49 @@ class _AgendaContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final task = state.pendingTasks[index];
-                          return _buildTaskCard(context, task, cubit);
+                          return _buildDismissibleTaskCard(
+                            context,
+                            task,
+                            cubit,
+                          );
                         },
                         childCount: state.pendingTasks.length,
                       ),
                     ),
                   ),
 
-                // 3. بنك المذكرات والملاحظات الصوتية (Voice Memos)
-                if (state.memos.isNotEmpty) ...[
+                // 3. بنك المذكرات والملاحظات الصوتية (Voice & AI Notes)
+                if (state.sortedMemos.isNotEmpty) ...[
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(
-                            Icons.mic_none_rounded,
-                            color: colors.secondary,
-                            size: 20,
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.mic_none_rounded,
+                                color: colors.secondary,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'VOICE & AI NOTES (${state.sortedMemos.length})',
+                                style: TextStyle(
+                                  color: colors.onSurface,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
                           Text(
-                            'VOICE & AI NOTES (${state.memos.length})',
+                            'Swipe left to delete',
                             style: TextStyle(
-                              color: colors.onSurface,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
+                              color: colors.onSurfaceVariant,
+                              fontSize: 10,
                             ),
                           ),
                         ],
@@ -176,10 +221,14 @@ class _AgendaContent extends StatelessWidget {
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          final memo = state.memos[index];
-                          return _buildMemoCard(context, memo, cubit);
+                          final memo = state.sortedMemos[index];
+                          return _buildDismissibleMemoCard(
+                            context,
+                            memo,
+                            cubit,
+                          );
                         },
-                        childCount: state.memos.length,
+                        childCount: state.sortedMemos.length,
                       ),
                     ),
                   ),
@@ -195,16 +244,16 @@ class _AgendaContent extends StatelessWidget {
                           Icon(
                             Icons.check_circle_outline_rounded,
                             color: colors.onSurfaceVariant,
-                            size: 20,
+                            size: 18,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'COMPLETED (${state.completedTasks.length})',
                             style: TextStyle(
                               color: colors.onSurfaceVariant,
-                              fontSize: 13,
+                              fontSize: 12,
                               fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
+                              letterSpacing: 1.1,
                             ),
                           ),
                         ],
@@ -217,14 +266,19 @@ class _AgendaContent extends StatelessWidget {
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
                           final task = state.completedTasks[index];
-                          return _buildTaskCard(context, task, cubit);
+                          return _buildDismissibleTaskCard(
+                            context,
+                            task,
+                            cubit,
+                          );
                         },
                         childCount: state.completedTasks.length,
                       ),
                     ),
                   ),
                 ],
-                const SliverToBoxAdapter(child: SizedBox(height: 50)),
+
+                const SliverToBoxAdapter(child: SizedBox(height: 60)),
               ],
             );
           },
@@ -233,93 +287,229 @@ class _AgendaContent extends StatelessWidget {
     );
   }
 
-  Widget _buildTaskCard(BuildContext context, Task task, AgendaCubit cubit) {
+  Widget _buildDismissibleTaskCard(
+    BuildContext context,
+    Task task,
+    AgendaCubit cubit,
+  ) {
     final colors = context.colors;
     final isDone = task.isCompleted;
+
     Color priorityColor = colors.onSurfaceVariant;
     if (task.priority == 'high') priorityColor = colors.error;
     if (task.priority == 'medium') priorityColor = colors.secondary;
 
-    return Card(
-      color: colors.surface,
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isDone ? colors.outline : priorityColor.withValues(alpha: 0.5),
-          width: 1.2,
-        ),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        leading: IconButton(
-          icon: Icon(
-            isDone ? Icons.check_circle_rounded : Icons.circle_outlined,
-            color: isDone ? colors.onSurfaceVariant : priorityColor,
-            size: 26,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Dismissible(
+        key: Key(task.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: colors.error.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
           ),
-          onPressed: () => cubit.toggleTask(task),
+          child: Icon(Icons.delete_outline_rounded, color: colors.error),
         ),
-        title: Text(
-          task.title,
-          style: TextStyle(
-            color: isDone ? colors.onSurfaceVariant : colors.onSurface,
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            decoration: isDone ? TextDecoration.lineThrough : null,
+        onDismissed: (_) => cubit.deleteTask(task),
+        child: Semantics(
+          label:
+              'Task: ${task.title}, Priority ${task.priority}, ${task.dueDate != null ? 'Due on ${DateFormat('MMM d, h:mm a').format(task.dueDate!)}' : 'No deadline'}. Tap to read, or toggle completion checkbox.',
+          button: true,
+          child: Material(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => cubit.readTaskAloud(task),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDone
+                        ? colors.outline
+                        : priorityColor.withValues(alpha: 0.4),
+                    width: 1.2,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        isDone
+                            ? Icons.check_circle_rounded
+                            : Icons.circle_outlined,
+                        color: isDone ? colors.onSurfaceVariant : priorityColor,
+                        size: 24,
+                      ),
+                      tooltip: 'Toggle Status',
+                      onPressed: () => cubit.toggleTask(task),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              if (task.priority == 'high' && !isDone)
+                                Container(
+                                  margin: const EdgeInsets.only(right: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 1,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colors.error.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'HIGH',
+                                    style: TextStyle(
+                                      color: colors.error,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                              Expanded(
+                                child: Text(
+                                  task.title,
+                                  style: TextStyle(
+                                    color: isDone
+                                        ? colors.onSurfaceVariant
+                                        : colors.onSurface,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    decoration: isDone
+                                        ? TextDecoration.lineThrough
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (task.dueDate != null) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              'Due: ${DateFormat('EEE, MMM d • h:mm a').format(task.dueDate!)}',
+                              style: TextStyle(
+                                color: colors.onSurfaceVariant,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.volume_up_rounded,
+                        color: colors.primary,
+                        size: 20,
+                      ),
+                      tooltip: 'Read Aloud',
+                      onPressed: () => cubit.readTaskAloud(task),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-        subtitle: task.dueDate != null
-            ? Text(
-                'Due: ${DateFormat('EEE, MMM d • h:mm a').format(task.dueDate!)}',
-                style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12),
-              )
-            : null,
-        trailing: IconButton(
-          icon: Icon(Icons.volume_up_rounded, color: colors.primary),
-          onPressed: () => cubit.readTaskAloud(task),
         ),
       ),
     );
   }
 
-  Widget _buildMemoCard(BuildContext context, VoiceMemo memo, AgendaCubit cubit) {
+  Widget _buildDismissibleMemoCard(
+    BuildContext context,
+    VoiceMemo memo,
+    AgendaCubit cubit,
+  ) {
     final colors = context.colors;
 
-    return Card(
-      color: colors.surface,
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colors.outline, width: 1.2),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          backgroundColor: colors.secondary.withValues(alpha: 0.15),
-          child: Icon(Icons.notes_rounded, color: colors.secondary),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Dismissible(
+        key: Key(memo.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: colors.error.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Icon(Icons.delete_outline_rounded, color: colors.error),
         ),
-        title: Text(
-          memo.title,
-          style: TextStyle(
-            color: colors.onSurface,
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
+        onDismissed: (_) => cubit.deleteMemo(memo),
+        child: Semantics(
+          label: 'Note titled ${memo.title}. Tap to listen.',
+          button: true,
+          child: Material(
+            color: colors.surface,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () => cubit.readMemoAloud(memo),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.outline, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: colors.secondary.withValues(alpha: 0.15),
+                      child: Icon(
+                        Icons.notes_rounded,
+                        color: colors.secondary,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            memo.title,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            memo.content,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.volume_up_rounded,
+                      color: colors.primary,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
-        subtitle: Text(
-          memo.content,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
-        ),
-        trailing: Icon(
-          Icons.touch_app_rounded,
-          color: colors.secondary,
-        ),
-        onTap: () => cubit.readMemoAloud(memo),
       ),
     );
   }
@@ -328,6 +518,7 @@ class _AgendaContent extends StatelessWidget {
     final colors = context.colors;
     final titleController = TextEditingController();
     String priority = 'medium';
+    DateTime? selectedDateTime;
 
     showDialog<void>(
       context: context,
@@ -346,35 +537,92 @@ class _AgendaContent extends StatelessWidget {
               fontSize: 20,
             ),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: titleController,
-                autofocus: true,
-                style: TextStyle(color: colors.onSurface),
-                decoration: InputDecoration(
-                  labelText: 'Task title...',
-                  labelStyle: TextStyle(color: colors.onSurfaceVariant),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  autofocus: true,
+                  style: TextStyle(color: colors.onSurface),
+                  decoration: InputDecoration(
+                    labelText: 'Task title...',
+                    labelStyle: TextStyle(color: colors.onSurfaceVariant),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: priority,
-                dropdownColor: colors.surface,
-                style: TextStyle(color: colors.onSurface),
-                decoration: InputDecoration(
-                  labelText: 'Priority',
-                  labelStyle: TextStyle(color: colors.onSurfaceVariant),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: priority,
+                  dropdownColor: colors.surface,
+                  style: TextStyle(color: colors.onSurface),
+                  decoration: InputDecoration(
+                    labelText: 'Priority',
+                    labelStyle: TextStyle(color: colors.onSurfaceVariant),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'high',
+                      child: Text('High Priority 🔴'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'medium',
+                      child: Text('Medium Priority 🟡'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'low',
+                      child: Text('Low Priority ⚪'),
+                    ),
+                  ],
+                  onChanged: (val) =>
+                      setDialogState(() => priority = val ?? 'medium'),
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'high', child: Text('High Priority 🔴')),
-                  DropdownMenuItem(value: 'medium', child: Text('Medium Priority 🟡')),
-                  DropdownMenuItem(value: 'low', child: Text('Low Priority ⚪')),
-                ],
-                onChanged: (val) => setDialogState(() => priority = val ?? 'medium'),
-              ),
-            ],
+                const SizedBox(height: 16),
+                // أداة اختيار موعد الاستحقاق (Date & Time Picker)
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: colors.outline),
+                    foregroundColor: colors.onSurface,
+                    minimumSize: const Size(double.infinity, 44),
+                  ),
+                  icon: Icon(
+                    Icons.event_rounded,
+                    size: 18,
+                    color: colors.primary,
+                  ),
+                  label: Text(
+                    selectedDateTime == null
+                        ? 'Set Deadline (Optional)'
+                        : 'Due: ${DateFormat('MMM d • h:mm a').format(selectedDateTime!)}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  onPressed: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null && context.mounted) {
+                      final time = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.now(),
+                      );
+                      if (time != null) {
+                        setDialogState(() {
+                          selectedDateTime = DateTime(
+                            date.year,
+                            date.month,
+                            date.day,
+                            time.hour,
+                            time.minute,
+                          );
+                        });
+                      }
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -395,7 +643,11 @@ class _AgendaContent extends StatelessWidget {
               onPressed: () {
                 final text = titleController.text.trim();
                 if (text.isNotEmpty) {
-                  cubit.addNewTask(title: text, priority: priority);
+                  cubit.addNewTask(
+                    title: text,
+                    priority: priority,
+                    dueDate: selectedDateTime,
+                  );
                   Navigator.of(ctx).pop();
                 }
               },
@@ -406,6 +658,89 @@ class _AgendaContent extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showAddMemoDialog(BuildContext context, AgendaCubit cubit) {
+    final colors = context.colors;
+    final titleController = TextEditingController();
+    final contentController = TextEditingController();
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: colors.outline, width: 1.5),
+        ),
+        title: Text(
+          'New Voice / Quick Note',
+          style: TextStyle(
+            color: colors.onSurface,
+            fontWeight: FontWeight.w900,
+            fontSize: 20,
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleController,
+                style: TextStyle(color: colors.onSurface),
+                decoration: InputDecoration(
+                  labelText: 'Title (e.g. Ideas, Project memo)...',
+                  labelStyle: TextStyle(color: colors.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: contentController,
+                maxLines: 4,
+                style: TextStyle(color: colors.onSurface),
+                decoration: InputDecoration(
+                  labelText: 'Note content...',
+                  labelStyle: TextStyle(color: colors.onSurfaceVariant),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: colors.onSurfaceVariant),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colors.secondary,
+              foregroundColor: colors.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () {
+              final title = titleController.text.trim();
+              final content = contentController.text.trim();
+              if (title.isNotEmpty || content.isNotEmpty) {
+                cubit.addNewMemo(
+                  title: title.isEmpty ? 'Untitled Note' : title,
+                  content: content.isEmpty ? title : content,
+                );
+                Navigator.of(ctx).pop();
+              }
+            },
+            child: const Text(
+              'Save Note',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -82,7 +82,7 @@ class AppTheme {
           backgroundColor: terracotta,
           foregroundColor: cardSurface,
           elevation: 0,
-          minimumSize: const Size(double.infinity, 52), // أبعاد لمس مريحة
+          minimumSize: const Size(64, 52), // أبعاد لمس مريحة
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
@@ -157,7 +157,7 @@ class AppTheme {
           backgroundColor: cyanHighlight,
           foregroundColor: pureBlack,
           elevation: 0,
-          minimumSize: const Size(double.infinity, 54),
+          minimumSize: const Size(64, 54),
           textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -168,7 +168,7 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: cyanHighlight,
-          minimumSize: const Size(double.infinity, 54),
+          minimumSize: const Size(64, 54),
           side: const BorderSide(color: cyanHighlight, width: 2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           textStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),

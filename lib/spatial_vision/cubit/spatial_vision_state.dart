@@ -5,9 +5,9 @@ enum VisionStatus { idle, capturing, analyzing, speaking, error }
 
 enum VisionMode {
   surroundings, // المحيط والعوائق
-  textReader, // قراءة المستندات واللافتات
-  currency, // قراءة النقود والعملات
-  productExpiry, // اسم المنتج وتاريخ الصلاحية
+  textReader,   // قراءة المستندات واللافتات
+  currency,     // قراءة النقود والعملات
+  productExpiry // اسم المنتج وتاريخ الصلاحية
 }
 
 class SpatialVisionState extends Equatable {
@@ -16,6 +16,7 @@ class SpatialVisionState extends Equatable {
     this.activeMode = VisionMode.surroundings,
     this.lastSpokenResult = '',
     this.isTorchOn = false,
+    this.isSavingNote = false,
     this.errorMessage,
   });
 
@@ -23,16 +24,20 @@ class SpatialVisionState extends Equatable {
   final VisionMode activeMode;
   final String lastSpokenResult;
   final bool isTorchOn;
+  final bool isSavingNote;
   final String? errorMessage;
 
   bool get isBusy =>
       status == VisionStatus.capturing || status == VisionStatus.analyzing;
+
+  bool get isSpeaking => status == VisionStatus.speaking;
 
   SpatialVisionState copyWith({
     VisionStatus? status,
     VisionMode? activeMode,
     String? lastSpokenResult,
     bool? isTorchOn,
+    bool? isSavingNote,
     String? errorMessage,
   }) {
     return SpatialVisionState(
@@ -40,16 +45,18 @@ class SpatialVisionState extends Equatable {
       activeMode: activeMode ?? this.activeMode,
       lastSpokenResult: lastSpokenResult ?? this.lastSpokenResult,
       isTorchOn: isTorchOn ?? this.isTorchOn,
+      isSavingNote: isSavingNote ?? this.isSavingNote,
       errorMessage: errorMessage,
     );
   }
 
   @override
   List<Object?> get props => [
-    status,
-    activeMode,
-    lastSpokenResult,
-    isTorchOn,
-    errorMessage,
-  ];
+        status,
+        activeMode,
+        lastSpokenResult,
+        isTorchOn,
+        isSavingNote,
+        errorMessage,
+      ];
 }

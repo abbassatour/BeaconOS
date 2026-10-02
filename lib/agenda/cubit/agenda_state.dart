@@ -17,11 +17,38 @@ class AgendaState extends Equatable {
   final List<VoiceMemo> memos;
   final String? errorMessage;
 
-  /// المهام قيد الإنجاز
-  List<Task> get pendingTasks => tasks.where((t) => !t.isCompleted).toList();
+  /// المهام قيد الإنجاز مرتبة حسب الأولوية الصارمة (High -> Medium -> Low) ثم موعد الاستحقاق الأقرب
+  List<Task> get pendingTasks {
+    final pending = tasks.where((t) => !t.isCompleted).toList();
+    pending.sort((a, b) {
+      const priorityWeights = {'high': 0, 'medium': 1, 'low': 2};
+      final weightA = priorityWeights[a.priority.toLowerCase()] ?? 1;
+      final weightB = priorityWeights[b.priority.toLowerCase()] ?? 1;
 
-  /// المهام المكتملة
-  List<Task> get completedTasks => tasks.where((t) => t.isCompleted).toList();
+      if (weightA != weightB) {
+        return weightA.compareTo(weightB);
+      }
+      if (a.dueDate != null && b.dueDate != null) {
+        return a.dueDate!.compareTo(b.dueDate!);
+      }
+      return a.dueDate != null ? -1 : (b.dueDate != null ? 1 : 0);
+    });
+    return pending;
+  }
+
+  /// المهام المكتملة مرتبة من الأحدث إنجازاً إلى الأقدم
+  List<Task> get completedTasks {
+    final completed = tasks.where((t) => t.isCompleted).toList();
+    completed.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return completed;
+  }
+
+  /// المذكرات الصوتية مرتبة من الأحدث إلى الأقدم
+  List<VoiceMemo> get sortedMemos {
+    final list = List<VoiceMemo>.from(memos);
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
 
   AgendaState copyWith({
     AgendaStatus? status,

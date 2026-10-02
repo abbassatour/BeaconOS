@@ -1,5 +1,6 @@
 // lib/spatial_vision/view/spatial_vision_view.dart
 import 'package:beacon_os/core/theme/app_theme.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_room.dart';
 import 'package:beacon_os/spatial_vision/cubit/spatial_vision_cubit.dart';
 import 'package:beacon_os/spatial_vision/cubit/spatial_vision_state.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,8 @@ class _SpatialVisionContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
+    final returnHint =
+        CompassRegistry.directionOf(RoomId.vision).returnGestureHint;
 
     return Scaffold(
       backgroundColor: context.scaffoldBg,
@@ -37,9 +40,8 @@ class _SpatialVisionContent extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // 1. الترويسة وأدوات الكشاف
+                // 1. الترويسة وأدوات الكشاف المتناسقة مع الـ HUD
                 Padding(
-                  // زيادة الهامش العلوي لمنع التداخل مع البوصلة
                   padding: const EdgeInsets.fromLTRB(20, 60, 20, 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -51,17 +53,18 @@ class _SpatialVisionContent extends StatelessWidget {
                             'AI VISION STUDIO',
                             style: TextStyle(
                               color: colors.onSurface,
-                              fontSize: 22,
+                              fontSize: 24,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 1.5,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Swipe LEFT ⬅️ to return to Core',
+                            '$returnHint or double-tap to return to Cockpit.',
                             style: TextStyle(
                               color: colors.onSurfaceVariant,
                               fontSize: 12,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -81,7 +84,9 @@ class _SpatialVisionContent extends StatelessWidget {
                               ? Icons.flash_on_rounded
                               : Icons.flash_off_rounded,
                         ),
-                        tooltip: 'Toggle Flashlight',
+                        tooltip: state.isTorchOn
+                            ? 'Turn off flashlight'
+                            : 'Turn on flashlight',
                         onPressed: cubit.toggleTorch,
                       ),
                     ],
@@ -103,151 +108,182 @@ class _SpatialVisionContent extends StatelessWidget {
                           context: context,
                           title: 'Surroundings',
                           icon: Icons.explore_rounded,
-                          isSelected: state.activeMode == VisionMode.surroundings,
-                          onTap: () => cubit.setMode(VisionMode.surroundings),
+                          isSelected:
+                              state.activeMode == VisionMode.surroundings,
+                          onTap: () =>
+                              cubit.setMode(VisionMode.surroundings),
                         ),
                         _buildModeChip(
                           context: context,
                           title: 'Text / Doc',
                           icon: Icons.document_scanner_rounded,
-                          isSelected: state.activeMode == VisionMode.textReader,
-                          onTap: () => cubit.setMode(VisionMode.textReader),
+                          isSelected:
+                              state.activeMode == VisionMode.textReader,
+                          onTap: () =>
+                              cubit.setMode(VisionMode.textReader),
                         ),
                         _buildModeChip(
                           context: context,
                           title: 'Currency',
                           icon: Icons.payments_rounded,
-                          isSelected: state.activeMode == VisionMode.currency,
-                          onTap: () => cubit.setMode(VisionMode.currency),
+                          isSelected:
+                              state.activeMode == VisionMode.currency,
+                          onTap: () =>
+                              cubit.setMode(VisionMode.currency),
                         ),
                         _buildModeChip(
                           context: context,
                           title: 'Product / Expiry',
                           icon: Icons.qr_code_scanner_rounded,
-                          isSelected: state.activeMode == VisionMode.productExpiry,
-                          onTap: () => cubit.setMode(VisionMode.productExpiry),
+                          isSelected:
+                              state.activeMode == VisionMode.productExpiry,
+                          onTap: () =>
+                              cubit.setMode(VisionMode.productExpiry),
                         ),
                       ],
                     ),
                   ),
                 ),
 
-                // 3. المسطح الحسي للرادار (Tap anywhere to scan)
+                // 3. المسطح الحسي للرادار (Tap anywhere to scan or mute)
                 Expanded(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: cubit.captureAndAnalyze,
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildRadarScanner(context, state),
-                          const SizedBox(height: 24),
-                          Text(
-                            _getStatusTitle(state),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: colors.onSurface,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.2,
+                  child: Semantics(
+                    label: state.isSpeaking
+                        ? 'AI is describing scene. Tap anywhere on screen to stop reading.'
+                        : 'Camera AI Radar. Tap anywhere on screen to capture and scan.',
+                    button: true,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: cubit.captureAndAnalyze,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildRadarScanner(context, state),
+                            const SizedBox(height: 24),
+                            Text(
+                              _getStatusTitle(state),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: colors.onSurface,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1.2,
+                              ),
                             ),
+                            const SizedBox(height: 8),
+                            Text(
+                              state.isSpeaking
+                                  ? 'Tap anywhere to stop reading'
+                                  : (state.isBusy
+                                      ? 'Gemini 2.0 Flash is inspecting scene...'
+                                      : 'Tap anywhere on screen to scan'),
+                              style: TextStyle(
+                                color: colors.onSurfaceVariant,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // 4. بطاقة نتيجة التحليل الصوتي المكتوبة + أدوات الحفظ والإعادة
+                if (state.lastSpokenResult.isNotEmpty)
+                  Semantics(
+                    label:
+                        'Last scan result: ${state.lastSpokenResult}. Replay or save to notes.',
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: colors.outline,
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.onSurface.withValues(alpha: 0.05),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.remove_red_eye_rounded,
+                                    color: colors.primary,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'SCENE DESCRIPTION',
+                                    style: TextStyle(
+                                      color: colors.primary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      Icons.volume_up_rounded,
+                                      color: colors.primary,
+                                      size: 20,
+                                    ),
+                                    tooltip: 'Replay Description',
+                                    onPressed: cubit.replayDescription,
+                                  ),
+                                  IconButton(
+                                    icon: state.isSavingNote
+                                        ? SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: colors.primary,
+                                            ),
+                                          )
+                                        : Icon(
+                                            Icons.bookmark_add_rounded,
+                                            color: colors.primary,
+                                            size: 20,
+                                          ),
+                                    tooltip: 'Save to Notes',
+                                    onPressed: state.isSavingNote
+                                        ? null
+                                        : cubit.saveScanResultAsNote,
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            state.isBusy
-                                ? 'Gemini 2.0 Flash is inspecting scene...'
-                                : 'Tap anywhere on screen to scan',
+                            state.lastSpokenResult,
                             style: TextStyle(
-                              color: colors.onSurfaceVariant,
-                              fontSize: 13,
+                              color: colors.onSurface,
+                              fontSize: 15,
+                              height: 1.45,
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ),
-
-                // 4. بطاقة نتيجة التحليل الصوتي المكتوبة + أدوات الحفظ
-                if (state.lastSpokenResult.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: colors.outline,
-                        width: 1.5,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colors.onSurface.withValues(alpha: 0.05),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.remove_red_eye_rounded,
-                                  color: colors.primary,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'SCENE DESCRIPTION',
-                                  style: TextStyle(
-                                    color: colors.primary,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.volume_up_rounded,
-                                    color: colors.primary,
-                                    size: 20,
-                                  ),
-                                  tooltip: 'Replay Description',
-                                  onPressed: cubit.replayDescription,
-                                ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.bookmark_add_rounded,
-                                    color: colors.primary,
-                                    size: 20,
-                                  ),
-                                  tooltip: 'Save to Notes',
-                                  onPressed: cubit.saveScanResultAsNote,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          state.lastSpokenResult,
-                          style: TextStyle(
-                            color: colors.onSurface,
-                            fontSize: 15,
-                            height: 1.45,
-                          ),
-                        ),
-                      ],
                     ),
                   ),
               ],
@@ -293,6 +329,7 @@ class _SpatialVisionContent extends StatelessWidget {
   Widget _buildRadarScanner(BuildContext context, SpatialVisionState state) {
     final colors = context.colors;
     final isBusy = state.isBusy;
+    final isSpeaking = state.isSpeaking;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -300,25 +337,32 @@ class _SpatialVisionContent extends StatelessWidget {
       height: isBusy ? 160 : 130,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: colors.primary.withValues(alpha: isBusy ? 0.15 : 0.06),
+        color: colors.primary.withValues(
+          alpha: isBusy ? 0.2 : (isSpeaking ? 0.12 : 0.06),
+        ),
         border: Border.all(
-          color: colors.primary,
-          width: isBusy ? 3.0 : 1.8,
+          color: isSpeaking ? colors.secondary : colors.primary,
+          width: isBusy ? 3.2 : 2.0,
         ),
         boxShadow: [
-          if (isBusy)
+          if (isBusy || isSpeaking)
             BoxShadow(
-              color: colors.primary.withValues(alpha: 0.25),
-              blurRadius: 28,
-              spreadRadius: 4,
+              color: (isSpeaking ? colors.secondary : colors.primary)
+                  .withValues(alpha: 0.25),
+              blurRadius: 30,
+              spreadRadius: 6,
             ),
         ],
       ),
       child: Center(
         child: Icon(
-          isBusy ? Icons.camera_rounded : Icons.center_focus_strong_rounded,
-          color: colors.primary,
-          size: isBusy ? 54 : 46,
+          isBusy
+              ? Icons.hourglass_top_rounded
+              : (isSpeaking
+                  ? Icons.volume_up_rounded
+                  : Icons.camera_rounded),
+          color: isSpeaking ? colors.secondary : colors.primary,
+          size: isBusy ? 54 : 48,
         ),
       ),
     );
@@ -329,9 +373,9 @@ class _SpatialVisionContent extends StatelessWidget {
       case VisionStatus.capturing:
         return 'CAPTURING SCENE...';
       case VisionStatus.analyzing:
-        return 'ANALYZING WITH AI...';
+        return 'GEMINI IS INSPECTING...';
       case VisionStatus.speaking:
-        return 'DESCRIBING...';
+        return 'DESCRIBING SCENE...';
       case VisionStatus.error:
         return 'SCAN FAILED';
       case VisionStatus.idle:
