@@ -6,6 +6,7 @@ import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
 import 'package:bloc/bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_room.dart';
 
 class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   SpatialCompassCubit({
@@ -154,22 +155,7 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
     required CompassDirection direction,
     required bool isSettingsFloor,
   }) {
-    if (isSettingsFloor) {
-      switch (direction) {
-        case CompassDirection.center: return 'Core Settings';
-        case CompassDirection.north:  return 'Agenda Settings';
-        case CompassDirection.south:  return 'Comms Settings';
-        case CompassDirection.east:   return 'Vision Settings';
-        case CompassDirection.west:   return 'Focus Settings';
-      }
-    } else {
-      switch (direction) {
-        case CompassDirection.center: return 'Cockpit';
-        case CompassDirection.north:  return 'Agenda';
-        case CompassDirection.south:  return 'Comms';
-        case CompassDirection.east:   return 'Vision';
-        case CompassDirection.west:   return 'Focus';
-      }
-    }
+    final room = CompassRegistry.roomAt(direction);
+    return isSettingsFloor ? '${room.shortTitle} Settings' : room.shortTitle;
   }
 }

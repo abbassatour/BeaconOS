@@ -1,6 +1,7 @@
 // lib/spatial_compass/widgets/spatial_compass_hud.dart
 import 'package:beacon_os/core/theme/app_theme.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_room.dart'; // 👈 أضف هذا السطر هنا
 import 'package:flutter/material.dart';
 
 class SpatialCompassHud extends StatelessWidget {
@@ -147,13 +148,8 @@ class SpatialCompassHud extends StatelessWidget {
   }
 
   String _getDirectionLabel(CompassDirection dir, bool isSettings) {
+    final room = CompassRegistry.roomAt(dir);
     final prefix = isSettings ? 'FL2 • ' : '';
-    switch (dir) {
-      case CompassDirection.center: return isSettings ? '${prefix}CORE ENGINE' : 'TODAY COCKPIT';
-      case CompassDirection.north:  return '${prefix}AGENDA SETTINGS';
-      case CompassDirection.south:  return '${prefix}COMMS & SOS';
-      case CompassDirection.east:   return '${prefix}VISION ENGINE';
-      case CompassDirection.west:   return '${prefix}FOCUS TUNING';
-    }
+    return isSettings ? '${prefix}${room.settingsTitle}' : room.title;
   }
 }
