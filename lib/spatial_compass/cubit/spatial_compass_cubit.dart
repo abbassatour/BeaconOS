@@ -3,57 +3,80 @@ import 'dart:developer';
 import 'package:beacon_os/core/audio/sound_controller.dart';
 import 'package:beacon_os/core/audio/sound_cue.dart';
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
+import 'package:beacon_os/core/spatial_kernel/spatial_topology.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
 import 'package:bloc/bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
-import 'package:beacon_os/spatial_compass/models/spatial_room.dart';
 
 class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   SpatialCompassCubit({
     required LauncherRepository repository,
+    required SpatialTopology topology,
     HapticManager? hapticManager,
     SoundController? soundController,
   })  : _repository = repository,
+        _topology = topology,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const SpatialCompassState());
 
   final LauncherRepository _repository;
+  final SpatialTopology _topology;
   final HapticManager _haptics;
   final SoundController _sound;
 
   // ===========================================================================
-  // 🏢 1. التحكم الرأسي بالطوابق (Z-Axis Vertical Control)
+  // 🏢 1. التحكم الرأسي متعدد الطوابق (Dynamic Z-Axis Vertical Control)
   // ===========================================================================
 
-  Future<void> goToSettingsFloor() async {
-    if (state.isSettingsFloor) return;
+  /// الصعود لطابق أعلى
+  Future<void> ascend() async {
+    final nextFloor = state.currentFloor + 1;
+    final available = _topology.availableFloors;
+    if (available.isNotEmpty && !available.contains(nextFloor)) return;
 
-    await _haptics.emergencyAlarmPulse(); // نبضة حسية مميزة
-    await _sound.play(SoundCue.elevatorUp); // 🔊 نغمة صعود المصعد
-
-    emit(state.copyWith(currentFloor: 1));
+    await jumpToFloor(nextFloor);
   }
 
-  Future<void> returnToGroundFloor() async {
-    if (!state.isSettingsFloor) return;
+  /// الهبوط لطابق أدنى
+  Future<void> descend() async {
+    final nextFloor = state.currentFloor - 1;
+    final available = _topology.availableFloors;
+    if (available.isNotEmpty && !available.contains(nextFloor)) return;
 
-    await _haptics.successNotification();
-    await _sound.play(SoundCue.elevatorDown); // 🔊 نغمة نزول المصعد
-
-    emit(state.copyWith(currentFloor: 0));
+    await jumpToFloor(nextFloor);
   }
+
+  /// القفز المباشر لأي طابق محدد
+  Future<void> jumpToFloor(int targetFloor) async {
+    if (state.currentFloor == targetFloor) return;
+
+    final isAscending = targetFloor > state.currentFloor;
+    if (isAscending) {
+      await _haptics.emergencyAlarmPulse();
+      await _sound.play(SoundCue.elevatorUp, floorLevel: targetFloor);
+    } else {
+      await _haptics.successNotification();
+      await _sound.play(SoundCue.elevatorDown, floorLevel: targetFloor);
+    }
+
+    emit(state.copyWith(currentFloor: targetFloor));
+  }
+
+  // دوال التوافق العكسي
+  Future<void> goToSettingsFloor() => jumpToFloor(1);
+  Future<void> returnToGroundFloor() => jumpToFloor(0);
 
   void toggleFloor() {
-    if (state.isSettingsFloor) {
-      returnToGroundFloor();
-    } else {
+    if (state.currentFloor == 0) {
       goToSettingsFloor();
+    } else {
+      returnToGroundFloor();
     }
   }
 
   // ===========================================================================
-  // 🧭 2. التنقل الأفقي المتطابق (XY-Axis Horizontal Navigation)
+  // 🧭 2. التنقل الأفقي بين الغرف (XY-Axis Horizontal Navigation)
   // ===========================================================================
 
   void handleSwipeGesture({
@@ -62,9 +85,9 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
     required double deltaX,
     required double deltaY,
   }) {
-    const velocityThreshold = 150.0; 
-    const distanceThreshold = 20.0;  
-    
+    const velocityThreshold = 150.0;
+    const distanceThreshold = 20.0;
+
     final isHorizontal = deltaX.abs() > deltaY.abs();
 
     if (state.isAtCenter) {
@@ -110,17 +133,18 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
 
     await _haptics.successNotification();
 
-    // 🎯 تحديد النغمة المكانية عبر الكتالوج المركزي (Type-Safe Pattern Matching)
-    final cue = switch (destination) {
-      CompassDirection.north => SoundCue.navNorth,
-      CompassDirection.south => SoundCue.navSouth,
-      CompassDirection.east => SoundCue.navEast,
-      CompassDirection.west => SoundCue.navWest,
-      CompassDirection.center => SoundCue.navCenter,
-    };
+    // استخراج النغمة الصوتية المميزة من الموديول المسجل في الطوبولوجيا
+    final targetModule = _topology.moduleAt(state.currentFloor, destination);
+    final cue = targetModule?.sonicSignature ??
+        switch (destination) {
+          CompassDirection.north => SoundCue.navNorth,
+          CompassDirection.south => SoundCue.navSouth,
+          CompassDirection.east => SoundCue.navEast,
+          CompassDirection.west => SoundCue.navWest,
+          CompassDirection.center => SoundCue.navCenter,
+        };
 
-    // تشغيل النغمة مع مراعاة رفع النبرة تلقائياً إذا كنا في الطابق الثاني
-    await _sound.play(cue, isSettingsFloor: state.isSettingsFloor);
+    await _sound.play(cue, floorLevel: state.currentFloor);
 
     emit(
       state.copyWith(
@@ -141,21 +165,12 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   // ===========================================================================
 
   Future<void> announceCurrentLocation() async {
-    final announcement = _buildQuickAnnouncementText(
-      direction: state.currentDirection,
-      isSettingsFloor: state.isSettingsFloor,
-    );
+    final module = _topology.moduleAt(state.currentFloor, state.currentDirection);
+    final announcement = module?.getFloorTitle(state.currentFloor) ??
+        '${state.currentDirection.name.toUpperCase()} Floor ${state.currentFloor}';
 
     await _repository.stopSpeaking();
-    _repository.speak(announcement);
+    await _repository.speak(announcement);
     log('SpatialCompass: Context Requested -> "$announcement"');
-  }
-
-  String _buildQuickAnnouncementText({
-    required CompassDirection direction,
-    required bool isSettingsFloor,
-  }) {
-    final room = CompassRegistry.roomAt(direction);
-    return isSettingsFloor ? '${room.shortTitle} Settings' : room.shortTitle;
   }
 }

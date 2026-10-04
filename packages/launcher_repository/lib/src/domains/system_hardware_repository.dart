@@ -1,0 +1,52 @@
+// packages/launcher_repository/lib/src/domains/system_hardware_repository.dart
+import 'package:system_hardware_api/system_hardware_api.dart';
+
+abstract class SystemHardwareRepository {
+  Future<String> getBatteryStatus();
+  Future<bool> toggleFlashlight({bool? enable});
+  Future<bool> lockScreen();
+  Future<bool> openApp(String packageNameOrCommonName);
+  Future<bool> callPhoneNumber(String phoneNumber);
+}
+
+class SystemHardwareRepositoryImpl implements SystemHardwareRepository {
+  SystemHardwareRepositoryImpl({HardwareClient? hardwareClient})
+      : _hardware = hardwareClient ?? HardwareClient();
+
+  final HardwareClient _hardware;
+
+  static const Map<String, String> _knownAppPackages = {
+    'whatsapp': 'com.whatsapp',
+    'youtube': 'com.google.android.youtube',
+    'chrome': 'com.android.chrome',
+    'browser': 'com.android.chrome',
+    'settings': 'com.android.settings',
+    'camera': 'com.google.android.GoogleCamera',
+    'spotify': 'com.spotify.music',
+    'telegram': 'org.telegram.messenger',
+    'gmail': 'com.google.android.gm',
+    'maps': 'com.google.android.apps.maps',
+    'phone': 'com.google.android.dialer',
+  };
+
+  @override
+  Future<String> getBatteryStatus() => _hardware.getBatteryStatus();
+
+  @override
+  Future<bool> toggleFlashlight({bool? enable}) =>
+      _hardware.toggleFlashlight(enable: enable);
+
+  @override
+  Future<bool> lockScreen() => _hardware.lockScreen();
+
+  @override
+  Future<bool> openApp(String packageNameOrCommonName) {
+    final key = packageNameOrCommonName.trim().toLowerCase();
+    final targetPackage = _knownAppPackages[key] ?? packageNameOrCommonName;
+    return _hardware.openApp(targetPackage);
+  }
+
+  @override
+  Future<bool> callPhoneNumber(String phoneNumber) =>
+      _hardware.callPhoneNumber(phoneNumber);
+}

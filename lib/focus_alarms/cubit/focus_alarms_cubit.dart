@@ -10,17 +10,20 @@ import 'package:local_vault_api/local_vault_api.dart';
 
 class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
   FocusAlarmsCubit({
-    required LauncherRepository repository,
+    required FocusAlarmsRepository focusRepository, // 👈 حقن المستودع المتخصص
+    required Future<void> Function(String text) speakCallback,
     HapticManager? hapticManager,
     SoundController? soundController,
-  })  : _repository = repository,
+  })  : _focusRepo = focusRepository,
+        _speak = speakCallback,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const FocusAlarmsState()) {
     _initStreams();
   }
 
-  final LauncherRepository _repository;
+  final FocusAlarmsRepository _focusRepo;
+  final Future<void> Function(String text) _speak;
   final HapticManager _haptics;
   final SoundController _sound;
 
@@ -33,17 +36,17 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
   bool _oneMinuteAnnounced = false;
 
   void _initStreams() {
-    _alarmsSub = _repository.watchAlarms().listen((alarmList) {
+    _alarmsSub = _focusRepo.watchAlarms().listen((alarmList) {
       emit(state.copyWith(alarms: alarmList));
     });
 
-    _sessionsSub = _repository.watchTodayFocusSessions().listen((sessions) {
+    _sessionsSub = _focusRepo.watchTodayFocusSessions().listen((sessions) {
       emit(state.copyWith(todayCompletedSessions: sessions));
     });
   }
 
   // ===========================================================================
-  // ⏱️ التحكم بمؤقت التركيز والمذاكرة (Study Pomodoro Timer)
+  // ⏱️ التحكم بمؤقت التركيز والمذاكرة
   // ===========================================================================
 
   Future<void> selectDuration(int minutes) async {
@@ -61,7 +64,7 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
 
     await _sound.play(SoundCue.navCenter);
     await _haptics.successNotification();
-    await _repository.speak('$minutes minutes focus cycle selected.');
+    await _speak('$minutes minutes focus cycle selected.');
   }
 
   Future<void> startTimer() async {
@@ -75,29 +78,27 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
     _targetEndTime = DateTime.now().add(Duration(seconds: state.remainingSeconds));
     emit(state.copyWith(timerStatus: TimerStatus.running));
 
-    await _repository.speak(
+    await _speak(
       'Focus session started for ${state.selectedDurationMinutes} minutes.',
     );
 
     _ticker = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (_targetEndTime == null) return;
-
       final diff = _targetEndTime!.difference(DateTime.now()).inSeconds;
 
       if (diff > 0) {
         emit(state.copyWith(remainingSeconds: diff));
 
         final halfSec = (state.selectedDurationMinutes * 60) ~/ 2;
-
         if (diff <= halfSec && !_halfwayAnnounced) {
           _halfwayAnnounced = true;
           await _sound.play(SoundCue.processing);
           final minsLeft = diff ~/ 60;
-          await _repository.speak('Halfway mark reached. $minsLeft minutes remaining.');
+          await _speak('Halfway mark reached. $minsLeft minutes remaining.');
         } else if (diff <= 60 && !_oneMinuteAnnounced) {
           _oneMinuteAnnounced = true;
           await _sound.play(SoundCue.processing);
-          await _repository.speak('One minute remaining.');
+          await _speak('One minute remaining.');
         }
       } else {
         emit(state.copyWith(remainingSeconds: 0));
@@ -115,7 +116,7 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
     emit(state.copyWith(timerStatus: TimerStatus.paused));
 
     final minutes = state.remainingSeconds ~/ 60;
-    await _repository.speak('Session paused with $minutes minutes left.');
+    await _speak('Session paused with $minutes minutes left.');
   }
 
   Future<void> resetTimer() async {
@@ -132,7 +133,7 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
     );
 
     await _haptics.successNotification();
-    await _repository.speak('Timer reset.');
+    await _speak('Timer reset.');
   }
 
   Future<void> _onSessionCompleted() async {
@@ -142,11 +143,11 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
     await _sound.play(SoundCue.success);
     await _haptics.emergencyAlarmPulse();
 
-    await _repository.recordCompletedFocusSession(
+    await _focusRepo.recordCompletedFocusSession(
       state.selectedDurationMinutes,
     );
 
-    await _repository.speak(
+    await _speak(
       'Session completed! You completed ${state.selectedDurationMinutes} minutes of focus.',
     );
 
@@ -159,16 +160,16 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
   }
 
   // ===========================================================================
-  // ⏰ التحكم بساعة المنبهات (Alarms Engine)
+  // ⏰ التحكم بساعة المنبهات
   // ===========================================================================
 
   Future<void> toggleAlarm(Alarm alarm) async {
     await _haptics.successNotification();
-    await _repository.toggleAlarm(alarm);
+    await _focusRepo.toggleAlarm(alarm);
 
     final status = !alarm.isActive ? 'enabled' : 'disabled';
     final timeStr = _format12HourTime(alarm.hour, alarm.minute);
-    await _repository.speak('Alarm for $timeStr $status.');
+    await _speak('Alarm for $timeStr $status.');
   }
 
   Future<void> addAlarm({
@@ -177,19 +178,19 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
     String label = 'Mindful Alarm',
   }) async {
     await _haptics.successNotification();
-    await _repository.createAlarm(hour: hour, minute: minute, label: label);
+    await _focusRepo.createAlarm(hour: hour, minute: minute, label: label);
 
     final timeStr = _format12HourTime(hour, minute);
     final relative = getRelativeAlarmTimeString(hour, minute);
-    await _repository.speak('Alarm set for $timeStr. Rings $relative.');
+    await _speak('Alarm set for $timeStr. Rings $relative.');
   }
 
   Future<void> deleteAlarm(Alarm alarm) async {
     await _haptics.successNotification();
-    await _repository.deleteAlarm(alarm.id);
+    await _focusRepo.deleteAlarm(alarm.id);
 
     final timeStr = _format12HourTime(alarm.hour, alarm.minute);
-    await _repository.speak('Alarm for $timeStr deleted.');
+    await _speak('Alarm for $timeStr deleted.');
   }
 
   Future<void> readAlarmDetailsAloud(Alarm alarm) async {
@@ -197,12 +198,12 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
 
     final timeStr = _format12HourTime(alarm.hour, alarm.minute);
     if (!alarm.isActive) {
-      await _repository.speak('Alarm for $timeStr is currently turned off.');
+      await _speak('Alarm for $timeStr is currently turned off.');
       return;
     }
 
     final relative = getRelativeAlarmTimeString(alarm.hour, alarm.minute);
-    await _repository.speak('Alarm for $timeStr is active and rings $relative.');
+    await _speak('Alarm for $timeStr is active and rings $relative.');
   }
 
   String _format12HourTime(int hour, int minute) {

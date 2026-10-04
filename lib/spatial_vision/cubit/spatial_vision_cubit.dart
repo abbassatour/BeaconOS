@@ -11,17 +11,26 @@ import 'package:local_vault_api/local_vault_api.dart';
 
 class SpatialVisionCubit extends Cubit<SpatialVisionState> {
   SpatialVisionCubit({
-    required LauncherRepository repository,
+    required AssistantRepository assistantRepository,
+    required SystemHardwareRepository hardwareRepository,
+    required SettingsRepository settingsRepository,
+    required TaskAgendaRepository taskRepository,
     CameraService? cameraService,
     HapticManager? hapticManager,
     SoundController? soundController,
-  })  : _repository = repository,
+  })  : _assistantRepo = assistantRepository,
+        _hardwareRepo = hardwareRepository,
+        _settingsRepo = settingsRepository,
+        _taskRepo = taskRepository,
         _camera = cameraService ?? CameraService.instance,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const SpatialVisionState());
 
-  final LauncherRepository _repository;
+  final AssistantRepository _assistantRepo;
+  final SystemHardwareRepository _hardwareRepo;
+  final SettingsRepository _settingsRepo;
+  final TaskAgendaRepository _taskRepo;
   final CameraService _camera;
   final HapticManager _haptics;
   final SoundController _sound;
@@ -31,7 +40,7 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
     if (state.activeMode == mode) return;
 
     await _sound.stopAll();
-    await _repository.stopSpeaking();
+    await _assistantRepo.stopSpeaking();
     await _haptics.successNotification();
     await _sound.play(SoundCue.navCenter);
 
@@ -52,28 +61,26 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
         announcement = 'Product and expiration inspector active.';
         break;
     }
-    await _repository.speak(announcement);
+    await _assistantRepo.speak(announcement);
   }
 
-  /// تبديل كشاف الهاتف للإضاءة
+  /// تبديل كشاف الهاتف للإضاءة عبر مستودع العتاد مباشرة
   Future<void> toggleTorch() async {
     final next = !state.isTorchOn;
     await _haptics.successNotification();
-    await _repository.dispatchVoiceCommand(
-      next ? 'turn on flashlight' : 'turn off flashlight',
-    );
+    await _hardwareRepo.toggleFlashlight(enable: next);
     emit(state.copyWith(isTorchOn: next));
-    await _repository.speak(next ? 'Flashlight on.' : 'Flashlight off.');
+    await _assistantRepo.speak(next ? 'Flashlight on.' : 'Flashlight off.');
   }
 
   /// إيقاف النطق الصوتي فوراً عند نقر الشاشة أثناء القراءة
   Future<void> stopSpeaking() async {
     await _sound.stopAll();
-    await _repository.stopSpeaking();
+    await _assistantRepo.stopSpeaking();
     emit(state.copyWith(status: VisionStatus.idle));
   }
 
-  /// الالتقاط الفوري والتحليل الذكي المتوافق مع إعدادات الطابق الثاني
+  /// الالتقاط الفوري والتحليل الذكي المتوافق مع تفضيلات الطابق الثاني
   Future<void> captureAndAnalyze() async {
     if (state.isBusy) return;
 
@@ -85,29 +92,29 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
 
     try {
       await _sound.stopAll();
-      await _repository.stopSpeaking();
+      await _assistantRepo.stopSpeaking();
 
       // 1. بدء الالتقاط بنبضة تكتيكية وصوت المعالجة
       emit(state.copyWith(status: VisionStatus.capturing));
       await _haptics.successNotification();
       await _sound.play(SoundCue.processing);
 
-      // قراءة إعدادات الطابق الثاني لتخصيص الذكاء الاصطناعي
+      // قراءة تفضيلات الطابق الثاني من مستودع الإعدادات
       AppSetting? settings;
       try {
-        settings = await _repository.getSettings();
+        settings = await _settingsRepo.getSettings();
       } catch (_) {}
 
       // تشغيل الكشاف تلقائياً إذا كان الخيار مفعلاً
       final shouldAutoTorch = (settings?.autoFlashlightInDark ?? false) && !state.isTorchOn;
       if (shouldAutoTorch) {
-        await _repository.dispatchVoiceCommand('turn on flashlight');
+        await _hardwareRepo.toggleFlashlight(enable: true);
       }
 
       final base64Image = await _camera.captureAsBase64();
 
       if (shouldAutoTorch) {
-        await _repository.dispatchVoiceCommand('turn off flashlight');
+        await _hardwareRepo.toggleFlashlight(enable: false);
       }
 
       if (base64Image == null || base64Image.isEmpty) {
@@ -119,15 +126,15 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
         );
         await _sound.play(SoundCue.error);
         await _haptics.errorAlert();
-        await _repository.speak('Camera capture failed. Please tap again to retry.');
+        await _assistantRepo.speak('Camera capture failed. Please tap again to retry.');
         return;
       }
 
-      // 2. إرسال الإطار إلى Gemini مع حقن التفضيلات
+      // 2. إرسال الإطار إلى Gemini عبر مستودع المساعد الذكي
       emit(state.copyWith(status: VisionStatus.analyzing));
       final prompt = _buildPromptForMode(state.activeMode, settings);
 
-      final spokenResult = await _repository.analyzeVisionFrame(
+      final spokenResult = await _assistantRepo.analyzeVisionFrame(
         base64Image: base64Image,
         prompt: prompt,
       );
@@ -143,7 +150,7 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
         ),
       );
 
-      await _repository.speak(spokenResult);
+      await _assistantRepo.speak(spokenResult);
       emit(state.copyWith(status: VisionStatus.idle));
     } catch (e, st) {
       log('SpatialVisionCubit: Error analyzing scene: $e', stackTrace: st);
@@ -155,7 +162,7 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
       );
       await _haptics.errorAlert();
       await _sound.play(SoundCue.error);
-      await _repository.speak('Visual inspection error. Tap screen to retry.');
+      await _assistantRepo.speak('Visual inspection error. Tap screen to retry.');
     }
   }
 
@@ -164,7 +171,7 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
     if (state.lastSpokenResult.isNotEmpty) {
       await _haptics.successNotification();
       emit(state.copyWith(status: VisionStatus.speaking));
-      await _repository.speak(state.lastSpokenResult);
+      await _assistantRepo.speak(state.lastSpokenResult);
       emit(state.copyWith(status: VisionStatus.idle));
     }
   }
@@ -176,15 +183,14 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
     try {
       emit(state.copyWith(isSavingNote: true));
       final title = 'Vision Scan: ${_modeName(state.activeMode)}';
-      await _repository.saveVisionScanAsMemo(
+      await _taskRepo.createMemo(
         title: title,
-        description: state.lastSpokenResult,
-        mode: state.activeMode.name,
+        content: state.lastSpokenResult,
       );
 
       await _haptics.successNotification();
       await _sound.play(SoundCue.success);
-      await _repository.speak('Scan result saved to notes vault.');
+      await _assistantRepo.speak('Scan result saved to notes vault.');
     } catch (e) {
       await _haptics.errorAlert();
     } finally {

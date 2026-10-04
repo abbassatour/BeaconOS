@@ -1,29 +1,39 @@
 // lib/spatial_compass/widgets/compass_transition_layout.dart
+import 'package:beacon_os/core/spatial_kernel/spatial_topology.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
 import 'package:beacon_os/spatial_compass/models/spatial_room.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class CompassTransitionLayout extends StatelessWidget {
   const CompassTransitionLayout({
     required this.direction,
-    required this.isSettingsFloor,
+    required this.floorLevel,
+    this.isSettingsFloor, // للتوافق العكسي
     super.key,
   });
 
   final CompassDirection direction;
-  final bool isSettingsFloor;
+  final int floorLevel;
+  final bool? isSettingsFloor;
 
   @override
   Widget build(BuildContext context) {
-    // 🌟 بناء الغرف الخمس تلقائياً وبشكل ديناميكي من السجل الموحد
+    final topology = context.read<SpatialTopology>();
+    final effectiveFloor = isSettingsFloor != null
+        ? (isSettingsFloor! ? 1 : 0)
+        : floorLevel;
+
+    // استخراج غرف الطابق الحالي مباشرة من شبكة الطوبولوجيا
+    final roomsOnFloor = topology.roomsOnFloor(effectiveFloor);
+
     return Stack(
-      children: CompassRegistry.rooms.entries.map((entry) {
+      children: roomsOnFloor.entries.map((entry) {
         final roomDir = entry.key;
-        final room = entry.value;
-        final roomView = isSettingsFloor ? room.settingsView : room.groundView;
+        final module = entry.value;
 
         return _buildRoomLayer(
-          child: roomView,
+          child: module.buildFloorView(context, effectiveFloor),
           translation: roomDir.translation,
           roomDir: roomDir,
         );
@@ -31,7 +41,8 @@ class CompassTransitionLayout extends StatelessWidget {
     );
   }
 
-  /// ⚡️ ترشيد الرندر والفرز الفضائي (Spatial Culling & GPU Optimization)
+  /// ⚡️ الفرز الفضائي (Spatial Culling & GPU Optimization):
+  /// تفعيل المحركات الحركية (Tickers) والتركيز البصري للغرفة النشطة والمركز فقط
   Widget _buildRoomLayer({
     required Widget child,
     required Offset translation,

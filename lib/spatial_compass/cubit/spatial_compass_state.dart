@@ -1,13 +1,15 @@
 // lib/spatial_compass/cubit/spatial_compass_state.dart
 import 'package:equatable/equatable.dart';
 
+export 'package:beacon_os/spatial_compass/models/spatial_room.dart';
+
 /// الاتجاهات المكانية الأربعة للمركز
 enum CompassDirection {
   center, // المركز: قمرة اليوم
-  north, // الأعلى: الأجندة والمهام
-  south, // الأسفل: الرسائل والتواصل
-  east, // اليمين: استوديو الرؤية والذكاء
-  west, // اليسار: المذاكرة والمنبهات
+  north,  // الأعلى: المذاكرة والمنبهات
+  south,  // الأسفل: الرسائل والتواصل
+  east,   // اليمين: استوديو الرؤية والذكاء
+  west,   // اليسار: الأجندة والمهام
 }
 
 class SpatialCompassState extends Equatable {
@@ -15,7 +17,7 @@ class SpatialCompassState extends Equatable {
     this.currentDirection = CompassDirection.center,
     this.previousDirection = CompassDirection.center,
     this.isTransitioning = false,
-    this.currentFloor = 0, // 0 = الطابق الأرضي، 1 = طابق الإعدادات والمحركات
+    this.currentFloor = 0, // 👈 رقم الطابق الديناميكي المفتوح (... -1, 0, 1, 2 ...)
   });
 
   final CompassDirection currentDirection;
@@ -24,6 +26,9 @@ class SpatialCompassState extends Equatable {
   final int currentFloor;
 
   bool get isAtCenter => currentDirection == CompassDirection.center;
+
+  // مساعدات توافقية
+  bool get isGroundFloor => currentFloor == 0;
   bool get isSettingsFloor => currentFloor == 1;
 
   SpatialCompassState copyWith({
@@ -42,9 +47,9 @@ class SpatialCompassState extends Equatable {
 
   @override
   List<Object?> get props => [
-    currentDirection,
-    previousDirection,
-    isTransitioning,
-    currentFloor,
-  ];
+        currentDirection,
+        previousDirection,
+        isTransitioning,
+        currentFloor,
+      ];
 }

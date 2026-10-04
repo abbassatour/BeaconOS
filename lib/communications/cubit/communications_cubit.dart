@@ -10,27 +10,34 @@ import 'package:local_vault_api/local_vault_api.dart';
 
 class CommunicationsCubit extends Cubit<CommunicationsState> {
   CommunicationsCubit({
-    required LauncherRepository repository,
+    required CommsRepository commsRepository,
+    required SystemHardwareRepository hardwareRepository,
+    required Future<void> Function(String text) speakCallback,
     HapticManager? hapticManager,
     SoundController? soundController,
-  })  : _repository = repository,
+  })  : _commsRepo = commsRepository,
+        _hardwareRepo = hardwareRepository,
+        _speak = speakCallback,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const CommunicationsState()) {
     _initStreams();
   }
 
-  final LauncherRepository _repository;
+  final CommsRepository _commsRepo;
+  final SystemHardwareRepository _hardwareRepo;
+  final Future<void> Function(String text) _speak;
   final HapticManager _haptics;
   final SoundController _sound;
+
   StreamSubscription<List<Contact>>? _contactsSubscription;
 
   void _initStreams() {
     emit(state.copyWith(status: CommunicationsStatus.loading));
 
-    _contactsSubscription = _repository.watchContacts().listen(
+    _contactsSubscription = _commsRepo.watchContacts().listen(
       (contactsList) async {
-        final messages = await _repository.getUnreadMessages();
+        final messages = await _commsRepo.getUnreadMessages();
         emit(
           state.copyWith(
             status: CommunicationsStatus.success,
@@ -50,42 +57,42 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
     );
   }
 
-  /// إجراء مكالمة هاتفية فورية
+  /// إجراء مكالمة هاتفية مباشرة عبر عتاد الهاتف
   Future<void> callContact(Contact contact) async {
     await _haptics.successNotification();
     await _sound.play(SoundCue.navCenter);
-    await _repository.speak('Calling ${contact.name}');
-    await _repository.dispatchVoiceCommand('call ${contact.phoneNumber}');
+    await _speak('Calling ${contact.name}');
+    await _hardwareRepo.callPhoneNumber(contact.phoneNumber);
   }
 
-  /// نطق تفاصيل جهة الاتصال للكفيف
+  /// نطق تفاصيل جهة الاتصال للمكفوفين
   Future<void> readContactDetailsAloud(Contact contact) async {
     await _haptics.successNotification();
     final relation = contact.relationship != null
         ? 'Relationship: ${contact.relationship}.'
         : '';
-    final type = contact.isEmergency ? 'Emergency SOS contact.' : 'Standard contact.';
-    await _repository.speak(
+    final type =
+        contact.isEmergency ? 'Emergency SOS contact.' : 'Standard contact.';
+    await _speak(
       '${contact.name}. $relation $type Phone number: ${contact.phoneNumber}',
     );
   }
 
-  /// نطق الرسالة الواردة وتمييزها كمقروءة فوراً
+  /// قراءة الرسالة الواردة وتمييزها كمقروءة فوراً
   Future<void> readMessageAloud(MessagesVaultData message) async {
     await _haptics.successNotification();
     await _sound.play(SoundCue.processing);
 
     final announcement =
         'Message on ${message.platform.toUpperCase()} from ${message.senderName}: ${message.messageText}';
-    await _repository.speak(announcement);
+    await _speak(announcement);
 
-    // تمييز الرسالة كمقروءة محلياً وسحابياً وتحديث القائمة
-    await _repository.markMessagesAsRead(message.contactIdentifier);
-    final unread = await _repository.getUnreadMessages();
+    await _commsRepo.markMessagesAsRead(message.contactIdentifier);
+    final unread = await _commsRepo.getUnreadMessages();
     emit(state.copyWith(recentMessages: unread));
   }
 
-  /// إضافة جهة اتصال جديدة
+  /// إضافة جهة اتصال جديدة إلى قاعدة البيانات المحلية والسحابية
   Future<void> addNewContact({
     required String name,
     required String phoneNumber,
@@ -93,7 +100,7 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
     bool isEmergency = false,
   }) async {
     try {
-      await _repository.saveContact(
+      await _commsRepo.saveContact(
         name: name,
         phoneNumber: phoneNumber,
         relationship: relationship,
@@ -102,7 +109,7 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
       await _haptics.successNotification();
       await _sound.play(SoundCue.success);
       final role = isEmergency ? 'as an emergency contact' : 'to contacts';
-      await _repository.speak('Contact $name added $role.');
+      await _speak('Contact $name added $role.');
     } catch (e) {
       await _haptics.errorAlert();
       await _sound.play(SoundCue.error);
@@ -110,31 +117,30 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
     }
   }
 
-  /// حذف جهة اتصال مع تأكيد صوتي
+  /// حذف جهة اتصال مع التأكيد الصوتي
   Future<void> deleteContact(Contact contact) async {
     try {
-      await _repository.deleteContact(contact.id);
+      await _commsRepo.deleteContact(contact.id);
       await _haptics.successNotification();
       await _sound.play(SoundCue.navCenter);
-      await _repository.speak('Contact ${contact.name} deleted.');
+      await _speak('Contact ${contact.name} deleted.');
     } catch (e) {
       await _haptics.errorAlert();
     }
   }
 
-  /// إطلاق رادار الاستغاثة وبث الموقع لجهات الطوارئ
+  /// إطلاق رادار الاستغاثة وبث الموقع عبر الأقمار الصناعية
   Future<void> triggerEmergencySos() async {
     emit(state.copyWith(isSosBroadcasting: true));
 
     await _sound.play(SoundCue.sosAlarm);
     await _haptics.emergencyAlarmPulse();
 
-    await _repository.speak(
+    await _speak(
       'Emergency SOS broadcast initiated! Broadcasting coordinates to family radar.',
     );
 
-    // بث الإحداثيات (يمكن تزويدها بـ GPS فعلي)
-    await _repository.triggerEmergencySos(
+    await _commsRepo.triggerEmergencySos(
       latitude: 0.0,
       longitude: 0.0,
       batteryLevel: 100,

@@ -11,17 +11,20 @@ import 'package:local_vault_api/local_vault_api.dart';
 
 class AgendaCubit extends Cubit<AgendaState> {
   AgendaCubit({
-    required LauncherRepository repository,
+    required TaskAgendaRepository taskRepository, // 👈 استبدال الارتباط بالإله برابط نظيف
+    required Future<void> Function(String text) speakCallback,
     HapticManager? hapticManager,
     SoundController? soundController,
-  })  : _repository = repository,
+  })  : _taskRepo = taskRepository,
+        _speak = speakCallback,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const AgendaState()) {
     _initSubscriptions();
   }
 
-  final LauncherRepository _repository;
+  final TaskAgendaRepository _taskRepo;
+  final Future<void> Function(String text) _speak;
   final HapticManager _haptics;
   final SoundController _sound;
 
@@ -31,35 +34,55 @@ class AgendaCubit extends Cubit<AgendaState> {
   void _initSubscriptions() {
     emit(state.copyWith(status: AgendaStatus.loading));
 
-    _tasksSub = _repository.watchTasks().listen((taskList) {
-      emit(
-        state.copyWith(
-          status: AgendaStatus.success,
-          tasks: taskList,
-        ),
-      );
+    _tasksSub = _taskRepo.watchTasks().listen((taskList) {
+      emit(state.copyWith(status: AgendaStatus.success, tasks: taskList));
     });
 
-    _memosSub = _repository.watchMemos().listen((memoList) {
-      emit(
-        state.copyWith(
-          status: AgendaStatus.success,
-          memos: memoList,
-        ),
-      );
+    _memosSub = _taskRepo.watchMemos().listen((memoList) {
+      emit(state.copyWith(status: AgendaStatus.success, memos: memoList));
     });
   }
 
-  /// تبديل حالة المهمة ونطق التأكيد للكفيف
   Future<void> toggleTask(Task task) async {
     await _haptics.successNotification();
     await _sound.play(SoundCue.navCenter);
-    await _repository.toggleTask(task);
+    await _taskRepo.toggleTask(task);
     final statusWord = task.isCompleted ? 'marked pending' : 'completed';
-    await _repository.speak('Task $statusWord: ${task.title}');
+    await _speak('Task $statusWord: ${task.title}');
   }
 
-  /// نطق تفاصيل المهمة كاملة بأسلوب زمني ذكي
+  Future<void> addNewTask({
+    required String title,
+    DateTime? dueDate,
+    String priority = 'medium',
+  }) async {
+    await _haptics.successNotification();
+    await _sound.play(SoundCue.success);
+    await _taskRepo.createTask(
+      title: title,
+      dueDate: dueDate,
+      priority: priority,
+    );
+    await _speak('Task created: $title');
+  }
+
+  Future<void> deleteTask(Task task) async {
+    await _haptics.successNotification();
+    await _sound.play(SoundCue.navCenter);
+    await _taskRepo.deleteTask(task);
+    await _speak('Task deleted.');
+  }
+
+  Future<void> addNewMemo({
+    required String title,
+    required String content,
+  }) async {
+    await _haptics.successNotification();
+    await _sound.play(SoundCue.success);
+    await _taskRepo.createMemo(title: title, content: content);
+    await _speak('Note saved: $title');
+  }
+
   Future<void> readTaskAloud(Task task) async {
     await _haptics.successNotification();
     final priorityText = 'Priority: ${task.priority}.';
@@ -78,63 +101,19 @@ class AgendaCubit extends Cubit<AgendaState> {
       }
     }
 
-    await _repository.speak(
-      '${task.title}. $priorityText $dueText $statusText',
-    );
+    await _speak('${task.title}. $priorityText $dueText $statusText');
   }
 
-  /// إضافة مهمة جديدة وتأكيدها صوتياً وسحابياً
-  Future<void> addNewTask({
-    required String title,
-    DateTime? dueDate,
-    String priority = 'medium',
-  }) async {
-    await _haptics.successNotification();
-    await _sound.play(SoundCue.success);
-    await _repository.createTask(
-      title: title,
-      dueDate: dueDate,
-      priority: priority,
-    );
-    await _repository.speak('Task created: $title');
-  }
-
-  /// حذف مهمة مع تأكيد صوتي
-  Future<void> deleteTask(Task task) async {
-    await _haptics.successNotification();
-    await _sound.play(SoundCue.navCenter);
-    await _repository.deleteTask(task);
-    await _repository.speak('Task deleted.');
-  }
-
-  /// إنشاء مذكرة سريعة جديدة
-  Future<void> addNewMemo({
-    required String title,
-    required String content,
-  }) async {
-    await _haptics.successNotification();
-    await _sound.play(SoundCue.success);
-    await _repository.createMemo(
-      title: title,
-      content: content,
-    );
-    await _repository.speak('Note saved: $title');
-  }
-
-  /// نطق محتوى المذكرة الصوتية
   Future<void> readMemoAloud(VoiceMemo memo) async {
     await _haptics.successNotification();
-    await _repository.speak(
-      'Note titled: ${memo.title}. Content: ${memo.content}',
-    );
+    await _speak('Note titled: ${memo.title}. Content: ${memo.content}');
   }
 
-  /// حذف مذكرة مع تأكيد صوتي
   Future<void> deleteMemo(VoiceMemo memo) async {
     await _haptics.successNotification();
     await _sound.play(SoundCue.navCenter);
-    await _repository.deleteMemo(memo.id);
-    await _repository.speak('Note deleted: ${memo.title}');
+    await _taskRepo.deleteMemo(memo.id);
+    await _speak('Note deleted: ${memo.title}');
   }
 
   @override

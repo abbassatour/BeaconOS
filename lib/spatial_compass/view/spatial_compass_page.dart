@@ -1,5 +1,6 @@
 // lib/spatial_compass/view/spatial_compass_page.dart
 import 'package:beacon_os/core/physics/spatial_physics.dart';
+import 'package:beacon_os/core/spatial_kernel/spatial_topology.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
 import 'package:beacon_os/settings/cubit/settings_cubit.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_cubit.dart';
@@ -17,11 +18,15 @@ class SpatialCompassPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repository = context.read<LauncherRepository>();
+    final topology = context.read<SpatialTopology>();
 
     return MultiBlocProvider(
       providers: [
         BlocProvider(
-          create: (context) => SpatialCompassCubit(repository: repository),
+          create: (context) => SpatialCompassCubit(
+            repository: repository,
+            topology: topology,
+          ),
         ),
         BlocProvider(
           create: (context) => SettingsCubit(repository: repository),
@@ -48,7 +53,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   bool _isTwoFingerPinch = false;
   Axis? _lockedAxis;
 
-  double _initialScale = 1.0;
+  double _initialScale = 0.0;
   double _startXAtGesture = 0.0;
   double _startYAtGesture = 0.0;
   bool _hapticDetentFired = false;
@@ -62,12 +67,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     super.initState();
     _panX = AnimationController.unbounded(vsync: this);
     _panY = AnimationController.unbounded(vsync: this);
-    _floorZ = AnimationController(
-      vsync: this,
-      value: 0.0,
-      lowerBound: -0.2,
-      upperBound: 1.2,
-    );
+    _floorZ = AnimationController.unbounded(vsync: this, value: 0.0);
 
     _panX.addListener(_forceRender);
     _panY.addListener(_forceRender);
@@ -131,18 +131,15 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     final state = context.read<SpatialCompassCubit>().state;
 
     // =========================================================================
-    // 🤏 1. فيزياء محور العمق (Z-Axis Pinch-In للصعود للطابق الثاني)
+    // 🤏 1. فيزياء محور العمق (Z-Axis Pinch / Zoom)
     // =========================================================================
     if (_isTwoFingerPinch || details.pointerCount >= 2) {
       _isTwoFingerPinch = true;
 
-      // عند تقريب الأصابع (Pinch-in) تكون details.scale أقل من 1.0
-      // نضرب في معامل حساسية 1.8 للاستجابة السريعة دون إرهاق يد المستخدم
       final pinchDelta = (1.0 - details.scale) * 1.8;
-      final rawZ = (_initialScale + pinchDelta).clamp(-0.1, 1.1);
+      final rawZ = (_initialScale + pinchDelta).clamp(-0.2, 1.2);
       _floorZ.value = rawZ;
 
-      // نبضة اهتزاز حسية عند اجتياز عتبة التحول
       if ((rawZ > 0.35 && _initialScale < 0.5) ||
           (rawZ < 0.65 && _initialScale >= 0.5)) {
         if (!_hapticDetentFired) {
@@ -300,13 +297,11 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     final state = cubit.state;
 
     // =========================================================================
-    // 🏢 إنهاء إيماءة الطابق والقفز السلس بالنوابض (Runge-Kutta Z Simulation)
+    // 🏢 إنهاء إيماءة الطابق والقفز السلس بالنوابض (Z Simulation)
     // =========================================================================
     if (_isTwoFingerPinch) {
       _isTwoFingerPinch = false;
 
-      // إذا انطلقنا من الطابق الأرضي وتجاوزنا 0.35 بتقريب الأصابع -> اعتماد الطابق الثاني
-      // إذا انطلقنا من الطابق الثاني ونزلنا تحت 0.65 بتبعيد الأصابع -> العودة للطابق الأرضي
       final targetZ = _initialScale < 0.5
           ? (_floorZ.value > 0.35 ? 1.0 : 0.0)
           : (_floorZ.value < 0.65 ? 0.0 : 1.0);
@@ -320,9 +315,9 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       );
 
       if (targetZ == 1.0) {
-        cubit.goToSettingsFloor();
+        cubit.jumpToFloor(1);
       } else {
-        cubit.returnToGroundFloor();
+        cubit.jumpToFloor(0);
       }
       return;
     }
@@ -490,19 +485,12 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
           _snapToCurrentState(state);
         }
 
-        if (state.currentFloor == 0 && _floorZ.value != 0.0) {
+        final targetZ = state.currentFloor.toDouble();
+        if (_floorZ.value != targetZ) {
           _floorZ.animateWith(
             SpatialPhysics.createZAxisSimulation(
               start: _floorZ.value,
-              end: 0.0,
-              velocity: 0.0,
-            ),
-          );
-        } else if (state.currentFloor == 1 && _floorZ.value != 1.0) {
-          _floorZ.animateWith(
-            SpatialPhysics.createZAxisSimulation(
-              start: _floorZ.value,
-              end: 1.0,
+              end: targetZ,
               velocity: 0.0,
             ),
           );
@@ -524,52 +512,63 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
               child: BlocBuilder<SpatialCompassCubit, SpatialCompassState>(
                 builder: (context, state) {
                   final zFloor = _floorZ.value.clamp(0.0, 1.0);
+
                   final coreScale = 1.0 + (zFloor * 0.45);
-                  final coreOpacity = 1.0 - zFloor;
+                  final coreOpacity = (1.0 - zFloor).clamp(0.0, 1.0);
 
                   final settingsScale = 0.75 + (zFloor * 0.25);
-                  final settingsOpacity = zFloor;
+                  final settingsOpacity = zFloor.clamp(0.0, 1.0);
 
                   return Stack(
                     children: [
-                      // ⚙️ الطبقة العميقة (الطابق الثاني - الإعدادات والمحركات)
-                      Transform(
-                        alignment: Alignment.center,
-                        transform: Matrix4.identity()
-                          ..translate(_panX.value, _panY.value)
-                          ..scale(settingsScale, settingsScale),
-                        child: Opacity(
-                          opacity: settingsOpacity,
-                          child: IgnorePointer(
-                            ignoring: zFloor < 0.5,
-                            child: SettingsFloorLayout(
-                              direction: state.currentDirection,
+                      // ⚙️ الطبقة العميقة (Floor 1: الإعدادات والمحركات)
+                      // 🚀 الفرز الفضائي (Spatial Culling): إيقاف الرندر والتفاعل عند الاختفاء
+                      Visibility(
+                        visible: settingsOpacity > 0.02,
+                        child: Transform(
+                          alignment: Alignment.center,
+                          transform: Matrix4.identity()
+                            ..translate(_panX.value, _panY.value)
+                            ..scale(settingsScale, settingsScale),
+                          child: Opacity(
+                            opacity: settingsOpacity,
+                            child: IgnorePointer(
+                              ignoring: zFloor < 0.5,
+                              child: SpatialFloorLayout(
+                                direction: state.currentDirection,
+                                floorLevel: 1,
+                              ),
                             ),
                           ),
                         ),
                       ),
 
-                      // 🏠 الطبقة السطحية (الطابق الأول - الغرف الأساسية)
-                      Transform(
-                        alignment: Alignment.center,
-                        transform: Matrix4.identity()
-                          ..translate(_panX.value, _panY.value)
-                          ..scale(coreScale, coreScale),
-                        child: Opacity(
-                          opacity: coreOpacity,
-                          child: IgnorePointer(
-                            ignoring: zFloor > 0.5,
-                            child: CoreFloorLayout(
-                              direction: state.currentDirection,
+                      // 🏠 الطبقة السطحية (Floor 0: الغرف الأساسية وقمرة القيادة)
+                      // 🚀 الفرز الفضائي (Spatial Culling): إيقاف الرندر والتفاعل عند الاختفاء
+                      Visibility(
+                        visible: coreOpacity > 0.02,
+                        child: Transform(
+                          alignment: Alignment.center,
+                          transform: Matrix4.identity()
+                            ..translate(_panX.value, _panY.value)
+                            ..scale(coreScale, coreScale),
+                          child: Opacity(
+                            opacity: coreOpacity,
+                            child: IgnorePointer(
+                              ignoring: zFloor > 0.5,
+                              child: SpatialFloorLayout(
+                                direction: state.currentDirection,
+                                floorLevel: 0,
+                              ),
                             ),
                           ),
                         ),
                       ),
 
-                      // 🗺️ شريط الـ HUD العائم والمستقل تماماً
+                      // 🗺️ شريط الـ HUD الملاحي المتصل بالطوبولوجيا
                       SpatialCompassHud(
                         direction: state.currentDirection,
-                        isSettingsFloor: state.isSettingsFloor,
+                        currentFloor: state.currentFloor,
                         onCenterTap: cubit.returnToCenter,
                         onFloorToggle: cubit.toggleFloor,
                       ),

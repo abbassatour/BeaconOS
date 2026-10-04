@@ -2,7 +2,8 @@
 import 'package:beacon_os/agenda/cubit/agenda_cubit.dart';
 import 'package:beacon_os/agenda/cubit/agenda_state.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
-import 'package:beacon_os/spatial_compass/models/spatial_room.dart';
+import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart'; // 👈 استدعاء جديد
+import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart'; // 👈 استدعاء جديد
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -16,21 +17,22 @@ class AgendaView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => AgendaCubit(
-        repository: context.read<LauncherRepository>(),
+        taskRepository: context.read<TaskAgendaRepository>(),
+        speakCallback: context.read<LauncherRepository>().speak,
       ),
-      child: const _AgendaContent(),
+      child: const AgendaContentView(),
     );
   }
 }
 
-class _AgendaContent extends StatelessWidget {
-  const _AgendaContent();
+class AgendaContentView extends StatelessWidget {
+  const AgendaContentView({super.key});
 
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    final returnHint =
-        CompassRegistry.directionOf(RoomId.agenda).returnGestureHint;
+    // 👈 استخدام الامتداد الجديد بدلاً من CompassRegistry
+    final returnHint = CompassDirection.west.returnGestureHint;
 
     return Scaffold(
       backgroundColor: context.scaffoldBg,
@@ -48,7 +50,6 @@ class _AgendaContent extends StatelessWidget {
             return CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
-                // 1. ترويسة الغرفة وأزرار الإضافة السريعة
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 60, 20, 12),
@@ -77,8 +78,7 @@ class _AgendaContent extends StatelessWidget {
                                   ),
                                   icon: const Icon(Icons.note_add_rounded),
                                   tooltip: 'Add Note',
-                                  onPressed: () =>
-                                      _showAddMemoDialog(context, cubit),
+                                  onPressed: () => _showAddMemoDialog(context, cubit),
                                 ),
                                 const SizedBox(width: 8),
                                 IconButton.filledTonal(
@@ -89,8 +89,7 @@ class _AgendaContent extends StatelessWidget {
                                   ),
                                   icon: const Icon(Icons.add_task_rounded),
                                   tooltip: 'Add Task',
-                                  onPressed: () =>
-                                      _showAddTaskDialog(context, cubit),
+                                  onPressed: () => _showAddTaskDialog(context, cubit),
                                 ),
                               ],
                             ),
@@ -109,53 +108,31 @@ class _AgendaContent extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                // 2. المهام قيد الانتظار (Pending Priorities)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.radio_button_unchecked_rounded,
-                          color: colors.primary,
-                          size: 18,
-                        ),
+                        Icon(Icons.radio_button_unchecked_rounded, color: colors.primary, size: 18),
                         const SizedBox(width: 8),
                         Text(
                           'PENDING PRIORITIES (${state.pendingTasks.length})',
-                          style: TextStyle(
-                            color: colors.onSurface,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.1,
-                          ),
+                          style: TextStyle(color: colors.onSurface, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.1),
                         ),
                       ],
                     ),
                   ),
                 ),
-
                 if (state.pendingTasks.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                       child: Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: colors.outline),
-                        ),
+                        decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.outline)),
                         child: Text(
                           'Your agenda is clear with zero pending tasks. Tap + to add one.',
-                          style: TextStyle(
-                            color: colors.onSurfaceVariant,
-                            fontSize: 13,
-                          ),
+                          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
                         ),
                       ),
                     ),
@@ -165,20 +142,11 @@ class _AgendaContent extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final task = state.pendingTasks[index];
-                          return _buildDismissibleTaskCard(
-                            context,
-                            task,
-                            cubit,
-                          );
-                        },
+                        (context, index) => _buildDismissibleTaskCard(context, state.pendingTasks[index], cubit),
                         childCount: state.pendingTasks.length,
                       ),
                     ),
                   ),
-
-                // 3. بنك المذكرات والملاحظات الصوتية (Voice & AI Notes)
                 if (state.sortedMemos.isNotEmpty) ...[
                   SliverToBoxAdapter(
                     child: Padding(
@@ -188,30 +156,12 @@ class _AgendaContent extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              Icon(
-                                Icons.mic_none_rounded,
-                                color: colors.secondary,
-                                size: 18,
-                              ),
+                              Icon(Icons.mic_none_rounded, color: colors.secondary, size: 18),
                               const SizedBox(width: 8),
-                              Text(
-                                'VOICE & AI NOTES (${state.sortedMemos.length})',
-                                style: TextStyle(
-                                  color: colors.onSurface,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.1,
-                                ),
-                              ),
+                              Text('VOICE & AI NOTES (${state.sortedMemos.length})', style: TextStyle(color: colors.onSurface, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
                             ],
                           ),
-                          Text(
-                            'Swipe left to delete',
-                            style: TextStyle(
-                              color: colors.onSurfaceVariant,
-                              fontSize: 10,
-                            ),
-                          ),
+                          Text('Swipe left to delete', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 10)),
                         ],
                       ),
                     ),
@@ -220,42 +170,21 @@ class _AgendaContent extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final memo = state.sortedMemos[index];
-                          return _buildDismissibleMemoCard(
-                            context,
-                            memo,
-                            cubit,
-                          );
-                        },
+                        (context, index) => _buildDismissibleMemoCard(context, state.sortedMemos[index], cubit),
                         childCount: state.sortedMemos.length,
                       ),
                     ),
                   ),
                 ],
-
-                // 4. المهام المكتملة (Completed Tasks)
                 if (state.completedTasks.isNotEmpty) ...[
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.check_circle_outline_rounded,
-                            color: colors.onSurfaceVariant,
-                            size: 18,
-                          ),
+                          Icon(Icons.check_circle_outline_rounded, color: colors.onSurfaceVariant, size: 18),
                           const SizedBox(width: 8),
-                          Text(
-                            'COMPLETED (${state.completedTasks.length})',
-                            style: TextStyle(
-                              color: colors.onSurfaceVariant,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.1,
-                            ),
-                          ),
+                          Text('COMPLETED (${state.completedTasks.length})', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
                         ],
                       ),
                     ),
@@ -264,20 +193,12 @@ class _AgendaContent extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final task = state.completedTasks[index];
-                          return _buildDismissibleTaskCard(
-                            context,
-                            task,
-                            cubit,
-                          );
-                        },
+                        (context, index) => _buildDismissibleTaskCard(context, state.completedTasks[index], cubit),
                         childCount: state.completedTasks.length,
                       ),
                     ),
                   ),
                 ],
-
                 const SliverToBoxAdapter(child: SizedBox(height: 60)),
               ],
             );
@@ -287,11 +208,7 @@ class _AgendaContent extends StatelessWidget {
     );
   }
 
-  Widget _buildDismissibleTaskCard(
-    BuildContext context,
-    Task task,
-    AgendaCubit cubit,
-  ) {
+  Widget _buildDismissibleTaskCard(BuildContext context, Task task, AgendaCubit cubit) {
     final colors = context.colors;
     final isDone = task.isCompleted;
 
@@ -307,16 +224,12 @@ class _AgendaContent extends StatelessWidget {
         background: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
-          decoration: BoxDecoration(
-            color: colors.error.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(16),
-          ),
+          decoration: BoxDecoration(color: colors.error.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
           child: Icon(Icons.delete_outline_rounded, color: colors.error),
         ),
         onDismissed: (_) => cubit.deleteTask(task),
         child: Semantics(
-          label:
-              'Task: ${task.title}, Priority ${task.priority}, ${task.dueDate != null ? 'Due on ${DateFormat('MMM d, h:mm a').format(task.dueDate!)}' : 'No deadline'}. Tap to read, or toggle completion checkbox.',
+          label: 'Task: ${task.title}. Tap to read, or toggle completion checkbox.',
           button: true,
           child: Material(
             color: colors.surface,
@@ -325,28 +238,15 @@ class _AgendaContent extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               onTap: () => cubit.readTaskAloud(task),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDone
-                        ? colors.outline
-                        : priorityColor.withValues(alpha: 0.4),
-                    width: 1.2,
-                  ),
+                  border: Border.all(color: isDone ? colors.outline : priorityColor.withValues(alpha: 0.4), width: 1.2),
                 ),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: Icon(
-                        isDone
-                            ? Icons.check_circle_rounded
-                            : Icons.circle_outlined,
-                        color: isDone ? colors.onSurfaceVariant : priorityColor,
-                        size: 24,
-                      ),
-                      tooltip: 'Toggle Status',
+                      icon: Icon(isDone ? Icons.check_circle_rounded : Icons.circle_outlined, color: isDone ? colors.onSurfaceVariant : priorityColor, size: 24),
                       onPressed: () => cubit.toggleTask(task),
                     ),
                     const SizedBox(width: 4),
@@ -359,60 +259,27 @@ class _AgendaContent extends StatelessWidget {
                               if (task.priority == 'high' && !isDone)
                                 Container(
                                   margin: const EdgeInsets.only(right: 6),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 1,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colors.error.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    'HIGH',
-                                    style: TextStyle(
-                                      color: colors.error,
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                  decoration: BoxDecoration(color: colors.error.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(4)),
+                                  child: Text('HIGH', style: TextStyle(color: colors.error, fontSize: 9, fontWeight: FontWeight.w900)),
                                 ),
                               Expanded(
                                 child: Text(
                                   task.title,
-                                  style: TextStyle(
-                                    color: isDone
-                                        ? colors.onSurfaceVariant
-                                        : colors.onSurface,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    decoration: isDone
-                                        ? TextDecoration.lineThrough
-                                        : null,
-                                  ),
+                                  style: TextStyle(color: isDone ? colors.onSurfaceVariant : colors.onSurface, fontSize: 15, fontWeight: FontWeight.w800, decoration: isDone ? TextDecoration.lineThrough : null),
                                 ),
                               ),
                             ],
                           ),
                           if (task.dueDate != null) ...[
                             const SizedBox(height: 3),
-                            Text(
-                              'Due: ${DateFormat('EEE, MMM d • h:mm a').format(task.dueDate!)}',
-                              style: TextStyle(
-                                color: colors.onSurfaceVariant,
-                                fontSize: 11,
-                              ),
-                            ),
+                            Text('Due: ${DateFormat('EEE, MMM d • h:mm a').format(task.dueDate!)}', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11)),
                           ],
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: Icon(
-                        Icons.volume_up_rounded,
-                        color: colors.primary,
-                        size: 20,
-                      ),
-                      tooltip: 'Read Aloud',
+                      icon: Icon(Icons.volume_up_rounded, color: colors.primary, size: 20),
                       onPressed: () => cubit.readTaskAloud(task),
                     ),
                   ],
@@ -425,11 +292,7 @@ class _AgendaContent extends StatelessWidget {
     );
   }
 
-  Widget _buildDismissibleMemoCard(
-    BuildContext context,
-    VoiceMemo memo,
-    AgendaCubit cubit,
-  ) {
+  Widget _buildDismissibleMemoCard(BuildContext context, VoiceMemo memo, AgendaCubit cubit) {
     final colors = context.colors;
 
     return Padding(
@@ -440,10 +303,7 @@ class _AgendaContent extends StatelessWidget {
         background: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
-          decoration: BoxDecoration(
-            color: colors.error.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(16),
-          ),
+          decoration: BoxDecoration(color: colors.error.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
           child: Icon(Icons.delete_outline_rounded, color: colors.error),
         ),
         onDismissed: (_) => cubit.deleteMemo(memo),
@@ -458,52 +318,22 @@ class _AgendaContent extends StatelessWidget {
               onTap: () => cubit.readMemoAloud(memo),
               child: Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: colors.outline, width: 1.2),
-                ),
+                decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.outline, width: 1.2)),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: colors.secondary.withValues(alpha: 0.15),
-                      child: Icon(
-                        Icons.notes_rounded,
-                        color: colors.secondary,
-                        size: 20,
-                      ),
-                    ),
+                    CircleAvatar(radius: 20, backgroundColor: colors.secondary.withValues(alpha: 0.15), child: Icon(Icons.notes_rounded, color: colors.secondary, size: 20)),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            memo.title,
-                            style: TextStyle(
-                              color: colors.onSurface,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 15,
-                            ),
-                          ),
+                          Text(memo.title, style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w800, fontSize: 15)),
                           const SizedBox(height: 2),
-                          Text(
-                            memo.content,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colors.onSurfaceVariant,
-                              fontSize: 13,
-                            ),
-                          ),
+                          Text(memo.content, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
                         ],
                       ),
                     ),
-                    Icon(
-                      Icons.volume_up_rounded,
-                      color: colors.primary,
-                      size: 20,
-                    ),
+                    Icon(Icons.volume_up_rounded, color: colors.primary, size: 20),
                   ],
                 ),
               ),
@@ -525,97 +355,38 @@ class _AgendaContent extends StatelessWidget {
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: colors.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: colors.outline, width: 1.5),
-          ),
-          title: Text(
-            'New Task',
-            style: TextStyle(
-              color: colors.onSurface,
-              fontWeight: FontWeight.w900,
-              fontSize: 20,
-            ),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: colors.outline, width: 1.5)),
+          title: Text('New Task', style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w900, fontSize: 20)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: titleController,
-                  autofocus: true,
-                  style: TextStyle(color: colors.onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Task title...',
-                    labelStyle: TextStyle(color: colors.onSurfaceVariant),
-                  ),
-                ),
+                TextField(controller: titleController, autofocus: true, style: TextStyle(color: colors.onSurface), decoration: InputDecoration(labelText: 'Task title...', labelStyle: TextStyle(color: colors.onSurfaceVariant))),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   value: priority,
                   dropdownColor: colors.surface,
                   style: TextStyle(color: colors.onSurface),
-                  decoration: InputDecoration(
-                    labelText: 'Priority',
-                    labelStyle: TextStyle(color: colors.onSurfaceVariant),
-                  ),
+                  decoration: InputDecoration(labelText: 'Priority', labelStyle: TextStyle(color: colors.onSurfaceVariant)),
                   items: const [
-                    DropdownMenuItem(
-                      value: 'high',
-                      child: Text('High Priority 🔴'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'medium',
-                      child: Text('Medium Priority 🟡'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'low',
-                      child: Text('Low Priority ⚪'),
-                    ),
+                    DropdownMenuItem(value: 'high', child: Text('High Priority 🔴')),
+                    DropdownMenuItem(value: 'medium', child: Text('Medium Priority 🟡')),
+                    DropdownMenuItem(value: 'low', child: Text('Low Priority ⚪')),
                   ],
-                  onChanged: (val) =>
-                      setDialogState(() => priority = val ?? 'medium'),
+                  onChanged: (val) => setDialogState(() => priority = val ?? 'medium'),
                 ),
                 const SizedBox(height: 16),
-                // أداة اختيار موعد الاستحقاق (Date & Time Picker)
                 OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: colors.outline),
-                    foregroundColor: colors.onSurface,
-                    minimumSize: const Size(double.infinity, 44),
-                  ),
-                  icon: Icon(
-                    Icons.event_rounded,
-                    size: 18,
-                    color: colors.primary,
-                  ),
-                  label: Text(
-                    selectedDateTime == null
-                        ? 'Set Deadline (Optional)'
-                        : 'Due: ${DateFormat('MMM d • h:mm a').format(selectedDateTime!)}',
-                    style: const TextStyle(fontSize: 13),
-                  ),
+                  style: OutlinedButton.styleFrom(side: BorderSide(color: colors.outline), foregroundColor: colors.onSurface, minimumSize: const Size(double.infinity, 44)),
+                  icon: Icon(Icons.event_rounded, size: 18, color: colors.primary),
+                  label: Text(selectedDateTime == null ? 'Set Deadline (Optional)' : 'Due: ${DateFormat('MMM d • h:mm a').format(selectedDateTime!)}', style: const TextStyle(fontSize: 13)),
                   onPressed: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime.now().add(const Duration(days: 365)),
-                    );
+                    final date = await showDatePicker(context: context, initialDate: DateTime.now(), firstDate: DateTime.now(), lastDate: DateTime.now().add(const Duration(days: 365)));
                     if (date != null && context.mounted) {
-                      final time = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.now(),
-                      );
+                      final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
                       if (time != null) {
                         setDialogState(() {
-                          selectedDateTime = DateTime(
-                            date.year,
-                            date.month,
-                            date.day,
-                            time.hour,
-                            time.minute,
-                          );
+                          selectedDateTime = DateTime(date.year, date.month, date.day, time.hour, time.minute);
                         });
                       }
                     }
@@ -625,36 +396,17 @@ class _AgendaContent extends StatelessWidget {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: colors.onSurfaceVariant),
-              ),
-            ),
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text('Cancel', style: TextStyle(color: colors.onSurfaceVariant))),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colors.primary,
-                foregroundColor: colors.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
+              style: ElevatedButton.styleFrom(backgroundColor: colors.primary, foregroundColor: colors.surface, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
               onPressed: () {
                 final text = titleController.text.trim();
                 if (text.isNotEmpty) {
-                  cubit.addNewTask(
-                    title: text,
-                    priority: priority,
-                    dueDate: selectedDateTime,
-                  );
+                  cubit.addNewTask(title: text, priority: priority, dueDate: selectedDateTime);
                   Navigator.of(ctx).pop();
                 }
               },
-              child: const Text(
-                'Create Task',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+              child: const Text('Create Task', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -671,74 +423,31 @@ class _AgendaContent extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: colors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: colors.outline, width: 1.5),
-        ),
-        title: Text(
-          'New Voice / Quick Note',
-          style: TextStyle(
-            color: colors.onSurface,
-            fontWeight: FontWeight.w900,
-            fontSize: 20,
-          ),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: colors.outline, width: 1.5)),
+        title: Text('New Voice / Quick Note', style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w900, fontSize: 20)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: titleController,
-                style: TextStyle(color: colors.onSurface),
-                decoration: InputDecoration(
-                  labelText: 'Title (e.g. Ideas, Project memo)...',
-                  labelStyle: TextStyle(color: colors.onSurfaceVariant),
-                ),
-              ),
+              TextField(controller: titleController, style: TextStyle(color: colors.onSurface), decoration: InputDecoration(labelText: 'Title (e.g. Ideas, Project memo)...', labelStyle: TextStyle(color: colors.onSurfaceVariant))),
               const SizedBox(height: 12),
-              TextField(
-                controller: contentController,
-                maxLines: 4,
-                style: TextStyle(color: colors.onSurface),
-                decoration: InputDecoration(
-                  labelText: 'Note content...',
-                  labelStyle: TextStyle(color: colors.onSurfaceVariant),
-                ),
-              ),
+              TextField(controller: contentController, maxLines: 4, style: TextStyle(color: colors.onSurface), decoration: InputDecoration(labelText: 'Note content...', labelStyle: TextStyle(color: colors.onSurfaceVariant))),
             ],
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: colors.onSurfaceVariant),
-            ),
-          ),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text('Cancel', style: TextStyle(color: colors.onSurfaceVariant))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colors.secondary,
-              foregroundColor: colors.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: colors.secondary, foregroundColor: colors.surface, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             onPressed: () {
               final title = titleController.text.trim();
               final content = contentController.text.trim();
               if (title.isNotEmpty || content.isNotEmpty) {
-                cubit.addNewMemo(
-                  title: title.isEmpty ? 'Untitled Note' : title,
-                  content: content.isEmpty ? title : content,
-                );
+                cubit.addNewMemo(title: title.isEmpty ? 'Untitled Note' : title, content: content.isEmpty ? title : content);
                 Navigator.of(ctx).pop();
               }
             },
-            child: const Text(
-              'Save Note',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            child: const Text('Save Note', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

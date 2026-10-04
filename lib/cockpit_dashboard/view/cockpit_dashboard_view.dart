@@ -2,17 +2,17 @@
 import 'dart:async';
 import 'package:beacon_os/cockpit_dashboard/cubit/cockpit_dashboard_cubit.dart';
 import 'package:beacon_os/cockpit_dashboard/cubit/cockpit_dashboard_state.dart';
+import 'package:beacon_os/core/spatial_kernel/spatial_topology.dart'; // 👈 استدعاء جديد
 import 'package:beacon_os/core/theme/app_theme.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_cubit.dart';
-import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
-import 'package:beacon_os/spatial_compass/models/spatial_room.dart';
+import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart'; // 👈 استدعاء جديد
+import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart'; // 👈 استدعاء جديد
 import 'package:beacon_os/subscription/view/paywall_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:launcher_repository/launcher_repository.dart';
 import 'package:local_vault_api/local_vault_api.dart';
-import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart';
 
 class CockpitDashboardView extends StatelessWidget {
   const CockpitDashboardView({super.key});
@@ -21,22 +21,25 @@ class CockpitDashboardView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => CockpitDashboardCubit(
-        repository: context.read<LauncherRepository>(),
+        taskRepository: context.read<TaskAgendaRepository>(),
+        focusAlarmsRepository: context.read<FocusAlarmsRepository>(),
+        hardwareRepository: context.read<SystemHardwareRepository>(),
+        assistantRepository: context.read<AssistantRepository>(),
       ),
-      child: const _CockpitDashboardContent(),
+      child: const CockpitDashboardContentView(),
     );
   }
 }
 
-class _CockpitDashboardContent extends StatefulWidget {
-  const _CockpitDashboardContent();
+class CockpitDashboardContentView extends StatefulWidget {
+  const CockpitDashboardContentView({super.key});
 
   @override
-  State<_CockpitDashboardContent> createState() =>
-      _CockpitDashboardContentState();
+  State<CockpitDashboardContentView> createState() =>
+      _CockpitDashboardContentViewState();
 }
 
-class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
+class _CockpitDashboardContentViewState extends State<CockpitDashboardContentView> {
   late Timer _clockTimer;
   DateTime _currentTime = DateTime.now();
 
@@ -75,7 +78,6 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
             return CustomScrollView(
               physics: const BouncingScrollPhysics(),
               slivers: [
-                // 1. شريط الترويسة الرئيسي (مع الساعة الرقمية الحية وحالة البطارية المحمية)
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 60, 20, 12),
@@ -87,12 +89,7 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
                           children: [
                             Text(
                               dayName,
-                              style: TextStyle(
-                                color: colors.primary,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.5,
-                              ),
+                              style: TextStyle(color: colors.primary, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.5),
                             ),
                             Row(
                               children: [
@@ -101,29 +98,13 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
                                     backgroundColor: colors.surface,
                                     foregroundColor: colors.onSurface,
                                     side: BorderSide(color: colors.outline),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     minimumSize: const Size(0, 32),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
-                                  icon: Icon(
-                                    Icons.workspace_premium_rounded,
-                                    size: 16,
-                                    color: colors.primary,
-                                  ),
-                                  label: const Text(
-                                    'PRO',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  onPressed: () => Navigator.of(context)
-                                      .push(PaywallPage.route()),
+                                  icon: Icon(Icons.workspace_premium_rounded, size: 16, color: colors.primary),
+                                  label: const Text('PRO', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12)),
+                                  onPressed: () => Navigator.of(context).push(PaywallPage.route()),
                                 ),
                                 const SizedBox(width: 8),
                                 IconButton.filledTonal(
@@ -148,46 +129,16 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
                           crossAxisAlignment: CrossAxisAlignment.baseline,
                           textBaseline: TextBaseline.alphabetic,
                           children: [
-                            Text(
-                              timeString,
-                              style: TextStyle(
-                                color: colors.onSurface,
-                                fontSize: 32,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -1,
-                              ),
-                            ),
-                            Text(
-                              fullDate,
-                              style: TextStyle(
-                                color: colors.onSurfaceVariant,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            Text(timeString, style: TextStyle(color: colors.onSurface, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: -1)),
+                            Text(fullDate, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 14, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(
-                              Icons.battery_charging_full_rounded,
-                              size: 16,
-                              color: colors.onSurfaceVariant,
-                            ),
+                            Icon(Icons.battery_charging_full_rounded, size: 16, color: colors.onSurfaceVariant),
                             const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                state.batteryStatus,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: colors.onSurfaceVariant,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
+                            Expanded(child: Text(state.batteryStatus, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w600))),
                           ],
                         ),
                       ],
@@ -195,13 +146,9 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
                   ),
                 ),
 
-                // 2. بطاقة الإيجاز الصوتي اليومي
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     child: Semantics(
                       label: state.isBriefingPlaying
                           ? 'Daily briefing is playing. Tap to stop audio.'
@@ -217,59 +164,24 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: colors.primary,
-                                width: 1.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: colors.primary.withValues(alpha: 0.08),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 6),
-                                ),
-                              ],
+                              border: Border.all(color: colors.primary, width: 1.5),
+                              boxShadow: [BoxShadow(color: colors.primary.withValues(alpha: 0.08), blurRadius: 16, offset: const Offset(0, 6))],
                             ),
                             child: Row(
                               children: [
                                 CircleAvatar(
                                   radius: 24,
                                   backgroundColor: colors.primary,
-                                  child: Icon(
-                                    state.isBriefingPlaying
-                                        ? Icons.stop_rounded
-                                        : Icons.play_arrow_rounded,
-                                    color: colors.surface,
-                                    size: 28,
-                                  ),
+                                  child: Icon(state.isBriefingPlaying ? Icons.stop_rounded : Icons.play_arrow_rounded, color: colors.surface, size: 28),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        state.isBriefingPlaying
-                                            ? 'PLAYING BRIEFING...'
-                                            : 'DAILY BRIEFING',
-                                        style: TextStyle(
-                                          color: colors.primary,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 1.2,
-                                        ),
-                                      ),
+                                      Text(state.isBriefingPlaying ? 'PLAYING BRIEFING...' : 'DAILY BRIEFING', style: TextStyle(color: colors.primary, fontSize: 12, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
                                       const SizedBox(height: 4),
-                                      Text(
-                                        state.isBriefingPlaying
-                                            ? 'Speaking overview aloud. Tap anytime to stop.'
-                                            : 'Tap to hear schedule, alarms, and battery overview.',
-                                        style: TextStyle(
-                                          color: colors.onSurface,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
+                                      Text(state.isBriefingPlaying ? 'Speaking overview aloud. Tap anytime to stop.' : 'Tap to hear schedule, alarms, and battery overview.', style: TextStyle(color: colors.onSurface, fontSize: 14, fontWeight: FontWeight.w600)),
                                     ],
                                   ),
                                 ),
@@ -282,15 +194,10 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
                   ),
                 ),
 
-                // 3. قسم المنبه القادم
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                    child: _buildSectionTitle(
-                      context,
-                      'NEXT UPCOMING ALARM',
-                      Icons.access_time_rounded,
-                    ),
+                    child: _buildSectionTitle(context, 'NEXT UPCOMING ALARM', Icons.access_time_rounded),
                   ),
                 ),
                 SliverToBoxAdapter(
@@ -300,37 +207,23 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
                   ),
                 ),
 
-                // 4. قسم أولويات اليوم
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                    child: _buildSectionTitle(
-                      context,
-                      'TODAY\'S PRIORITIES (${state.pendingTasks.length})',
-                      Icons.check_circle_outline_rounded,
-                    ),
+                    child: _buildSectionTitle(context, 'TODAY\'S PRIORITIES (${state.pendingTasks.length})', Icons.check_circle_outline_rounded),
                   ),
                 ),
                 if (state.pendingTasks.isEmpty)
                   SliverToBoxAdapter(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 8,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                       child: Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: colors.outline),
-                        ),
+                        decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.outline)),
                         child: Text(
-                          'Your day is completely clear. Swipe ${CompassRegistry.directionOf(RoomId.agenda).arrowSymbol} to view the full agenda.',
-                          style: TextStyle(
-                            color: colors.onSurfaceVariant,
-                            fontSize: 13,
-                          ),
+                          // 👈 التحديث هنا
+                          'Your day is completely clear. Swipe ${CompassDirection.west.arrowSymbol} to view the full agenda.',
+                          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
                         ),
                       ),
                     ),
@@ -340,40 +233,27 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, index) {
-                          final task = state.pendingTasks[index];
-                          return _buildPriorityTaskTile(context, task, cubit);
-                        },
+                        (context, index) => _buildPriorityTaskTile(context, state.pendingTasks[index], cubit),
                         childCount: state.pendingTasks.take(3).length,
                       ),
                     ),
                   ),
 
-                // 5. قسم أحدث مذكرة صوتية
                 if (state.latestMemo != null) ...[
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-                      child: _buildSectionTitle(
-                        context,
-                        'LATEST VOICE MEMO (TAP TO HEAR)',
-                        Icons.notes_rounded,
-                      ),
+                      child: _buildSectionTitle(context, 'LATEST VOICE MEMO (TAP TO HEAR)', Icons.notes_rounded),
                     ),
                   ),
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: _buildMemoSnippetCard(
-                        context,
-                        state.latestMemo!,
-                        cubit,
-                      ),
+                      child: _buildMemoSnippetCard(context, state.latestMemo!, cubit),
                     ),
                   ),
                 ],
 
-                // 6. الدليل المكاني للإيماءات الفضائية
                 const SliverToBoxAdapter(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(20, 28, 20, 40),
@@ -394,37 +274,21 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
       children: [
         Icon(icon, size: 16, color: colors.onSurfaceVariant),
         const SizedBox(width: 6),
-        Text(
-          title,
-          style: TextStyle(
-            color: colors.onSurfaceVariant,
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.1,
-          ),
-        ),
+        Text(title, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
       ],
     );
   }
 
-  Widget _buildNextAlarmCard(
-    BuildContext context,
-    Alarm? alarm,
-    CockpitDashboardCubit cubit,
-  ) {
+  Widget _buildNextAlarmCard(BuildContext context, Alarm? alarm, CockpitDashboardCubit cubit) {
     final colors = context.colors;
-    final focusDir = CompassRegistry.directionOf(RoomId.focusAlarms);
 
     if (alarm == null) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colors.outline),
-        ),
+        decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.outline)),
         child: Text(
-          'No scheduled alarms for today. Swipe ${focusDir.arrowSymbol} for Focus & Alarms.',
+          // 👈 التحديث هنا
+          'No scheduled alarms for today. Swipe ${CompassDirection.north.arrowSymbol} for Focus & Alarms.',
           style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
         ),
       );
@@ -434,8 +298,7 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
     final minuteStr = alarm.minute.toString().padLeft(2, '0');
 
     return Semantics(
-      label:
-          'Next alarm at $hourStr:$minuteStr labeled ${alarm.label}. Tap card to hear aloud or use switch to toggle.',
+      label: 'Next alarm at $hourStr:$minuteStr labeled ${alarm.label}. Tap card to hear aloud or use switch to toggle.',
       button: true,
       child: Material(
         color: colors.surface,
@@ -445,49 +308,21 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
           onTap: () => cubit.readNextAlarmAloud(alarm),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: colors.outline, width: 1.2),
-            ),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), border: Border.all(color: colors.outline, width: 1.2)),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '$hourStr:$minuteStr',
-                      style: TextStyle(
-                        color: colors.onSurface,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      alarm.label,
-                      style: TextStyle(
-                        color: colors.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                    ),
+                    Text('$hourStr:$minuteStr', style: TextStyle(color: colors.onSurface, fontSize: 26, fontWeight: FontWeight.w900)),
+                    Text(alarm.label, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
                   ],
                 ),
                 Row(
                   children: [
-                    IconButton(
-                      icon: Icon(
-                        Icons.volume_up_rounded,
-                        color: colors.primary,
-                        size: 20,
-                      ),
-                      tooltip: 'Read Alarm Aloud',
-                      onPressed: () => cubit.readNextAlarmAloud(alarm),
-                    ),
-                    Switch(
-                      activeColor: colors.primary,
-                      value: alarm.isActive,
-                      onChanged: (_) => cubit.toggleAlarm(alarm),
-                    ),
+                    IconButton(icon: Icon(Icons.volume_up_rounded, color: colors.primary, size: 20), onPressed: () => cubit.readNextAlarmAloud(alarm)),
+                    Switch(activeColor: colors.primary, value: alarm.isActive, onChanged: (_) => cubit.toggleAlarm(alarm)),
                   ],
                 ),
               ],
@@ -498,11 +333,7 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
     );
   }
 
-  Widget _buildPriorityTaskTile(
-    BuildContext context,
-    Task task,
-    CockpitDashboardCubit cubit,
-  ) {
+  Widget _buildPriorityTaskTile(BuildContext context, Task task, CockpitDashboardCubit cubit) {
     final colors = context.colors;
 
     Color priorityColor = colors.onSurfaceVariant;
@@ -519,66 +350,24 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
           onTap: () => cubit.readTaskAloud(task),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: priorityColor.withValues(alpha: 0.35),
-                width: 1.2,
-              ),
-            ),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: priorityColor.withValues(alpha: 0.35), width: 1.2)),
             child: Row(
               children: [
-                IconButton(
-                  icon: Icon(
-                    task.isCompleted
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
-                    color: task.isCompleted
-                        ? colors.onSurfaceVariant
-                        : colors.primary,
-                    size: 24,
-                  ),
-                  tooltip: 'Toggle Completion',
-                  onPressed: () => cubit.toggleTask(task),
-                ),
+                IconButton(icon: Icon(task.isCompleted ? Icons.check_circle_rounded : Icons.circle_outlined, color: task.isCompleted ? colors.onSurfaceVariant : colors.primary, size: 24), onPressed: () => cubit.toggleTask(task)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        task.title,
-                        style: TextStyle(
-                          color: colors.onSurface,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          decoration: task.isCompleted
-                              ? TextDecoration.lineThrough
-                              : null,
-                        ),
-                      ),
+                      Text(task.title, style: TextStyle(color: colors.onSurface, fontSize: 15, fontWeight: FontWeight.w700, decoration: task.isCompleted ? TextDecoration.lineThrough : null)),
                       if (task.dueDate != null) ...[
                         const SizedBox(height: 2),
-                        Text(
-                          'Due: ${DateFormat('EEE, MMM d • h:mm a').format(task.dueDate!)}',
-                          style: TextStyle(
-                            color: colors.onSurfaceVariant,
-                            fontSize: 11,
-                          ),
-                        ),
+                        Text('Due: ${DateFormat('EEE, MMM d • h:mm a').format(task.dueDate!)}', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 11)),
                       ],
                     ],
                   ),
                 ),
-                IconButton(
-                  icon: Icon(
-                    Icons.volume_up_rounded,
-                    color: colors.primary,
-                    size: 20,
-                  ),
-                  tooltip: 'Read Task Aloud',
-                  onPressed: () => cubit.readTaskAloud(task),
-                ),
+                IconButton(icon: Icon(Icons.volume_up_rounded, color: colors.primary, size: 20), onPressed: () => cubit.readTaskAloud(task)),
               ],
             ),
           ),
@@ -587,11 +376,7 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
     );
   }
 
-  Widget _buildMemoSnippetCard(
-    BuildContext context,
-    VoiceMemo memo,
-    CockpitDashboardCubit cubit,
-  ) {
+  Widget _buildMemoSnippetCard(BuildContext context, VoiceMemo memo, CockpitDashboardCubit cubit) {
     final colors = context.colors;
 
     return Semantics(
@@ -605,52 +390,22 @@ class _CockpitDashboardContentState extends State<_CockpitDashboardContent> {
           onTap: () => cubit.readMemoAloud(memo),
           child: Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: colors.outline),
-            ),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.outline)),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: colors.secondary.withValues(alpha: 0.15),
-                  child: Icon(
-                    Icons.notes_rounded,
-                    color: colors.secondary,
-                    size: 18,
-                  ),
-                ),
+                CircleAvatar(radius: 18, backgroundColor: colors.secondary.withValues(alpha: 0.15), child: Icon(Icons.notes_rounded, color: colors.secondary, size: 18)),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        memo.title,
-                        style: TextStyle(
-                          color: colors.onSurface,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                      Text(memo.title, style: TextStyle(color: colors.onSurface, fontSize: 15, fontWeight: FontWeight.w800)),
                       const SizedBox(height: 4),
-                      Text(
-                        memo.content,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: colors.onSurfaceVariant,
-                          fontSize: 13,
-                        ),
-                      ),
+                      Text(memo.content, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
                     ],
                   ),
                 ),
-                Icon(
-                  Icons.volume_up_rounded,
-                  color: colors.primary,
-                  size: 20,
-                ),
+                Icon(Icons.volume_up_rounded, color: colors.primary, size: 20),
               ],
             ),
           ),
@@ -666,11 +421,13 @@ class _SpatialNavigationGuideFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-
-    final northRoom = CompassRegistry.roomAt(CompassDirection.north);
-    final southRoom = CompassRegistry.roomAt(CompassDirection.south);
-    final westRoom = CompassRegistry.roomAt(CompassDirection.west);
-    final eastRoom = CompassRegistry.roomAt(CompassDirection.east);
+    
+    // 👈 التحديث هنا لقراءة الطوبولوجيا مباشرة
+    final topology = context.read<SpatialTopology>();
+    final northRoom = topology.moduleAt(0, CompassDirection.north);
+    final southRoom = topology.moduleAt(0, CompassDirection.south);
+    final westRoom = topology.moduleAt(0, CompassDirection.west);
+    final eastRoom = topology.moduleAt(0, CompassDirection.east);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -695,48 +452,27 @@ class _SpatialNavigationGuideFooter extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               Text(
-                '${CompassDirection.north.arrowSymbol} ${northRoom.shortTitle}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: colors.onSurface,
-                ),
+                '${CompassDirection.north.arrowSymbol} ${northRoom?.shortTitle ?? 'Focus'}',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colors.onSurface),
               ),
               Text(
-                '${CompassDirection.south.arrowSymbol} ${southRoom.shortTitle}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: colors.onSurface,
-                ),
+                '${CompassDirection.south.arrowSymbol} ${southRoom?.shortTitle ?? 'Comms'}',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colors.onSurface),
               ),
               Text(
-                '${CompassDirection.west.arrowSymbol} ${westRoom.shortTitle}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: colors.onSurface,
-                ),
+                '${CompassDirection.west.arrowSymbol} ${westRoom?.shortTitle ?? 'Agenda'}',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colors.onSurface),
               ),
               Text(
-                '${CompassDirection.east.arrowSymbol} ${eastRoom.shortTitle}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: colors.onSurface,
-                ),
+                '${CompassDirection.east.arrowSymbol} ${eastRoom?.shortTitle ?? 'Vision'}',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: colors.onSurface),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          // 🌟 استدعاء النص التوضيحي الموحد
           Text(
             SpatialGesture.ascendToSettings.visualHint,
-            style: TextStyle(
-              fontSize: 11,
-              color: colors.primary,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 11, color: colors.primary, fontWeight: FontWeight.bold),
           ),
         ],
       ),

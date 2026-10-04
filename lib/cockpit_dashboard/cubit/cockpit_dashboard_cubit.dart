@@ -11,17 +11,26 @@ import 'package:local_vault_api/local_vault_api.dart';
 
 class CockpitDashboardCubit extends Cubit<CockpitDashboardState> {
   CockpitDashboardCubit({
-    required LauncherRepository repository,
+    required TaskAgendaRepository taskRepository,
+    required FocusAlarmsRepository focusAlarmsRepository,
+    required SystemHardwareRepository hardwareRepository,
+    required AssistantRepository assistantRepository,
     HapticManager? hapticManager,
     SoundController? soundController,
-  })  : _repository = repository,
+  })  : _tasksRepo = taskRepository,
+        _focusRepo = focusAlarmsRepository,
+        _hardwareRepo = hardwareRepository,
+        _assistantRepo = assistantRepository,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const CockpitDashboardState()) {
     _initSubscriptions();
   }
 
-  final LauncherRepository _repository;
+  final TaskAgendaRepository _tasksRepo;
+  final FocusAlarmsRepository _focusRepo;
+  final SystemHardwareRepository _hardwareRepo;
+  final AssistantRepository _assistantRepo;
   final HapticManager _haptics;
   final SoundController _sound;
 
@@ -33,42 +42,41 @@ class CockpitDashboardCubit extends Cubit<CockpitDashboardState> {
   void _initSubscriptions() {
     emit(state.copyWith(status: CockpitStatus.loading));
 
-    _alarmsSub = _repository.watchAlarms().listen((alarms) {
+    _alarmsSub = _focusRepo.watchAlarms().listen((alarms) {
       emit(state.copyWith(alarms: alarms, status: CockpitStatus.success));
     });
 
-    _tasksSub = _repository.watchTasks().listen((tasks) {
+    _tasksSub = _tasksRepo.watchTasks().listen((tasks) {
       emit(state.copyWith(tasks: tasks, status: CockpitStatus.success));
     });
 
-    _memosSub = _repository.watchMemos().listen((memos) {
+    _memosSub = _tasksRepo.watchMemos().listen((memos) {
       emit(state.copyWith(memos: memos, status: CockpitStatus.success));
     });
 
     refreshBattery();
 
-    // تحديث مستوى البطارية تلقائياً كل دقيقة
     _batteryTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       refreshBattery();
     });
   }
 
   Future<void> refreshBattery() async {
-    final result = await _repository.dispatchVoiceCommand('battery');
-    emit(state.copyWith(batteryStatus: result.spokenResponse));
+    final status = await _hardwareRepo.getBatteryStatus();
+    emit(state.copyWith(batteryStatus: status));
   }
 
-  /// تشغيل أو إيقاف ملخص اليوم الصباحي الشامل للكفيف (Toggle Briefing)
+  /// تشغيل أو إيقاف ملخص اليوم الصباحي الشامل
   Future<void> playDailyBriefing() async {
     if (state.isBriefingPlaying) {
-      await _repository.stopSpeaking();
+      await _assistantRepo.stopSpeaking();
       await _sound.stopAll();
       emit(state.copyWith(isBriefingPlaying: false));
       return;
     }
 
     await _sound.stopAll();
-    await _repository.stopSpeaking();
+    await _assistantRepo.stopSpeaking();
     await _haptics.successNotification();
     await _sound.play(SoundCue.wake);
 
@@ -100,7 +108,7 @@ class CockpitDashboardCubit extends Cubit<CockpitDashboardState> {
 
     buffer.write(state.batteryStatus);
 
-    await _repository.speak(buffer.toString());
+    await _assistantRepo.speak(buffer.toString());
     emit(state.copyWith(isBriefingPlaying: false));
   }
 
@@ -111,37 +119,37 @@ class CockpitDashboardCubit extends Cubit<CockpitDashboardState> {
     final dueText = task.dueDate != null
         ? 'Due: ${DateFormat('h:mm a').format(task.dueDate!)}.'
         : 'No deadline.';
-    await _repository.speak('${task.title}. $priorityText $dueText');
+    await _assistantRepo.speak('${task.title}. $priorityText $dueText');
   }
 
   /// تبديل حالة المهمة مع إشعار صوتي فوري
   Future<void> toggleTask(Task task) async {
     await _haptics.successNotification();
-    await _repository.toggleTask(task);
+    await _tasksRepo.toggleTask(task);
     final status = task.isCompleted ? 'marked pending' : 'completed';
-    await _repository.speak('Task $status: ${task.title}');
+    await _assistantRepo.speak('Task $status: ${task.title}');
   }
 
   /// تبديل تفعيل المنبه مع تأكيد صوتي
   Future<void> toggleAlarm(Alarm alarm) async {
     await _haptics.successNotification();
-    await _repository.toggleAlarm(alarm);
+    await _focusRepo.toggleAlarm(alarm);
     final status = !alarm.isActive ? 'enabled' : 'disabled';
     final hourStr = alarm.hour.toString().padLeft(2, '0');
     final minStr = alarm.minute.toString().padLeft(2, '0');
-    await _repository.speak('Alarm for $hourStr:$minStr $status.');
+    await _assistantRepo.speak('Alarm for $hourStr:$minStr $status.');
   }
 
   /// نطق تفاصيل المنبه القادم
   Future<void> readNextAlarmAloud(Alarm? alarm) async {
     await _haptics.successNotification();
     if (alarm == null) {
-      await _repository.speak('No active alarms scheduled for today.');
+      await _assistantRepo.speak('No active alarms scheduled for today.');
     } else {
       final hour12 = alarm.hour % 12 == 0 ? 12 : alarm.hour % 12;
       final period = alarm.hour >= 12 ? 'PM' : 'AM';
       final minStr = alarm.minute == 0 ? "o'clock" : '${alarm.minute}';
-      await _repository.speak(
+      await _assistantRepo.speak(
         'Next upcoming alarm is at $hour12 $minStr $period labeled ${alarm.label}.',
       );
     }
@@ -150,7 +158,7 @@ class CockpitDashboardCubit extends Cubit<CockpitDashboardState> {
   /// قراءة المذكرة الصوتية الأخيرة
   Future<void> readMemoAloud(VoiceMemo memo) async {
     await _haptics.successNotification();
-    await _repository.speak('Note titled: ${memo.title}. Content: ${memo.content}');
+    await _assistantRepo.speak('Note titled: ${memo.title}. Content: ${memo.content}');
   }
 
   @override

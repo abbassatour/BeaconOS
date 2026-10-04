@@ -1,19 +1,22 @@
 // lib/spatial_compass/widgets/spatial_compass_hud.dart
+import 'package:beacon_os/core/spatial_kernel/spatial_topology.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
-import 'package:beacon_os/spatial_compass/models/spatial_room.dart'; // 👈 أضف هذا السطر هنا
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 class SpatialCompassHud extends StatelessWidget {
   const SpatialCompassHud({
     required this.direction,
-    required this.isSettingsFloor,
+    required this.currentFloor,
     required this.onCenterTap,
     required this.onFloorToggle,
+    this.isSettingsFloor = false, // للتوافق العكسي
     super.key,
   });
 
   final CompassDirection direction;
+  final int currentFloor;
   final bool isSettingsFloor;
   final VoidCallback onCenterTap;
   final VoidCallback onFloorToggle;
@@ -21,6 +24,7 @@ class SpatialCompassHud extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAtCenter = direction == CompassDirection.center;
+    final isElevated = currentFloor != 0;
     final colors = context.colors;
 
     return Positioned(
@@ -39,8 +43,8 @@ class SpatialCompassHud extends StatelessWidget {
                   color: colors.surface.withValues(alpha: 0.94),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: isSettingsFloor ? colors.primary : colors.outline,
-                    width: isSettingsFloor ? 1.5 : 1.2,
+                    color: isElevated ? colors.primary : colors.outline,
+                    width: isElevated ? 1.5 : 1.2,
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -53,15 +57,15 @@ class SpatialCompassHud extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildMiniCompassCross(context, direction, isSettingsFloor),
+                    _buildMiniCompassCross(context, direction, isElevated),
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        _getDirectionLabel(direction, isSettingsFloor),
+                        _getDirectionLabel(context, direction, currentFloor),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: isSettingsFloor ? colors.primary : colors.onSurface,
+                          color: isElevated ? colors.primary : colors.onSurface,
                           fontSize: 11,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 1.1,
@@ -78,17 +82,19 @@ class SpatialCompassHud extends StatelessWidget {
             children: [
               IconButton.filledTonal(
                 style: IconButton.styleFrom(
-                  backgroundColor: isSettingsFloor ? colors.primary : colors.surface,
-                  foregroundColor: isSettingsFloor ? colors.onPrimary : colors.onSurface,
+                  backgroundColor: isElevated ? colors.primary : colors.surface,
+                  foregroundColor: isElevated ? colors.onPrimary : colors.onSurface,
                   side: BorderSide(color: colors.outline, width: 1.2),
                   minimumSize: const Size(36, 36),
                   padding: EdgeInsets.zero,
                 ),
                 icon: Icon(
-                  isSettingsFloor ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                  isElevated ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
                   size: 18,
                 ),
-                tooltip: isSettingsFloor ? 'Ascend to Floor 1' : 'Dive to Floor 2 Settings',
+                tooltip: isElevated
+                    ? 'Descend to Ground Floor'
+                    : 'Ascend to Engine Floor',
                 onPressed: onFloorToggle,
               ),
               if (!isAtCenter) ...[
@@ -113,9 +119,9 @@ class SpatialCompassHud extends StatelessWidget {
     );
   }
 
-  Widget _buildMiniCompassCross(BuildContext context, CompassDirection activeDir, bool isSettings) {
+  Widget _buildMiniCompassCross(BuildContext context, CompassDirection activeDir, bool isElevated) {
     final colors = context.colors;
-    final activeColor = isSettings ? colors.primary : colors.onSurface;
+    final activeColor = isElevated ? colors.primary : colors.onSurface;
     final inactiveColor = colors.outline;
 
     return SizedBox(
@@ -147,9 +153,12 @@ class SpatialCompassHud extends StatelessWidget {
     );
   }
 
-  String _getDirectionLabel(CompassDirection dir, bool isSettings) {
-    final room = CompassRegistry.roomAt(dir);
-    final prefix = isSettings ? 'FL2 • ' : '';
-    return isSettings ? '${prefix}${room.settingsTitle}' : room.title;
+  String _getDirectionLabel(BuildContext context, CompassDirection dir, int floor) {
+    final topology = context.read<SpatialTopology>();
+    final module = topology.moduleAt(floor, dir);
+    if (module == null) return dir.name.toUpperCase();
+
+    final prefix = floor != 0 ? 'FL $floor • ' : '';
+    return '$prefix${module.getFloorTitle(floor)}';
   }
 }
