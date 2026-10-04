@@ -12,12 +12,12 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
   CommunicationsCubit({
     required CommsRepository commsRepository,
     required SystemHardwareRepository hardwareRepository,
-    required Future<void> Function(String text) speakCallback,
+    required AssistantRepository assistantRepository, // 👈 تم الحقن هنا
     HapticManager? hapticManager,
     SoundController? soundController,
   })  : _commsRepo = commsRepository,
         _hardwareRepo = hardwareRepository,
-        _speak = speakCallback,
+        _assistant = assistantRepository, // 👈 التحديث هنا
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const CommunicationsState()) {
@@ -26,7 +26,7 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
 
   final CommsRepository _commsRepo;
   final SystemHardwareRepository _hardwareRepo;
-  final Future<void> Function(String text) _speak;
+  final AssistantRepository _assistant; // 👈 التحديث هنا
   final HapticManager _haptics;
   final SoundController _sound;
 
@@ -61,7 +61,7 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
   Future<void> callContact(Contact contact) async {
     await _haptics.successNotification();
     await _sound.play(SoundCue.navCenter);
-    await _speak('Calling ${contact.name}');
+    await _assistant.speak('Calling ${contact.name}'); // 👈 التحديث هنا
     await _hardwareRepo.callPhoneNumber(contact.phoneNumber);
   }
 
@@ -73,7 +73,7 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
         : '';
     final type =
         contact.isEmergency ? 'Emergency SOS contact.' : 'Standard contact.';
-    await _speak(
+    await _assistant.speak( // 👈 التحديث هنا
       '${contact.name}. $relation $type Phone number: ${contact.phoneNumber}',
     );
   }
@@ -85,7 +85,7 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
 
     final announcement =
         'Message on ${message.platform.toUpperCase()} from ${message.senderName}: ${message.messageText}';
-    await _speak(announcement);
+    await _assistant.speak(announcement); // 👈 التحديث هنا
 
     await _commsRepo.markMessagesAsRead(message.contactIdentifier);
     final unread = await _commsRepo.getUnreadMessages();
@@ -109,7 +109,7 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
       await _haptics.successNotification();
       await _sound.play(SoundCue.success);
       final role = isEmergency ? 'as an emergency contact' : 'to contacts';
-      await _speak('Contact $name added $role.');
+      await _assistant.speak('Contact $name added $role.'); // 👈 التحديث هنا
     } catch (e) {
       await _haptics.errorAlert();
       await _sound.play(SoundCue.error);
@@ -123,7 +123,7 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
       await _commsRepo.deleteContact(contact.id);
       await _haptics.successNotification();
       await _sound.play(SoundCue.navCenter);
-      await _speak('Contact ${contact.name} deleted.');
+      await _assistant.speak('Contact ${contact.name} deleted.'); // 👈 التحديث هنا
     } catch (e) {
       await _haptics.errorAlert();
     }
@@ -136,7 +136,7 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
     await _sound.play(SoundCue.sosAlarm);
     await _haptics.emergencyAlarmPulse();
 
-    await _speak(
+    await _assistant.speak( // 👈 التحديث هنا
       'Emergency SOS broadcast initiated! Broadcasting coordinates to family radar.',
     );
 

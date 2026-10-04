@@ -48,14 +48,13 @@ class FocusAlarmsModule extends SpatialModule {
     return BlocProvider(
       create: (context) => FocusAlarmsCubit(
         focusRepository: context.read<FocusAlarmsRepository>(),
-        speakCallback: context.read<LauncherRepository>().speak,
+        assistantRepository: context.read<AssistantRepository>(), // 👈 التحديث تم هنا
       ),
       child: Builder(
         builder: (ctx) {
           if (floorLevel == 1) {
             return const SettingsFocusRoom();
           }
-          // استخدام واجهة المحتوى مباشرة لمنع تكرار Provider
           return const FocusAlarmsContentView();
         },
       ),

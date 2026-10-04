@@ -2,8 +2,8 @@
 import 'package:beacon_os/agenda/cubit/agenda_cubit.dart';
 import 'package:beacon_os/agenda/cubit/agenda_state.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
-import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart'; // 👈 استدعاء جديد
-import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart'; // 👈 استدعاء جديد
+import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
@@ -18,7 +18,7 @@ class AgendaView extends StatelessWidget {
     return BlocProvider(
       create: (context) => AgendaCubit(
         taskRepository: context.read<TaskAgendaRepository>(),
-        speakCallback: context.read<LauncherRepository>().speak,
+        assistantRepository: context.read<AssistantRepository>(), // 👈 تم التحديث
       ),
       child: const AgendaContentView(),
     );
@@ -31,7 +31,6 @@ class AgendaContentView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    // 👈 استخدام الامتداد الجديد بدلاً من CompassRegistry
     final returnHint = CompassDirection.west.returnGestureHint;
 
     return Scaffold(

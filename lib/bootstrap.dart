@@ -13,7 +13,6 @@ import 'package:launcher_repository/launcher_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voice_ai_api/voice_ai_api.dart';
 
-// ✅ الإبقاء على مراقب الـ Bloc الأصلي بالكامل
 class AppBlocObserver extends BlocObserver {
   const AppBlocObserver();
 
@@ -66,16 +65,16 @@ Future<void> bootstrap() async {
   // 3. تزويد وكيل الذكاء الاصطناعي بمفتاح OpenRouter
   final llmAgent = LlmAgent(openRouterApiKey: ApiConstants.openRouterApiKey);
 
-  // 4. تهيئة مستودع النظام
+  // 4. تهيئة مستودع النظام المنسق (Orchestrator)
   final launcherRepository = LauncherRepository(
     llmAgent: llmAgent,
   );
 
-  // ⚡️ الإضافة الجديدة (1): تهيئة الصوت فوراً عند الإقلاع للمكفوفين
-  await launcherRepository.initializeEngines();
+  // ⚡️ (1) تهيئة محركات الصوت فوراً عند الإقلاع للمكفوفين عبر مستودع المساعد مباشرة
+  await launcherRepository.assistant.initializeEngines();
 
-  // 🎨 الإضافة الجديدة (2): قراءة الثيم وحالة التهيئة لتفادي وميض الشاشة
-  final initialSettings = await launcherRepository.getSettings();
+  // 🎨 (2) قراءة الثيم وحالة التهيئة عبر مستودع الإعدادات مباشرة لتفادي وميض الشاشة
+  final initialSettings = await launcherRepository.settings.getSettings();
 
   runApp(
     App(

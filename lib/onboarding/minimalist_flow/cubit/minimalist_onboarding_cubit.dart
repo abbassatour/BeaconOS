@@ -2,21 +2,25 @@
 import 'package:beacon_os/core/audio/sound_controller.dart';
 import 'package:beacon_os/core/audio/sound_cue.dart';
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
+import 'package:beacon_os/core/spatial_kernel/voice_command_dispatcher.dart';
 import 'package:beacon_os/onboarding/minimalist_flow/cubit/minimalist_onboarding_state.dart';
 import 'package:bloc/bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
 
 class MinimalistOnboardingCubit extends Cubit<MinimalistOnboardingState> {
   MinimalistOnboardingCubit({
-    required LauncherRepository repository,
+    required SettingsRepository settingsRepository,
+    required VoiceCommandDispatcher voiceDispatcher,
     HapticManager? hapticManager,
     SoundController? soundController,
-  })  : _repository = repository,
+  })  : _settings = settingsRepository,
+        _voiceDispatcher = voiceDispatcher,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const MinimalistOnboardingState());
 
-  final LauncherRepository _repository;
+  final SettingsRepository _settings;
+  final VoiceCommandDispatcher _voiceDispatcher;
   final HapticManager _haptics;
   final SoundController _sound;
 
@@ -36,7 +40,7 @@ class MinimalistOnboardingCubit extends Cubit<MinimalistOnboardingState> {
     emit(state.copyWith(isTestingVoice: true));
     await _sound.play(SoundCue.processing);
 
-    final result = await _repository.dispatchVoiceCommand(command);
+    final result = await _voiceDispatcher.dispatch(command);
 
     await _sound.play(SoundCue.success);
     await _haptics.successNotification();
@@ -91,7 +95,7 @@ class MinimalistOnboardingCubit extends Cubit<MinimalistOnboardingState> {
   Future<void> finishMinimalistOnboarding() async {
     emit(state.copyWith(status: MinimalistStatus.completing));
     try {
-      await _repository.completeOnboarding(
+      await _settings.completeOnboarding(
         persona: 'digital_minimalist',
         isHighContrast: false, // ثيم الورق التحريري الهادئ
         speechRate: 0.5,

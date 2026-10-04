@@ -34,18 +34,18 @@ class _OnboardingGatewayPageState extends State<OnboardingGatewayPage> {
   }
 
   Future<void> _announceGatewayInstructions() async {
-    final repo = context.read<LauncherRepository>();
+    final assistant = context.read<AssistantRepository>(); // 👈 تم التحديث
     await SoundController.instance.play(SoundCue.wake);
     await HapticFeedback.mediumImpact();
-    await repo.speak(
+    await assistant.speak( // 👈 تم التحديث
       'Welcome to Beacon OS. Tap the top half of your screen for Vision and Accessibility Mode. '
       'Tap the bottom half for Digital Minimalist Mode.',
     );
   }
 
   void _selectBlindFlow() {
-    final repo = context.read<LauncherRepository>();
-    repo.stopSpeaking();
+    final assistant = context.read<AssistantRepository>(); // 👈 تم التحديث
+    assistant.stopSpeaking(); // 👈 تم التحديث
 
     // 1. تفعيل ثيم التباين العالي فوراً
     context.read<ThemeCubit>().toggleTheme(isHighContrast: true);
@@ -57,8 +57,8 @@ class _OnboardingGatewayPageState extends State<OnboardingGatewayPage> {
   }
 
   void _selectMinimalistFlow() {
-    final repo = context.read<LauncherRepository>();
-    repo.stopSpeaking();
+    final assistant = context.read<AssistantRepository>(); // 👈 تم التحديث
+    assistant.stopSpeaking(); // 👈 تم التحديث
 
     // 1. تفعيل ثيم الورق الهادئ
     context.read<ThemeCubit>().toggleTheme(isHighContrast: false);

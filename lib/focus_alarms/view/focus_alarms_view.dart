@@ -2,8 +2,8 @@
 import 'package:beacon_os/core/theme/app_theme.dart';
 import 'package:beacon_os/focus_alarms/cubit/focus_alarms_cubit.dart';
 import 'package:beacon_os/focus_alarms/cubit/focus_alarms_state.dart';
-import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart'; // 👈 استدعاء جديد
-import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart'; // 👈 استدعاء جديد
+import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
@@ -17,7 +17,7 @@ class FocusAlarmsView extends StatelessWidget {
     return BlocProvider(
       create: (context) => FocusAlarmsCubit(
         focusRepository: context.read<FocusAlarmsRepository>(),
-        speakCallback: context.read<LauncherRepository>().speak,
+        assistantRepository: context.read<AssistantRepository>(), // 👈 التحديث تم هنا
       ),
       child: const FocusAlarmsContentView(),
     );
@@ -30,7 +30,6 @@ class FocusAlarmsContentView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    // 👈 استخدام الامتداد الجديد
     final returnHint = CompassDirection.north.returnGestureHint;
 
     return Scaffold(
@@ -124,7 +123,6 @@ class FocusAlarmsContentView extends StatelessWidget {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.outline)),
                         child: Text(
-                          // 👈 التحديث هنا أيضاً
                           'No scheduled alarms for today. Swipe ${CompassDirection.north.arrowSymbol} for Focus & Alarms.',
                           style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
                         ),

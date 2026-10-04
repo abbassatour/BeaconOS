@@ -50,7 +50,7 @@ class CommunicationsModule extends SpatialModule {
       create: (context) => CommunicationsCubit(
         commsRepository: context.read<CommsRepository>(),
         hardwareRepository: context.read<SystemHardwareRepository>(),
-        speakCallback: context.read<LauncherRepository>().speak,
+        assistantRepository: context.read<AssistantRepository>(), // 👈 التحديث تم هنا
       ),
       child: Builder(
         builder: (ctx) {

@@ -24,7 +24,8 @@ class BlindOnboardingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => BlindOnboardingCubit(
-        repository: context.read<LauncherRepository>(),
+        assistantRepository: context.read<AssistantRepository>(), // 👈 حقن مباشر
+        settingsRepository: context.read<SettingsRepository>(), // 👈 حقن مباشر
       ),
       child: const _BlindOnboardingScaffold(),
     );
@@ -53,7 +54,6 @@ class _BlindOnboardingScaffold extends StatelessWidget {
           body: SafeArea(
             child: Column(
               children: [
-                // شريط تتبع الخطوة العلوي (High-Contrast Progress)
                 _buildHeaderBar(context, state),
                 Expanded(
                   child: AnimatedSwitcher(

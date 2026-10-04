@@ -3,8 +3,8 @@ import 'package:beacon_os/communications/cubit/communications_cubit.dart';
 import 'package:beacon_os/communications/cubit/communications_state.dart';
 import 'package:beacon_os/communications/widgets/add_contact_dialog.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
-import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart'; // 👈 استدعاء جديد
-import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart'; // 👈 استدعاء جديد
+import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
+import 'package:beacon_os/spatial_compass/models/spatial_gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
@@ -19,7 +19,7 @@ class CommunicationsView extends StatelessWidget {
       create: (context) => CommunicationsCubit(
         commsRepository: context.read<CommsRepository>(),
         hardwareRepository: context.read<SystemHardwareRepository>(),
-        speakCallback: context.read<LauncherRepository>().speak,
+        assistantRepository: context.read<AssistantRepository>(), // 👈 التحديث تم هنا
       ),
       child: const CommunicationsContentView(),
     );
@@ -32,7 +32,6 @@ class CommunicationsContentView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.colors;
-    // 👈 استخدام الامتداد الجديد
     final returnHint = CompassDirection.south.returnGestureHint;
 
     return Scaffold(

@@ -50,14 +50,13 @@ class AgendaModule extends SpatialModule {
     return BlocProvider(
       create: (context) => AgendaCubit(
         taskRepository: context.read<TaskAgendaRepository>(),
-        speakCallback: context.read<LauncherRepository>().speak,
+        assistantRepository: context.read<AssistantRepository>(), // 👈 تم التحديث
       ),
       child: Builder(
         builder: (ctx) {
           if (floorLevel == 1) {
             return const SettingsAgendaRoom();
           }
-          // استخدام واجهة المحتوى مباشرة لمنع إنشاء Provider ثانٍ
           return const AgendaContentView();
         },
       ),

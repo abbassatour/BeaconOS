@@ -1,4 +1,5 @@
 // lib/onboarding/minimalist_flow/view/minimalist_onboarding_page.dart
+import 'package:beacon_os/core/spatial_kernel/voice_command_dispatcher.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
 import 'package:beacon_os/onboarding/minimalist_flow/cubit/minimalist_onboarding_cubit.dart';
 import 'package:beacon_os/onboarding/minimalist_flow/cubit/minimalist_onboarding_state.dart';
@@ -24,7 +25,8 @@ class MinimalistOnboardingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => MinimalistOnboardingCubit(
-        repository: context.read<LauncherRepository>(),
+        settingsRepository: context.read<SettingsRepository>(), // 👈 حقن مباشر
+        voiceDispatcher: context.read<VoiceCommandDispatcher>(), // 👈 حقن مباشر
       ),
       child: const _MinimalistScaffold(),
     );

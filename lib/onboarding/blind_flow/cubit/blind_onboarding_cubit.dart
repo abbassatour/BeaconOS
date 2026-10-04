@@ -11,11 +11,13 @@ import 'package:launcher_repository/launcher_repository.dart';
 
 class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
   BlindOnboardingCubit({
-    required LauncherRepository repository,
+    required AssistantRepository assistantRepository,
+    required SettingsRepository settingsRepository,
     CameraService? cameraService,
     HapticManager? hapticManager,
     SoundController? soundController,
-  })  : _repository = repository,
+  })  : _assistant = assistantRepository,
+        _settings = settingsRepository,
         _camera = cameraService ?? CameraService.instance,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
@@ -23,7 +25,8 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     announceCurrentStep(BlindStep.audioTuning);
   }
 
-  final LauncherRepository _repository;
+  final AssistantRepository _assistant;
+  final SettingsRepository _settings;
   final CameraService _camera;
   final HapticManager _haptics;
   final SoundController _sound;
@@ -36,7 +39,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     final nextRate = (state.speechRate + 0.05).clamp(0.4, 1.0);
     emit(state.copyWith(speechRate: nextRate));
     await _haptics.successNotification();
-    await _repository.setSpeechRate(nextRate);
+    await _assistant.setSpeechRate(nextRate);
     await _speakTestPhrase(nextRate);
   }
 
@@ -44,13 +47,13 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     final nextRate = (state.speechRate - 0.05).clamp(0.4, 1.0);
     emit(state.copyWith(speechRate: nextRate));
     await _haptics.successNotification();
-    await _repository.setSpeechRate(nextRate);
+    await _assistant.setSpeechRate(nextRate);
     await _speakTestPhrase(nextRate);
   }
 
   Future<void> _speakTestPhrase(double rate) async {
     final speedMultiplier = (rate * 2).toStringAsFixed(1);
-    await _repository.speak('Speech speed: $speedMultiplier times.');
+    await _assistant.speak('Speech speed: $speedMultiplier times.');
   }
 
   // ===========================================================================
@@ -61,7 +64,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     await _sound.play(SoundCue.navNorth);
     await _haptics.successNotification();
     emit(state.copyWith(hasMasteredNorthSwipe: true));
-    await _repository.speak(
+    await _assistant.speak(
       'Excellent. That is the North Focus & Alarms chime. Now, swipe down to discover Communications.',
     );
   }
@@ -70,7 +73,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     await _sound.play(SoundCue.navSouth);
     await _haptics.successNotification();
     emit(state.copyWith(hasMasteredSouthSwipe: true));
-    await _repository.speak(
+    await _assistant.speak(
       'Great job! That is the South Communications chime. '
       'Now pinch your fingers together to test the elevator, or tap continue to proceed.',
     );
@@ -80,8 +83,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     await _sound.play(SoundCue.elevatorUp);
     await _haptics.emergencyAlarmPulse();
     emit(state.copyWith(hasMasteredPinch: true));
-    // 🌟 استدعاء النطق مباشرة من القاموس الموحد
-    await _repository.speak(SpatialGesture.ascendToSettings.spokenPrompt);
+    await _assistant.speak(SpatialGesture.ascendToSettings.spokenPrompt);
   }
 
   // ===========================================================================
@@ -95,17 +97,17 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
       emit(state.copyWith(isCameraBusy: true, status: BlindFlowStatus.testingVision));
       await _sound.play(SoundCue.processing);
       await _haptics.successNotification();
-      await _repository.speak('Inspecting scene with Gemini...');
+      await _assistant.speak('Inspecting scene with Gemini...');
 
       final base64 = await _camera.captureAsBase64();
       if (base64 == null || base64.isEmpty) {
         emit(state.copyWith(isCameraBusy: false, status: BlindFlowStatus.active));
         await _sound.play(SoundCue.error);
-        await _repository.speak('Camera capture failed. Please tap again to retry.');
+        await _assistant.speak('Camera capture failed. Please tap again to retry.');
         return;
       }
 
-      final result = await _repository.analyzeVisionFrame(
+      final result = await _assistant.analyzeVisionFrame(
         base64Image: base64,
         prompt:
             'You are the eyes for a blind user. In 1 short sentence, describe what is directly in front of this phone camera.',
@@ -120,17 +122,17 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
       );
 
       await _sound.play(SoundCue.success);
-      await _repository.speak(result);
+      await _assistant.speak(result);
 
       await Future<void>.delayed(const Duration(seconds: 2));
-      await _repository.speak(
+      await _assistant.speak(
         'AI vision is verified. Double tap anywhere to move to the final Safety step.',
       );
     } catch (e, st) {
       log('BlindOnboarding: Vision test error: $e', stackTrace: st);
       emit(state.copyWith(isCameraBusy: false, status: BlindFlowStatus.active));
       await _sound.play(SoundCue.error);
-      await _repository.speak('Could not complete visual inspection. Tap again to retry.');
+      await _assistant.speak('Could not complete visual inspection. Tap again to retry.');
     }
   }
 
@@ -162,31 +164,31 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
 
   Future<void> announceCurrentStep(BlindStep step) async {
     await _sound.stopAll();
-    await _repository.stopSpeaking();
+    await _assistant.stopSpeaking();
 
     switch (step) {
       case BlindStep.audioTuning:
-        await _repository.speak(
+        await _assistant.speak(
           'Step 1: Audio Tuning. Tap the top half of the screen to increase reading speed. '
           'Tap the bottom half to decrease. Double tap anywhere with two fingers to confirm.',
         );
         break;
 
       case BlindStep.compassTraining:
-        await _repository.speak(
+        await _assistant.speak(
           'Step 2: Spatial Navigation Training. '
           'Swipe up now to hear the North Focus chime.',
         );
         break;
 
       case BlindStep.visionTest:
-        await _repository.speak(
+        await _assistant.speak(
           'Step 3: AI Digital Eyes. Point your phone in front of you and tap anywhere on the screen to perform a test scan.',
         );
         break;
 
       case BlindStep.sosSetup:
-        await _repository.speak(
+        await _assistant.speak(
           'Final Step: Emergency SOS. Remember: three rapid taps anywhere on screen will trigger your loud emergency radar. '
           'Double tap now with two fingers to enter your spatial cockpit.',
         );
@@ -201,7 +203,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
   Future<void> finishBlindOnboarding() async {
     emit(state.copyWith(status: BlindFlowStatus.completing));
     try {
-      await _repository.completeOnboarding(
+      await _settings.completeOnboarding(
         persona: 'blind_accessible',
         isHighContrast: true,
         speechRate: state.speechRate,
@@ -209,7 +211,7 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
 
       await _sound.play(SoundCue.success);
       await _haptics.emergencyAlarmPulse();
-      await _repository.speak(
+      await _assistant.speak(
         'Beacon OS is fully configured. Welcome home to your Cockpit.',
       );
 

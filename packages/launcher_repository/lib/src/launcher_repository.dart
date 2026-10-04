@@ -31,7 +31,8 @@ class LauncherCommandResult {
   final dynamic actionPayload;
 }
 
-/// واجهة النظام المنسقة (Spatial OS Facade / Kernel)
+/// منسق النظام المركزي (Spatial OS Kernel / Orchestrator)
+/// مسؤول فقط عن تهيئة نطاقات النظام وتنسيق العمليات السيادية المتقاطعة.
 class LauncherRepository {
   LauncherRepository({
     AppDatabase? database,
@@ -59,7 +60,7 @@ class LauncherRepository {
     assistant = assistantRepository ?? AssistantRepositoryImpl(speechEngine: speechEngine, ttsEngine: ttsEngine, llmAgent: llmAgent);
   }
 
-  // --- الوصول المباشر للمستودعات الستة ---
+  // --- الوصول المباشر للمستودعات الستة المتخصصة ---
   late final SettingsRepository settings;
   late final TaskAgendaRepository tasks;
   late final FocusAlarmsRepository focusAlarms;
@@ -81,6 +82,7 @@ class LauncherRepository {
   // 🔄 العمليات السيادية المنسقة بين عدة نطاقات (Cross-Domain Operations)
   // ===========================================================================
 
+  /// استعادة بيانات الخزنة بالكامل من السحابة بتنسيق بين النطاقات
   Future<void> restoreVaultFromCloud() async {
     log('BeaconKernel: Restoring full vault from cloud...');
     await settings.restoreSettingsFromCloud();
@@ -89,6 +91,7 @@ class LauncherRepository {
     log('BeaconKernel: Full vault restoration finished.');
   }
 
+  /// مزامنة كافة العمليات المعلقة دون إنترنت عبر النطاقات
   Future<void> syncPendingOfflineChanges() async {
     log('BeaconKernel: Syncing pending changes...');
     await settings.syncPendingSettings();
@@ -98,62 +101,7 @@ class LauncherRepository {
     log('BeaconKernel: Offline sync cycle finished.');
   }
 
-  // ===========================================================================
-  // ⚡ التوافق التام مع الشاشات الحالية دون كسر أي شاشة (Backward-Compatible Forwarding)
-  // ===========================================================================
-  Future<void> initializeEngines() => assistant.initializeEngines();
-  Future<void> speak(String text) => assistant.speak(text);
-  Future<void> stopSpeaking() => assistant.stopSpeaking();
-  Future<void> setSpeechRate(double rate) => assistant.setSpeechRate(rate);
-  Future<void> startListening({required Function(String text, bool isFinal) onResult, Function(double level)? onSoundLevel}) =>
-      assistant.startListening(onResult: onResult, onSoundLevel: onSoundLevel);
-  Future<String> stopListening() => assistant.stopListening();
-  Future<String> analyzeVisionFrame({required String base64Image, required String prompt}) =>
-      assistant.analyzeVisionFrame(base64Image: base64Image, prompt: prompt);
-
-  Stream<AppSetting> watchSettings() => settings.watchSettings();
-  Future<AppSetting> getSettings() => settings.getSettings();
-  Future<void> updateSettings(AppSettingsCompanion updated) => settings.updateSettings(updated);
-  Future<void> completeOnboarding({required String persona, required bool isHighContrast, required double speechRate}) =>
-      settings.completeOnboarding(persona: persona, isHighContrast: isHighContrast, speechRate: speechRate);
-
-  Stream<List<Task>> watchTasks() => tasks.watchTasks();
-  Future<String> createTask({required String title, DateTime? dueDate, String priority = 'medium'}) =>
-      tasks.createTask(title: title, dueDate: dueDate, priority: priority);
-  Future<void> toggleTask(Task task) => tasks.toggleTask(task);
-  Future<void> deleteTask(dynamic taskOrId) => tasks.deleteTask(taskOrId);
-
-  Stream<List<VoiceMemo>> watchMemos() => tasks.watchMemos();
-  Future<String> createMemo({required String title, required String content}) =>
-      tasks.createMemo(title: title, content: content);
-  Future<void> deleteMemo(dynamic memoOrId) => tasks.deleteMemo(memoOrId);
-
-  Stream<List<Alarm>> watchAlarms() => focusAlarms.watchAlarms();
-  Future<String> createAlarm({required int hour, required int minute, String label = 'Beacon Alarm'}) =>
-      focusAlarms.createAlarm(hour: hour, minute: minute, label: label);
-  Future<void> toggleAlarm(Alarm alarm) => focusAlarms.toggleAlarm(alarm);
-  Future<void> deleteAlarm(dynamic alarmOrId) => focusAlarms.deleteAlarm(alarmOrId);
-  Stream<List<FocusSession>> watchTodayFocusSessions() => focusAlarms.watchTodayFocusSessions();
-  Future<void> recordCompletedFocusSession(int minutes) => focusAlarms.recordCompletedFocusSession(minutes);
-
-  Stream<List<Contact>> watchContacts() => comms.watchContacts();
-  Future<List<Contact>> getEmergencyContacts() => comms.getEmergencyContacts();
-  Future<Contact?> findContact(String query) => comms.findContact(query);
-  Future<String> saveContact({required String name, required String phoneNumber, String? relationship, bool isEmergency = false}) =>
-      comms.saveContact(name: name, phoneNumber: phoneNumber, relationship: relationship, isEmergency: isEmergency);
-  Future<void> deleteContact(dynamic contactOrId) => comms.deleteContact(contactOrId);
-  Future<List<MessagesVaultData>> getUnreadMessages() => comms.getUnreadMessages();
-  Future<void> markMessagesAsRead(String contactIdentifier) => comms.markMessagesAsRead(contactIdentifier);
-
-  Future<void> triggerEmergencySos({required double latitude, required double longitude, int? batteryLevel}) async {
-    await comms.triggerEmergencySos(latitude: latitude, longitude: longitude, batteryLevel: batteryLevel);
-  }
-
-  Future<void> saveVisionScanAsMemo({required String title, required String description, String mode = 'surroundings'}) async {
-    await tasks.createMemo(title: title, content: description);
-  }
-
-  // موزع الأوامر: يوجه إلى الحافلة الذكية إن وُجدت، أو يسلك المسار الاحتياطي
+  /// توجيه الأوامر الصوتية لحافلة النظام الذكية أو المسار الاحتياطي
   Future<LauncherCommandResult> dispatchVoiceCommand(String userQuery, {String? base64Image}) async {
     if (_customVoiceDispatcher != null) {
       return _customVoiceDispatcher!(userQuery, base64Image: base64Image);

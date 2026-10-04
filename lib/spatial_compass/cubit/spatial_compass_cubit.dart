@@ -10,17 +10,17 @@ import 'package:launcher_repository/launcher_repository.dart';
 
 class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   SpatialCompassCubit({
-    required LauncherRepository repository,
+    required AssistantRepository assistantRepository, // 👈 تم التحديث
     required SpatialTopology topology,
     HapticManager? hapticManager,
     SoundController? soundController,
-  })  : _repository = repository,
+  })  : _assistant = assistantRepository, // 👈 تم التحديث
         _topology = topology,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const SpatialCompassState());
 
-  final LauncherRepository _repository;
+  final AssistantRepository _assistant; // 👈 تم التحديث
   final SpatialTopology _topology;
   final HapticManager _haptics;
   final SoundController _sound;
@@ -29,25 +29,20 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   // 🏢 1. التحكم الرأسي متعدد الطوابق (Dynamic Z-Axis Vertical Control)
   // ===========================================================================
 
-  /// الصعود لطابق أعلى
   Future<void> ascend() async {
     final nextFloor = state.currentFloor + 1;
     final available = _topology.availableFloors;
     if (available.isNotEmpty && !available.contains(nextFloor)) return;
-
     await jumpToFloor(nextFloor);
   }
 
-  /// الهبوط لطابق أدنى
   Future<void> descend() async {
     final nextFloor = state.currentFloor - 1;
     final available = _topology.availableFloors;
     if (available.isNotEmpty && !available.contains(nextFloor)) return;
-
     await jumpToFloor(nextFloor);
   }
 
-  /// القفز المباشر لأي طابق محدد
   Future<void> jumpToFloor(int targetFloor) async {
     if (state.currentFloor == targetFloor) return;
 
@@ -63,7 +58,6 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
     emit(state.copyWith(currentFloor: targetFloor));
   }
 
-  // دوال التوافق العكسي
   Future<void> goToSettingsFloor() => jumpToFloor(1);
   Future<void> returnToGroundFloor() => jumpToFloor(0);
 
@@ -76,7 +70,7 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   }
 
   // ===========================================================================
-  // 🧭 2. التنقل الأفقي بين الغرف (XY-Axis Horizontal Navigation)
+  // 🧭 2. التنقل الأفقي بين الغرف (XY-Axis Pan)
   // ===========================================================================
 
   void handleSwipeGesture({
@@ -133,7 +127,6 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
 
     await _haptics.successNotification();
 
-    // استخراج النغمة الصوتية المميزة من الموديول المسجل في الطوبولوجيا
     final targetModule = _topology.moduleAt(state.currentFloor, destination);
     final cue = targetModule?.sonicSignature ??
         switch (destination) {
@@ -169,8 +162,8 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
     final announcement = module?.getFloorTitle(state.currentFloor) ??
         '${state.currentDirection.name.toUpperCase()} Floor ${state.currentFloor}';
 
-    await _repository.stopSpeaking();
-    await _repository.speak(announcement);
+    await _assistant.stopSpeaking(); // 👈 تم التحديث
+    await _assistant.speak(announcement); // 👈 تم التحديث
     log('SpatialCompass: Context Requested -> "$announcement"');
   }
 }

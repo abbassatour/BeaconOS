@@ -11,12 +11,12 @@ import 'package:local_vault_api/local_vault_api.dart';
 
 class AgendaCubit extends Cubit<AgendaState> {
   AgendaCubit({
-    required TaskAgendaRepository taskRepository, // 👈 استبدال الارتباط بالإله برابط نظيف
-    required Future<void> Function(String text) speakCallback,
+    required TaskAgendaRepository taskRepository,
+    required AssistantRepository assistantRepository, // 👈 تم الحقن هنا بدلاً من الكول باك
     HapticManager? hapticManager,
     SoundController? soundController,
   })  : _taskRepo = taskRepository,
-        _speak = speakCallback,
+        _assistant = assistantRepository,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const AgendaState()) {
@@ -24,7 +24,7 @@ class AgendaCubit extends Cubit<AgendaState> {
   }
 
   final TaskAgendaRepository _taskRepo;
-  final Future<void> Function(String text) _speak;
+  final AssistantRepository _assistant;
   final HapticManager _haptics;
   final SoundController _sound;
 
@@ -48,7 +48,7 @@ class AgendaCubit extends Cubit<AgendaState> {
     await _sound.play(SoundCue.navCenter);
     await _taskRepo.toggleTask(task);
     final statusWord = task.isCompleted ? 'marked pending' : 'completed';
-    await _speak('Task $statusWord: ${task.title}');
+    await _assistant.speak('Task $statusWord: ${task.title}'); // 👈 تم التحديث
   }
 
   Future<void> addNewTask({
@@ -63,14 +63,14 @@ class AgendaCubit extends Cubit<AgendaState> {
       dueDate: dueDate,
       priority: priority,
     );
-    await _speak('Task created: $title');
+    await _assistant.speak('Task created: $title'); // 👈 تم التحديث
   }
 
   Future<void> deleteTask(Task task) async {
     await _haptics.successNotification();
     await _sound.play(SoundCue.navCenter);
     await _taskRepo.deleteTask(task);
-    await _speak('Task deleted.');
+    await _assistant.speak('Task deleted.'); // 👈 تم التحديث
   }
 
   Future<void> addNewMemo({
@@ -80,7 +80,7 @@ class AgendaCubit extends Cubit<AgendaState> {
     await _haptics.successNotification();
     await _sound.play(SoundCue.success);
     await _taskRepo.createMemo(title: title, content: content);
-    await _speak('Note saved: $title');
+    await _assistant.speak('Note saved: $title'); // 👈 تم التحديث
   }
 
   Future<void> readTaskAloud(Task task) async {
@@ -101,19 +101,19 @@ class AgendaCubit extends Cubit<AgendaState> {
       }
     }
 
-    await _speak('${task.title}. $priorityText $dueText $statusText');
+    await _assistant.speak('${task.title}. $priorityText $dueText $statusText'); // 👈 تم التحديث
   }
 
   Future<void> readMemoAloud(VoiceMemo memo) async {
     await _haptics.successNotification();
-    await _speak('Note titled: ${memo.title}. Content: ${memo.content}');
+    await _assistant.speak('Note titled: ${memo.title}. Content: ${memo.content}'); // 👈 تم التحديث
   }
 
   Future<void> deleteMemo(VoiceMemo memo) async {
     await _haptics.successNotification();
     await _sound.play(SoundCue.navCenter);
     await _taskRepo.deleteMemo(memo.id);
-    await _speak('Note deleted: ${memo.title}');
+    await _assistant.speak('Note deleted: ${memo.title}'); // 👈 تم التحديث
   }
 
   @override

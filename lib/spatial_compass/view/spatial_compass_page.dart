@@ -17,19 +17,22 @@ class SpatialCompassPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final repository = context.read<LauncherRepository>();
+    // لم نعد بحاجة لجلب LauncherRepository بأكمله!
     final topology = context.read<SpatialTopology>();
 
     return MultiBlocProvider(
       providers: [
         BlocProvider(
           create: (context) => SpatialCompassCubit(
-            repository: repository,
+            assistantRepository: context.read<AssistantRepository>(), // 👈 تم التحديث
             topology: topology,
           ),
         ),
         BlocProvider(
-          create: (context) => SettingsCubit(repository: repository),
+          create: (context) => SettingsCubit(
+            settingsRepository: context.read<SettingsRepository>(),
+            assistantRepository: context.read<AssistantRepository>(),
+          ),
         ),
       ],
       child: const _SpatialCompassBody(),
