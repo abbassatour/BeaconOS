@@ -3,7 +3,9 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:beacon_os/app/app.dart';
+import 'package:beacon_os/core/audio/sound_controller.dart';
 import 'package:beacon_os/core/constants/api_constants.dart';
+import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/core/services/onesignal_service.dart';
 import 'package:beacon_os/core/services/revenuecat_service.dart';
 import 'package:bloc/bloc.dart';
@@ -73,8 +75,13 @@ Future<void> bootstrap() async {
   // ⚡️ (1) تهيئة محركات الصوت فوراً عند الإقلاع للمكفوفين عبر مستودع المساعد مباشرة
   await launcherRepository.assistant.initializeEngines();
 
-  // 🎨 (2) قراءة الثيم وحالة التهيئة عبر مستودع الإعدادات مباشرة لتفادي وميض الشاشة
+  // 🎨 (2) قراءة الثيم وحالة الإعدادات فوراً
   final initialSettings = await launcherRepository.settings.getSettings();
+
+  // 🎛️ (3) حقن تفضيلات الصوت والاهتزاز وسرعة النطق فوراً في المحركات لمنع أي تأخير أو وميض
+  SoundController.instance.isEnabled = initialSettings.soundCuesEnabled;
+  HapticManager.instance.isEnabled = initialSettings.hapticsEnabled;
+  await launcherRepository.assistant.setSpeechRate(initialSettings.speechRate);
 
   runApp(
     App(

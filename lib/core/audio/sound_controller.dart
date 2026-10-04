@@ -15,6 +15,9 @@ class SoundController {
   late final AudioPlayer _primaryPlayer;
   late final AudioPlayer _navPlayer;
 
+  /// 🎛️ حالة تفعيل النغمات الصوتية (يتم التحكم بها لحظياً عبر قاعدة البيانات)
+  bool isEnabled = true;
+
   /// تشغيل أي نغمة مع حساب التردد الرأسي متعدد الطوابق
   Future<void> play(
     SoundCue cue, {
@@ -22,6 +25,12 @@ class SoundController {
     bool isSettingsFloor = false, // للتوافق العكسي
     double? volumeOverride,
   }) async {
+    // 🛡️ حماية: منع الصوت إذا كان معطلاً في الإعدادات، 
+    // مع استثناء إنذار الطوارئ SOS لحماية المستخدم
+    if (!isEnabled && cue != SoundCue.sosAlarm) {
+      return;
+    }
+
     final isNav = cue.allowFloorPitchShift ||
         cue.name.startsWith('nav') ||
         cue.name.startsWith('elevator');

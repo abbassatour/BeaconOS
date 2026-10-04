@@ -3,16 +3,22 @@ import 'package:flutter_tts/flutter_tts.dart';
 
 class TtsEngine {
   final FlutterTts _flutterTts = FlutterTts();
+  double _currentRate = 0.5;
+
+  double get currentRate => _currentRate;
 
   Future<void> initialize() async {
     await _flutterTts.setLanguage('en-US');
-    await _flutterTts.setSpeechRate(
-      0.5,
-    ); // سرعة مناسبة للمكفوفين (يمكن تسريعها لاحقاً)
+    await _flutterTts.setSpeechRate(_currentRate);
     await _flutterTts.setPitch(1.0);
-    await _flutterTts.awaitSpeakCompletion(
-      true,
-    ); // انتظار انتهاء الصوت قبل تنفيذ الكود التالي
+    // انتظار انتهاء الصوت قبل تنفيذ الكود التالي لمنع التداخل
+    await _flutterTts.awaitSpeakCompletion(true);
+  }
+
+  /// ⚡️ ضبط سرعة النطق الحقيقية فورياً
+  Future<void> setSpeechRate(double rate) async {
+    _currentRate = rate.clamp(0.2, 1.0);
+    await _flutterTts.setSpeechRate(_currentRate);
   }
 
   Future<void> speak(String text) async {

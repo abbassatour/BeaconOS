@@ -43,7 +43,8 @@ class AssistantRepositoryImpl implements AssistantRepository {
 
   @override
   Future<void> setSpeechRate(double rate) async {
-    // تكييف المحرك مع السرعة
+    // ⚡️ تفعيل المحرك وتمرير السرعة لـ FlutterTts مباشرة
+    await _tts.setSpeechRate(rate);
   }
 
   @override

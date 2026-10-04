@@ -1,5 +1,7 @@
 // lib/settings/cubit/settings_cubit.dart
 import 'dart:async';
+import 'package:beacon_os/core/audio/sound_controller.dart';
+import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/settings/cubit/settings_state.dart';
 import 'package:bloc/bloc.dart';
 import 'package:drift/drift.dart';
@@ -25,6 +27,13 @@ class SettingsCubit extends Cubit<SettingsState> {
 
     _settingsSubscription = _settingsRepo.watchSettings().listen(
       (appSettings) {
+        // 🔄 مزامنة المحركات الفضائية لحظياً مع كل تغيير يصدر من قاعدة البيانات
+        SoundController.instance.isEnabled = appSettings.soundCuesEnabled;
+        HapticManager.instance.isEnabled = appSettings.hapticsEnabled;
+
+        // ⚡️ مزامنة سرعة القراءة فورياً في محرك الـ TTS
+        unawaited(_assistantRepo.setSpeechRate(appSettings.speechRate));
+
         emit(
           state.copyWith(
             status: SettingsStatus.success,
@@ -44,22 +53,28 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   // ===========================================================================
-  // 🎛️ 1. إعدادات الغرفة المركزية (Floor 2 - Core Room)
+  // 🎛️ 1. إعدادات الغرفة المركزية (Floor 1 - Core Room)
   // ===========================================================================
 
   Future<void> setSpeechRate(double rate) async {
+    // ⚡️ 1. تطبيق السرعة فورياً على محرك النطق
+    await _assistantRepo.setSpeechRate(rate);
+
+    // 💾 2. حفظ السرعة في قاعدة البيانات المحلية والسحابية
     await _settingsRepo.updateSettings(
       AppSettingsCompanion(speechRate: Value(rate)),
     );
   }
 
   Future<void> toggleHaptics(bool enabled) async {
+    HapticManager.instance.isEnabled = enabled; // تحديث فوري وسريع (Optimistic UI)
     await _settingsRepo.updateSettings(
       AppSettingsCompanion(hapticsEnabled: Value(enabled)),
     );
   }
 
   Future<void> toggleSoundCues(bool enabled) async {
+    SoundController.instance.isEnabled = enabled; // تحديث فوري وسريع (Optimistic UI)
     await _settingsRepo.updateSettings(
       AppSettingsCompanion(soundCuesEnabled: Value(enabled)),
     );
@@ -75,7 +90,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   // ===========================================================================
-  // 📅 2. إعدادات الأجندة والمهام (Floor 2 - Agenda Room)
+  // 📅 2. إعدادات الأجندة والمهام (Floor 1 - Agenda Room)
   // ===========================================================================
 
   Future<void> setDefaultPriority(String priority) async {
@@ -98,7 +113,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   // ===========================================================================
-  // 🛡️ 3. إعدادات الطوارئ والتواصل (Floor 2 - Comms Room)
+  // 🛡️ 3. إعدادات الطوارئ والتواصل (Floor 1 - Comms Room)
   // ===========================================================================
 
   Future<void> toggleAutoDialEmergency(bool enabled) async {
@@ -120,7 +135,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   // ===========================================================================
-  // ⏳ 4. إعدادات جلسات التركيز والمنبهات (Floor 2 - Focus Room)
+  // ⏳ 4. إعدادات جلسات التركيز والمنبهات (Floor 1 - Focus Room)
   // ===========================================================================
 
   Future<void> toggleVoiceChimeHalfway(bool enabled) async {
@@ -142,7 +157,7 @@ class SettingsCubit extends Cubit<SettingsState> {
   }
 
   // ===========================================================================
-  // 👁️ 5. إعدادات الرؤية والذكاء الاصطناعي (Floor 2 - Vision Room)
+  // 👁️ 5. إعدادات الرؤية والذكاء الاصطناعي (Floor 1 - Vision Room)
   // ===========================================================================
 
   Future<void> setVisionInspectionDetail(String detail) async {
