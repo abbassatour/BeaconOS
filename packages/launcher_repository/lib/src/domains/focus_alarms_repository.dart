@@ -44,7 +44,11 @@ class FocusAlarmsRepositoryImpl implements FocusAlarmsRepository {
   }) async {
     final id = await _db.insertAlarm(hour: hour, minute: minute, label: label);
 
-    await _hardware.setSystemAlarm(hour: hour, minute: minute, label: label);
+    // ⚡️ فحص إعداد مزامنة المنبهات مع ساعة أندرويد الرسمية
+    final settings = await _db.getSettings();
+    if (settings.syncAlarmsWithAndroidClock) {
+      await _hardware.setSystemAlarm(hour: hour, minute: minute, label: label);
+    }
 
     _cloud.syncAlarm(id: id, hour: hour, minute: minute, label: label).catchError((Object error) {
       log('FocusAlarmsRepository: Cloud alarm sync deferred [$id]: $error');
@@ -59,11 +63,15 @@ class FocusAlarmsRepositoryImpl implements FocusAlarmsRepository {
     await _db.toggleAlarmStatus(alarm.id, nextStatus);
 
     if (nextStatus) {
-      await _hardware.setSystemAlarm(
-        hour: alarm.hour,
-        minute: alarm.minute,
-        label: alarm.label,
-      );
+      // ⚡️ مزامنة التفعيل مع أندرويد فقط إذا سمح المستخدم بذلك
+      final settings = await _db.getSettings();
+      if (settings.syncAlarmsWithAndroidClock) {
+        await _hardware.setSystemAlarm(
+          hour: alarm.hour,
+          minute: alarm.minute,
+          label: alarm.label,
+        );
+      }
     }
 
     _cloud.syncAlarm(

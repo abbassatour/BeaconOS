@@ -141,38 +141,52 @@ class CommsRepositoryImpl implements CommsRepository {
     return id;
   }
 
+  // استبدال دالة triggerEmergencySos في packages/launcher_repository/lib/src/domains/comms_repository.dart:
+
   @override
   Future<String> triggerEmergencySos({
     required double latitude,
     required double longitude,
     int? batteryLevel,
   }) async {
-    final googleMapsUrl = 'https://maps.google.com/?q=$latitude,$longitude';
+    // ⚡️ 1. قراءة تفضيلات الطوارئ والـ GPS المحفوظة
+    final settings = await _db.getSettings();
+
+    final shareGps = settings.shareGpsOnSos;
+    final effectiveLat = shareGps ? latitude : 0.0;
+    final effectiveLng = shareGps ? longitude : 0.0;
+    final googleMapsUrl = shareGps
+        ? 'https://maps.google.com/?q=$latitude,$longitude'
+        : 'GPS Sharing Disabled';
+
     final alertId = await _db.insertSosAlert(
-      latitude: latitude,
-      longitude: longitude,
+      latitude: effectiveLat,
+      longitude: effectiveLng,
       batteryLevel: batteryLevel ?? 100,
       googleMapsUrl: googleMapsUrl,
     );
 
     _cloud.broadcastEmergencySos(
       id: alertId,
-      latitude: latitude,
-      longitude: longitude,
+      latitude: effectiveLat,
+      longitude: effectiveLng,
       batteryLevel: batteryLevel ?? 100,
     ).catchError((Object error) {
       log('CommsRepository: Cloud SOS broadcast deferred: $error');
     });
 
-    // الاتصال التلقائي بجهة الطوارئ الأولى
-    final emergencyContacts = await _db.getEmergencyContacts();
-    if (emergencyContacts.isNotEmpty) {
-      final primary = emergencyContacts.first;
-      await _hardware.callPhoneNumber(primary.phoneNumber);
+    // ⚡️ 2. الاتصال التلقائي بجهة الطوارئ فقط إذا كان الخيار مفعلاً
+    if (settings.autoDialEmergency) {
+      final emergencyContacts = await _db.getEmergencyContacts();
+      if (emergencyContacts.isNotEmpty) {
+        final primary = emergencyContacts.first;
+        await _hardware.callPhoneNumber(primary.phoneNumber);
+      }
     }
 
     return alertId;
   }
+  
 
   @override
   Future<void> restoreCommsFromCloud() async {

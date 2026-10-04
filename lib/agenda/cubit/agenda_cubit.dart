@@ -12,11 +12,13 @@ import 'package:local_vault_api/local_vault_api.dart';
 class AgendaCubit extends Cubit<AgendaState> {
   AgendaCubit({
     required TaskAgendaRepository taskRepository,
-    required AssistantRepository assistantRepository, // 👈 تم الحقن هنا بدلاً من الكول باك
+    required AssistantRepository assistantRepository,
+    required SettingsRepository settingsRepository, // 👈 حقن مستودع الإعدادات
     HapticManager? hapticManager,
     SoundController? soundController,
   })  : _taskRepo = taskRepository,
         _assistant = assistantRepository,
+        _settings = settingsRepository,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const AgendaState()) {
@@ -25,6 +27,7 @@ class AgendaCubit extends Cubit<AgendaState> {
 
   final TaskAgendaRepository _taskRepo;
   final AssistantRepository _assistant;
+  final SettingsRepository _settings;
   final HapticManager _haptics;
   final SoundController _sound;
 
@@ -47,30 +50,46 @@ class AgendaCubit extends Cubit<AgendaState> {
     await _haptics.successNotification();
     await _sound.play(SoundCue.navCenter);
     await _taskRepo.toggleTask(task);
+
     final statusWord = task.isCompleted ? 'marked pending' : 'completed';
-    await _assistant.speak('Task $statusWord: ${task.title}'); // 👈 تم التحديث
+    await _assistant.speak('Task $statusWord: ${task.title}');
+
+    // ⚡️ تفعيل الأرشفة التلقائية (Auto-Archive):
+    // إذا اكتملت المهمة وكان الخيار مفعلاً، يتم نقلها للأرشيف (soft-delete) بعد 600ms
+    if (!task.isCompleted) {
+      final settings = await _settings.getSettings();
+      if (settings.autoArchiveCompleted) {
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+        await _taskRepo.deleteTask(task.id);
+      }
+    }
   }
 
   Future<void> addNewTask({
     required String title,
     DateTime? dueDate,
-    String priority = 'medium',
+    String? priority, // اختياري ليأخذ القيمة من الإعدادات تلقائياً
   }) async {
     await _haptics.successNotification();
     await _sound.play(SoundCue.success);
+
+    // ⚡️ تطبيق الأولوية الافتراضية المحددة في الإعدادات
+    final settings = await _settings.getSettings();
+    final effectivePriority = priority ?? settings.defaultPriority;
+
     await _taskRepo.createTask(
       title: title,
       dueDate: dueDate,
-      priority: priority,
+      priority: effectivePriority,
     );
-    await _assistant.speak('Task created: $title'); // 👈 تم التحديث
+    await _assistant.speak('Task created: $title with $effectivePriority priority.');
   }
 
   Future<void> deleteTask(Task task) async {
     await _haptics.successNotification();
     await _sound.play(SoundCue.navCenter);
-    await _taskRepo.deleteTask(task);
-    await _assistant.speak('Task deleted.'); // 👈 تم التحديث
+    await _taskRepo.deleteTask(task.id);
+    await _assistant.speak('Task deleted.');
   }
 
   Future<void> addNewMemo({
@@ -80,7 +99,7 @@ class AgendaCubit extends Cubit<AgendaState> {
     await _haptics.successNotification();
     await _sound.play(SoundCue.success);
     await _taskRepo.createMemo(title: title, content: content);
-    await _assistant.speak('Note saved: $title'); // 👈 تم التحديث
+    await _assistant.speak('Note saved: $title');
   }
 
   Future<void> readTaskAloud(Task task) async {
@@ -88,32 +107,35 @@ class AgendaCubit extends Cubit<AgendaState> {
     final priorityText = 'Priority: ${task.priority}.';
     final statusText = task.isCompleted ? 'Completed.' : 'Pending.';
 
-    String dueText = 'No deadline.';
-    if (task.dueDate != null) {
+    // ⚡️ نطق موعد الاستحقاق فقط إذا كان مفعلاً في الإعدادات
+    final settings = await _settings.getSettings();
+    String dueText = '';
+
+    if (settings.speakDueDatesAloud && task.dueDate != null) {
       final now = DateTime.now();
       final due = task.dueDate!;
       final timeStr = DateFormat('h:mm a').format(due);
 
       if (due.year == now.year && due.month == now.month && due.day == now.day) {
-        dueText = 'Due today at $timeStr.';
+        dueText = 'Due today at $timeStr. ';
       } else {
-        dueText = 'Due on ${DateFormat('EEEE, MMMM d, h:mm a').format(due)}.';
+        dueText = 'Due on ${DateFormat('EEEE, MMMM d, h:mm a').format(due)}. ';
       }
     }
 
-    await _assistant.speak('${task.title}. $priorityText $dueText $statusText'); // 👈 تم التحديث
+    await _assistant.speak('${task.title}. $priorityText $dueText$statusText');
   }
 
   Future<void> readMemoAloud(VoiceMemo memo) async {
     await _haptics.successNotification();
-    await _assistant.speak('Note titled: ${memo.title}. Content: ${memo.content}'); // 👈 تم التحديث
+    await _assistant.speak('Note titled: ${memo.title}. Content: ${memo.content}');
   }
 
   Future<void> deleteMemo(VoiceMemo memo) async {
     await _haptics.successNotification();
     await _sound.play(SoundCue.navCenter);
     await _taskRepo.deleteMemo(memo.id);
-    await _assistant.speak('Note deleted: ${memo.title}'); // 👈 تم التحديث
+    await _assistant.speak('Note deleted: ${memo.title}');
   }
 
   @override
