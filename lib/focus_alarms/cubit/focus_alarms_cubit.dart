@@ -5,14 +5,16 @@ import 'package:beacon_os/core/audio/sound_cue.dart';
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/focus_alarms/cubit/focus_alarms_state.dart';
 import 'package:bloc/bloc.dart';
+import 'package:flutter/widgets.dart'; // 👈 ضروري لـ WidgetsBindingObserver
 import 'package:launcher_repository/launcher_repository.dart';
 import 'package:local_vault_api/local_vault_api.dart';
 
-class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
+class FocusAlarmsCubit extends Cubit<FocusAlarmsState>
+    with WidgetsBindingObserver {
   FocusAlarmsCubit({
     required FocusAlarmsRepository focusRepository,
     required AssistantRepository assistantRepository,
-    required SettingsRepository settingsRepository, // 👈 استقبال مستودع الإعدادات
+    required SettingsRepository settingsRepository,
     HapticManager? hapticManager,
     SoundController? soundController,
   })  : _focusRepo = focusRepository,
@@ -21,6 +23,8 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const FocusAlarmsState()) {
+    // 👁️ تسجيل مراقب دورة حياة النظام للتطبيق
+    WidgetsBinding.instance.addObserver(this);
     _initStreams();
   }
 
@@ -49,12 +53,38 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
   }
 
   // ===========================================================================
-  // ⏱️ التحكم بمؤقت التركيز والمذاكرة
+  // 📱 إدارة دورة حياة التطبيق (Foreground / Background Synchronization)
+  // ===========================================================================
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
+    // فور فتح شاشة الهاتف وعودة التطبيق للواجهة الأمامية
+    if (lifecycleState == AppLifecycleState.resumed) {
+      _reconcileTimeOnResume();
+    }
+  }
+
+  /// مزامنة العداد مع الوقت الحقيقي فور استيقاظ الهاتف
+  Future<void> _reconcileTimeOnResume() async {
+    if (!state.isTimerRunning || _targetEndTime == null) return;
+
+    // معالجة اللحظة فوراً
+    await _tick();
+
+    // إذا كان الوقت لا يزال مستمراً، نتأكد من أن الـ Ticker نشط ولم يقم النظام بإلغائه
+    if (state.isTimerRunning && (_ticker == null || !_ticker!.isActive)) {
+      _startPeriodicTicker();
+    }
+  }
+
+  // ===========================================================================
+  // ⏱️ التحكم بمؤقت التركيز والمذاكرة (Focus Engine)
   // ===========================================================================
 
   Future<void> selectDuration(int minutes) async {
     if (state.isTimerRunning) return;
     _ticker?.cancel();
+    _ticker = null;
     _targetEndTime = null;
 
     emit(
@@ -72,51 +102,67 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
 
   Future<void> startTimer() async {
     _ticker?.cancel();
+    _ticker = null;
     _halfwayAnnounced = false;
     _oneMinuteAnnounced = false;
 
     await _haptics.successNotification();
     await _sound.play(SoundCue.wake);
 
-    _targetEndTime = DateTime.now().add(Duration(seconds: state.remainingSeconds));
+    // 🎯 تثبيت وقت النهاية المستهدف بدقة مطلقة استناداً لساعة الجهاز
+    _targetEndTime =
+        DateTime.now().add(Duration(seconds: state.remainingSeconds));
     emit(state.copyWith(timerStatus: TimerStatus.running));
 
     await _assistant.speak(
       'Focus session started for ${state.selectedDurationMinutes} minutes.',
     );
 
-    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) async {
-      if (_targetEndTime == null) return;
-      final diff = _targetEndTime!.difference(DateTime.now()).inSeconds;
+    _startPeriodicTicker();
+  }
 
-      if (diff > 0) {
-        emit(state.copyWith(remainingSeconds: diff));
+  void _startPeriodicTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+  }
 
-        final halfSec = (state.selectedDurationMinutes * 60) ~/ 2;
-        if (diff <= halfSec && !_halfwayAnnounced) {
-          _halfwayAnnounced = true;
+  /// النبضة الزمنية الموحدة للمؤقت
+  Future<void> _tick() async {
+    if (_targetEndTime == null || !state.isTimerRunning) return;
 
-          // ⚡️ فحص إعداد تنبيه منتصف الوقت من قاعدة البيانات
-          final settings = await _settings.getSettings();
-          if (settings.voiceChimeHalfway) {
-            await _sound.play(SoundCue.processing);
-            final minsLeft = diff ~/ 60;
-            await _assistant.speak('Halfway mark reached. $minsLeft minutes remaining.');
-          }
-        } else if (diff <= 60 && !_oneMinuteAnnounced) {
-          _oneMinuteAnnounced = true;
+    final diff = _targetEndTime!.difference(DateTime.now()).inSeconds;
+
+    if (diff > 0) {
+      emit(state.copyWith(remainingSeconds: diff));
+
+      final halfSec = (state.selectedDurationMinutes * 60) ~/ 2;
+      if (diff <= halfSec && !_halfwayAnnounced) {
+        _halfwayAnnounced = true;
+
+        final settings = await _settings.getSettings();
+        if (settings.voiceChimeHalfway) {
           await _sound.play(SoundCue.processing);
-          await _assistant.speak('One minute remaining.');
+          final minsLeft = diff ~/ 60;
+          await _assistant
+              .speak('Halfway mark reached. $minsLeft minutes remaining.');
         }
-      } else {
-        emit(state.copyWith(remainingSeconds: 0));
-        await _onSessionCompleted();
+      } else if (diff <= 60 && !_oneMinuteAnnounced) {
+        _oneMinuteAnnounced = true;
+        await _sound.play(SoundCue.processing);
+        await _assistant.speak('One minute remaining.');
       }
-    });
+    } else {
+      // 🛡️ حماية حاسمة: إيقاف العداد فوراً قبل معالجة اكتمال الجلسة لمنع التكرار
+      _ticker?.cancel();
+      _ticker = null;
+      emit(state.copyWith(remainingSeconds: 0));
+      await _onSessionCompleted();
+    }
   }
 
   Future<void> pauseTimer() async {
     _ticker?.cancel();
+    _ticker = null;
     _targetEndTime = null;
 
     await _haptics.successNotification();
@@ -129,6 +175,7 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
 
   Future<void> resetTimer() async {
     _ticker?.cancel();
+    _ticker = null;
     _targetEndTime = null;
     _halfwayAnnounced = false;
     _oneMinuteAnnounced = false;
@@ -146,11 +193,11 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
 
   Future<void> _onSessionCompleted() async {
     _ticker?.cancel();
+    _ticker = null;
     _targetEndTime = null;
 
     await _sound.play(SoundCue.success);
 
-    // ⚡️ تفعيل الاهتزاز عند النهاية فقط إذا سمح المستخدم بذلك في الإعدادات
     final settings = await _settings.getSettings();
     if (settings.vibrateOnSessionFinish) {
       await _haptics.emergencyAlarmPulse();
@@ -175,7 +222,7 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
   }
 
   // ===========================================================================
-  // ⏰ التحكم بساعة المنبهات
+  // ⏰ التحكم بساعة المنبهات (Alarms Engine)
   // ===========================================================================
 
   Future<void> toggleAlarm(Alarm alarm) async {
@@ -252,6 +299,7 @@ class FocusAlarmsCubit extends Cubit<FocusAlarmsState> {
 
   @override
   Future<void> close() {
+    WidgetsBinding.instance.removeObserver(this); // 👈 إزالة المراقب بأمان لمنع تسريب الذاكرة
     _ticker?.cancel();
     _alarmsSub?.cancel();
     _sessionsSub?.cancel();
