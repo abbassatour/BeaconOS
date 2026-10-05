@@ -72,7 +72,15 @@ enum SpatialGesture {
     onboardingStepLabel: 'Double tap with 2 fingers to hear location',
   ),
 
-  // 🎙️ 4. السحب من زوايا الهاتف لاستدعاء المساعد الذكي
+  // 🎙️ 4. التفاعل الصوتي الحسي (Tactile Voice Summoning)
+  holdToSpeak(
+    symbol: '🎙️',
+    shortLabel: 'Hold to Speak',
+    visualHint: 'Press & hold anywhere to talk with Beacon AI',
+    spokenPrompt:
+        'Press and hold anywhere on the screen to talk, then release when finished.',
+    onboardingStepLabel: 'Hold anywhere on screen to speak with Beacon AI',
+  ),
   cornerSwipeAssistant(
     symbol: '📐',
     shortLabel: 'Corner Swipe',

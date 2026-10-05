@@ -7,6 +7,7 @@ import 'package:beacon_os/core/spatial_kernel/ambient_voice/cubit/ambient_voice_
 import 'package:beacon_os/core/spatial_kernel/voice_command_dispatcher.dart';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
 
 class AmbientVoiceCubit extends Cubit<AmbientVoiceState> {
@@ -31,7 +32,7 @@ class AmbientVoiceCubit extends Cubit<AmbientVoiceState> {
   StreamSubscription<VoiceRecognitionEvent>? _recognitionSubscription;
   Timer? _autoCloseTimer;
 
-  /// 1. بدء جلسة المساعد الصوتي فور سحب الزاوية
+  /// 1. بدء جلسة المساعد الصوتي فور سحب الزاوية أو الضغط المطول
   Future<void> startSession() async {
     _cancelSubscriptions();
     _autoCloseTimer?.cancel();
@@ -80,7 +81,7 @@ class AmbientVoiceCubit extends Cubit<AmbientVoiceState> {
     await _assistant.startListening();
   }
 
-  /// 2. إيقاف الاستماع وتنفيذ الأمر الصوتي
+  /// 2. إيقاف الاستماع وتنفيذ الأمر الصوتي مع تزويده بسياق النظام الحي
   Future<void> stopAndExecute({
     BuildContext? context,
     String? queryOverride,
@@ -101,15 +102,59 @@ class AmbientVoiceCubit extends Cubit<AmbientVoiceState> {
     if (effectiveQuery.isEmpty) {
       await _sound.play(SoundCue.error);
       await _haptics.errorAlert();
-      await _assistant.speak("I didn't catch that. Please swipe again.");
+      await _assistant.speak(
+        "I didn't catch that. Please hold or swipe to try again.",
+      );
       closeSession();
       return;
     }
 
-    // إرسال الأمر لحافلة الأوامر
+    // ⚡️ إثراء سياق النظام الحي لقاعدة البيانات وتمريره لـ Gemini 2.0 Flash
+    Map<String, dynamic>? systemContext;
+    if (context != null) {
+      try {
+        final tasksRepo = context.read<TaskAgendaRepository>();
+        final alarmsRepo = context.read<FocusAlarmsRepository>();
+        final settingsRepo = context.read<SettingsRepository>();
+
+        final tasks = await tasksRepo.getPendingTasks();
+        final alarms = await alarmsRepo.watchAlarms().first;
+        final settings = await settingsRepo.getSettings();
+
+        systemContext = {
+          'tasks': tasks
+              .map((t) => {
+                    'id': t.id,
+                    'title': t.title,
+                    'priority': t.priority,
+                    'due_date': t.dueDate?.toIso8601String(),
+                  })
+              .toList(),
+          'alarms': alarms
+              .map((a) => {
+                    'id': a.id,
+                    'hour': a.hour,
+                    'minute': a.minute,
+                    'label': a.label,
+                    'isActive': a.isActive,
+                  })
+              .toList(),
+          'settings': {
+            'speech_rate': settings.speechRate,
+            'haptics_enabled': settings.hapticsEnabled,
+            'is_high_contrast': settings.isHighContrast,
+          },
+        };
+      } catch (_) {
+        // حماية: إذا فشل جلب السياق يستمر تنفيذ الأمر الصوتي دون انهيار
+      }
+    }
+
+    // إرسال الأمر لحافلة الأوامر مع سياق النظام المكتمل
     final result = await _dispatcher.dispatchAndAnnounce(
       effectiveQuery,
       context: context,
+      systemContext: systemContext,
     );
 
     emit(
@@ -120,7 +165,7 @@ class AmbientVoiceCubit extends Cubit<AmbientVoiceState> {
       ),
     );
 
-    // إغلاق الواجهة العائمة تلقائياً بعد ثانيتين من انتهاء النطق
+    // إغلاق الواجهة العائمة تلقائياً بعد 4 ثوانٍ من انتهاء النطق
     _autoCloseTimer?.cancel();
     _autoCloseTimer = Timer(const Duration(seconds: 4), () {
       if (state.isOpen) closeSession();

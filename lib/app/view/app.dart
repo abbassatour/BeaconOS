@@ -1,4 +1,5 @@
 // lib/app/view/app.dart
+import 'package:beacon_os/auth/cubit/auth_cubit.dart';
 import 'package:beacon_os/core/spatial_kernel/spatial_topology.dart';
 import 'package:beacon_os/core/spatial_kernel/voice_command_dispatcher.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
@@ -57,18 +58,16 @@ class _AppState extends State<App> {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasCompletedOnboarding = widget._initialSettings.hasCompletedOnboarding;
+    final bool hasCompletedOnboarding =
+        widget._initialSettings.hasCompletedOnboarding;
 
     return MultiRepositoryProvider(
       providers: [
-        // 🏛️ واجهة الـ Facade المركزية
         RepositoryProvider.value(value: widget._launcherRepository),
-
-        // 🗺️ شبكة الطوبولوجيا الفضائية وحافلة الأوامر
         RepositoryProvider<SpatialTopology>.value(value: _topology),
-        RepositoryProvider<VoiceCommandDispatcher>.value(value: _voiceDispatcher),
-
-        // 🧩 مستودعات النطاق الستة المستقلة
+        RepositoryProvider<VoiceCommandDispatcher>.value(
+          value: _voiceDispatcher,
+        ),
         RepositoryProvider<TaskAgendaRepository>.value(
           value: widget._launcherRepository.tasks,
         ),
@@ -88,14 +87,23 @@ class _AppState extends State<App> {
           value: widget._launcherRepository.assistant,
         ),
       ],
-      child: BlocProvider(
-        create: (_) => ThemeCubit(
-          isHighContrast: widget._initialSettings.isHighContrast,
-        ),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) => ThemeCubit(
+              isHighContrast: widget._initialSettings.isHighContrast,
+            ),
+          ),
+          BlocProvider(
+            create: (context) => AuthCubit(
+              repository: widget._launcherRepository,
+            ),
+          ),
+        ],
         child: BlocBuilder<ThemeCubit, AppThemeMode>(
           builder: (context, themeMode) {
             return MaterialApp(
-              navigatorKey: appNavigatorKey, // 👈 تفعيل المفتاح العام
+              navigatorKey: appNavigatorKey,
               debugShowCheckedModeBanner: false,
               theme: themeMode == AppThemeMode.highContrastOled
                   ? AppTheme.highContrastOledTheme

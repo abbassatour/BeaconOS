@@ -1,4 +1,6 @@
 // lib/auth/cubit/auth_cubit.dart
+import 'dart:async';
+
 import 'package:beacon_os/auth/cubit/auth_state.dart';
 import 'package:bloc/bloc.dart';
 import 'package:cloud_sync_api/cloud_sync_api.dart';
@@ -12,28 +14,34 @@ class AuthCubit extends Cubit<AuthState> {
         _cloud = cloudSyncClient ?? CloudSyncClient(),
         super(const AuthState()) {
     checkCurrentAuth();
+    _listenToAuthChanges();
   }
 
   final LauncherRepository _repository;
   final CloudSyncClient _cloud;
+  StreamSubscription<dynamic>? _authSubscription;
+
+  void _listenToAuthChanges() {
+    _authSubscription = _cloud.authStateChanges?.listen((_) {
+      checkCurrentAuth();
+    });
+  }
 
   void checkCurrentAuth() {
     final user = _cloud.currentUser;
     if (user != null) {
       emit(state.copyWith(status: AuthStatus.authenticated, user: user));
-      
+
       // تشغيل المزامنة بالاتجاهين في الخلفية بسلاسة
       Future.microtask(() async {
-        // 1. استعادة التغييرات من السحابة (إذا عدّل المستخدم من هاتف آخر)
         await _repository.restoreVaultFromCloud();
-        // 2. رفع التغييرات المحلية التي تمت بدون إنترنت إلى السحابة
         await _repository.syncPendingOfflineChanges();
       });
-
     } else {
-      emit(state.copyWith(status: AuthStatus.unauthenticated));
+      emit(state.copyWith(status: AuthStatus.unauthenticated, user: null));
     }
   }
+
   Future<void> signIn({required String email, required String password}) async {
     emit(state.copyWith(status: AuthStatus.loading));
     try {
@@ -41,7 +49,6 @@ class AuthCubit extends Cubit<AuthState> {
         email: email,
         password: password,
       );
-      // 🔥 استعادة الخزنة فور تسجيل الدخول
       await _repository.restoreVaultFromCloud();
       emit(state.copyWith(status: AuthStatus.authenticated, user: res?.user));
     } catch (e) {
@@ -61,7 +68,6 @@ class AuthCubit extends Cubit<AuthState> {
         email: email,
         password: password,
       );
-      // إنشاء الحساب لا يحتاج استعادة لأن الخزنة فارغة
       emit(state.copyWith(status: AuthStatus.authenticated, user: res?.user));
     } catch (e) {
       emit(
@@ -86,5 +92,11 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> signOut() async {
     await _cloud.signOut();
     emit(state.copyWith(status: AuthStatus.unauthenticated, user: null));
+  }
+
+  @override
+  Future<void> close() {
+    _authSubscription?.cancel();
+    return super.close();
   }
 }

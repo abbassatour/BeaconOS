@@ -1,4 +1,6 @@
 // lib/spatial_compass/view/spatial_compass_page.dart
+import 'dart:async';
+
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/core/physics/spatial_physics.dart';
 import 'package:beacon_os/core/spatial_kernel/ambient_voice/cubit/ambient_voice_cubit.dart';
@@ -70,13 +72,18 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   double _startYAtGesture = 0.0;
   bool _hapticDetentFired = false;
 
-  // --- تتبع إيماءات اللمس السريع (Triple Tap SOS & 2-Finger Context) ---
+  // --- تتبع إيماءات اللمس السريع (Triple Tap SOS & 2-Finger Context & Hold-to-Speak) ---
   int _activePointers = 0;
   DateTime? _multiTouchStartTime;
   bool _hasTwoFingerMoved = false;
 
   int _tapCount = 0;
   DateTime? _lastTapTime;
+
+  // 🎙️ متغيرات نمط التحدث بالضغط المطول (Hold-to-Speak)
+  Timer? _holdToSpeakTimer;
+  bool _isHoldingToSpeak = false;
+  Offset? _pointerDownPos;
 
   @override
   void initState() {
@@ -94,6 +101,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
 
   @override
   void dispose() {
+    _holdToSpeakTimer?.cancel();
     _panX.dispose();
     _panY.dispose();
     _floorZ.dispose();
@@ -101,13 +109,16 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   }
 
   // ===========================================================================
-  // 🚨 رصد إيماءات اللمس السريع (Triple Tap SOS & 2-Finger Context)
+  // 🚨 رصد إيماءات اللمس المتعدد (Triple Tap SOS & 2-Finger Context & Hold-to-Speak)
   // ===========================================================================
 
-  void _onPointerDown(PointerDownEvent event) {
+  void _onPointerDown(PointerDownEvent event, AmbientVoiceCubit voiceCubit) {
     _activePointers++;
+    _pointerDownPos = event.position;
 
     if (_activePointers == 2) {
+      _holdToSpeakTimer?.cancel();
+      _isHoldingToSpeak = false;
       _multiTouchStartTime = DateTime.now();
       _hasTwoFingerMoved = false;
       _tapCount = 0;
@@ -122,9 +133,26 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       _lastTapTime = now;
 
       if (_tapCount == 3) {
+        _holdToSpeakTimer?.cancel();
+        _isHoldingToSpeak = false;
         _triggerTripleTapSos();
         _tapCount = 0;
+        return;
       }
+
+      // 🎙️ جدولة الضغط المطول للتحدث بعد 400ms من الثبات
+      _holdToSpeakTimer?.cancel();
+      _holdToSpeakTimer = Timer(const Duration(milliseconds: 400), () {
+        if (_activePointers == 1 &&
+            !_isTwoFingerPinch &&
+            !voiceCubit.state.isOpen) {
+          _isHoldingToSpeak = true;
+          voiceCubit.startSession();
+        }
+      });
+    } else {
+      _holdToSpeakTimer?.cancel();
+      _isHoldingToSpeak = false;
     }
   }
 
@@ -132,26 +160,58 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     if (_activePointers >= 2 && event.delta.distance > 2.5) {
       _hasTwoFingerMoved = true;
     }
+
+    // إذا تحرك الإصبع مسافة معتبرة (> 14dp) قبل اكتمال الـ 400ms، يُلغى التحدث لصالح السحب
+    if (!_isHoldingToSpeak && _pointerDownPos != null) {
+      final moved = (event.position - _pointerDownPos!).distance;
+      if (moved > 14.0) {
+        _holdToSpeakTimer?.cancel();
+      }
+    }
   }
 
-  void _onPointerUp(PointerUpEvent event, SpatialCompassCubit cubit) {
-    if (_activePointers == 2 && _multiTouchStartTime != null) {
+  void _onPointerUp(
+    PointerUpEvent event,
+    SpatialCompassCubit cubit,
+    AmbientVoiceCubit voiceCubit,
+  ) {
+    _holdToSpeakTimer?.cancel();
+
+    // 🎙️ إذا كان في وضع Hold-to-Speak، بمجرد رفع الإصبع يتم إرسال الصوت للتنفيذ فوراً
+    if (_isHoldingToSpeak) {
+      _isHoldingToSpeak = false;
+      voiceCubit.stopAndExecute(context: context);
+    } else if (_activePointers == 2 && _multiTouchStartTime != null) {
       final tapDuration = DateTime.now().difference(_multiTouchStartTime!);
       if (!_hasTwoFingerMoved && tapDuration.inMilliseconds < 300) {
         _multiTouchStartTime = null;
         cubit.announceCurrentLocation();
       }
     }
+
     _activePointers = (_activePointers - 1).clamp(0, 10);
-    if (_activePointers == 0) _hasTwoFingerMoved = false;
+    if (_activePointers == 0) {
+      _hasTwoFingerMoved = false;
+      _pointerDownPos = null;
+    }
   }
 
-  void _onPointerCancel(PointerCancelEvent event) {
+  void _onPointerCancel(
+    PointerCancelEvent event,
+    AmbientVoiceCubit voiceCubit,
+  ) {
+    _holdToSpeakTimer?.cancel();
+    if (_isHoldingToSpeak) {
+      _isHoldingToSpeak = false;
+      voiceCubit.closeSession();
+    }
     _activePointers = (_activePointers - 1).clamp(0, 10);
+    _pointerDownPos = null;
   }
 
   Future<void> _triggerTripleTapSos() async {
-    HapticManager.instance.emergencyAlarmPulse();
+    await HapticManager.instance.emergencyAlarmPulse();
+    if (!mounted) return;
     try {
       final commsRepo = context.read<CommsRepository>();
       await commsRepo.triggerEmergencySos();
@@ -163,6 +223,9 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   // ===========================================================================
 
   void _onScaleStart(ScaleStartDetails details) {
+    // 🛡️ حظر تحريك الكاميرا إذا كان المستخدم في وضع الضغط للتحدث
+    if (_isHoldingToSpeak) return;
+
     _panX.stop();
     _panY.stop();
     _floorZ.stop();
@@ -176,6 +239,9 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
+    // 🛡️ حظر تحريك الكاميرا أثناء التحدث
+    if (_isHoldingToSpeak) return;
+
     final state = context.read<SpatialCompassCubit>().state;
 
     if (_isTwoFingerPinch || details.pointerCount >= 2) {
@@ -334,6 +400,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   }
 
   void _onScaleEnd(ScaleEndDetails details, SpatialCompassCubit cubit) {
+    if (_isHoldingToSpeak) return;
+
     final screenW = MediaQuery.of(context).size.width;
     final screenH = MediaQuery.of(context).size.height;
     final state = cubit.state;
@@ -538,14 +606,13 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       child: Scaffold(
         backgroundColor: context.scaffoldBg,
         body: SafeArea(
-          // 📐 1. ملتقط السحب من زوايا الهاتف لاستدعاء المساعد الصوتي
           child: CornerSwipeDetector(
             onCornerSwipe: () => ambientVoiceCubit.startSession(),
             child: Listener(
-              onPointerDown: _onPointerDown,
+              onPointerDown: (e) => _onPointerDown(e, ambientVoiceCubit),
               onPointerMove: _onPointerMove,
-              onPointerUp: (e) => _onPointerUp(e, compassCubit),
-              onPointerCancel: _onPointerCancel,
+              onPointerUp: (e) => _onPointerUp(e, compassCubit, ambientVoiceCubit),
+              onPointerCancel: (e) => _onPointerCancel(e, ambientVoiceCubit),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onScaleStart: _onScaleStart,
@@ -613,7 +680,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                           onFloorToggle: compassCubit.toggleFloor,
                         ),
 
-                        // 🎙️ لوحة المساعد الصوتي العائمة المستدعاة من الزاوية
+                        // 🎙️ لوحة المساعد الصوتي العائمة المستدعاة بالضغط أو الزاوية
                         const AmbientVoiceOverlay(),
                       ],
                     );
