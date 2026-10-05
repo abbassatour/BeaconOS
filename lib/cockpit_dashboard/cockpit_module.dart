@@ -2,10 +2,10 @@
 import 'package:beacon_os/cockpit_dashboard/cubit/cockpit_dashboard_cubit.dart';
 import 'package:beacon_os/cockpit_dashboard/intents/cockpit_intents.dart';
 import 'package:beacon_os/cockpit_dashboard/view/cockpit_dashboard_view.dart';
+import 'package:beacon_os/cockpit_dashboard/view/settings_core_room.dart';
 import 'package:beacon_os/core/audio/sound_cue.dart';
 import 'package:beacon_os/core/spatial_kernel/spatial_module.dart';
 import 'package:beacon_os/core/spatial_kernel/voice_intent_handler.dart';
-import 'package:beacon_os/cockpit_dashboard/view/settings_core_room.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
@@ -45,6 +45,7 @@ class CockpitModule extends SpatialModule {
         LockScreenIntentHandler(),
         TimeDateIntentHandler(),
         DailyBriefingIntentHandler(),
+        OpenAppIntentHandler(), // 👈 تم التسجيل هنا
       ];
 
   @override
@@ -59,10 +60,8 @@ class CockpitModule extends SpatialModule {
       child: Builder(
         builder: (ctx) {
           if (floorLevel == 1) {
-            // شاشة إعدادات النواة المركزية في الطابق الثاني
             return const SettingsCoreRoom();
           }
-          // شاشة قمرة اليوم في الطابق الأرضي
           return const CockpitDashboardContentView();
         },
       ),

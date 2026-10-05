@@ -18,7 +18,8 @@ class AgendaView extends StatelessWidget {
     return BlocProvider(
       create: (context) => AgendaCubit(
         taskRepository: context.read<TaskAgendaRepository>(),
-        assistantRepository: context.read<AssistantRepository>(), // 👈 تم التحديث
+        assistantRepository: context.read<AssistantRepository>(),
+        settingsRepository: context.read<SettingsRepository>(), // 👈 هذا السطر الذي كان ينقص
       ),
       child: const AgendaContentView(),
     );

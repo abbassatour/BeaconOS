@@ -2,10 +2,10 @@
 import 'package:beacon_os/agenda/cubit/agenda_cubit.dart';
 import 'package:beacon_os/agenda/intents/agenda_intents.dart';
 import 'package:beacon_os/agenda/view/agenda_view.dart';
+import 'package:beacon_os/agenda/view/settings_agenda_room.dart';
 import 'package:beacon_os/core/audio/sound_cue.dart';
 import 'package:beacon_os/core/spatial_kernel/spatial_module.dart';
 import 'package:beacon_os/core/spatial_kernel/voice_intent_handler.dart';
-import 'package:beacon_os/agenda/view/settings_agenda_room.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
@@ -43,6 +43,8 @@ class AgendaModule extends SpatialModule {
         ReadTasksIntentHandler(),
         SaveTaskIntentHandler(),
         SaveMemoIntentHandler(),
+        CompleteTaskIntentHandler(), // 👈 تسجيل إتمام المهام
+        DeleteTaskIntentHandler(),   // 👈 تسجيل حذف المهام
       ];
 
   @override
@@ -50,7 +52,8 @@ class AgendaModule extends SpatialModule {
     return BlocProvider(
       create: (context) => AgendaCubit(
         taskRepository: context.read<TaskAgendaRepository>(),
-        assistantRepository: context.read<AssistantRepository>(), // 👈 تم التحديث
+        assistantRepository: context.read<AssistantRepository>(),
+        settingsRepository: context.read<SettingsRepository>(), // 👈 حقن الإعدادات
       ),
       child: Builder(
         builder: (ctx) {

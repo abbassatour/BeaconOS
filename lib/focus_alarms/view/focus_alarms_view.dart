@@ -17,7 +17,8 @@ class FocusAlarmsView extends StatelessWidget {
     return BlocProvider(
       create: (context) => FocusAlarmsCubit(
         focusRepository: context.read<FocusAlarmsRepository>(),
-        assistantRepository: context.read<AssistantRepository>(), // 👈 التحديث تم هنا
+        assistantRepository: context.read<AssistantRepository>(),
+        settingsRepository: context.read<SettingsRepository>(), // 👈 إضافة التمرير هنا
       ),
       child: const FocusAlarmsContentView(),
     );

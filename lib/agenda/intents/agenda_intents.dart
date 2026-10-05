@@ -158,3 +158,113 @@ class SaveMemoIntentHandler extends VoiceIntentHandler {
     );
   }
 }
+
+// أضف هذين الكلاسين في نهاية lib/agenda/intents/agenda_intents.dart
+
+/// معالج إتمام المهمة صوتياً بالمسار السريع (Sub-5ms)
+class CompleteTaskIntentHandler extends VoiceIntentHandler {
+  @override
+  String get intentId => 'COMPLETE_TASK';
+
+  @override
+  int get priority => 70;
+
+  @override
+  RegExp get fastPathPattern => RegExp(
+        r'^(?:complete|finish|mark done|done with)\s+(.+)',
+        caseSensitive: false,
+      );
+
+  @override
+  Future<LauncherCommandResult> execute(
+    BuildContext context,
+    VoiceIntentContext intentContext,
+  ) async {
+    final tasksRepo = context.read<TaskAgendaRepository>();
+    String targetQuery = '';
+
+    final match = fastPathPattern?.firstMatch(intentContext.rawQuery);
+    if (match != null && match.groupCount >= 1) {
+      targetQuery = match.group(1)?.trim() ?? '';
+    }
+
+    final pending = await tasksRepo.getPendingTasks();
+    if (pending.isEmpty) {
+      return const LauncherCommandResult(
+        intent: 'COMPLETE_TASK_FAILED',
+        spokenResponse: 'You have no pending tasks to complete.',
+      );
+    }
+
+    final cleanQuery = targetQuery.toLowerCase();
+    
+    // مطابقة ذكية للعنوان
+    final matchedTask = pending.where((t) =>
+        t.title.toLowerCase().contains(cleanQuery) ||
+        cleanQuery.contains(t.title.toLowerCase())).firstOrNull;
+
+    if (matchedTask != null) {
+      await tasksRepo.toggleTask(matchedTask);
+      return LauncherCommandResult(
+        intent: 'COMPLETE_TASK',
+        spokenResponse: 'Task completed: ${matchedTask.title}.',
+        actionPayload: matchedTask,
+      );
+    }
+
+    return LauncherCommandResult(
+      intent: 'COMPLETE_TASK_NOT_FOUND',
+      spokenResponse: 'Could not find a pending task matching $targetQuery.',
+    );
+  }
+}
+
+/// معالج حذف المهمة صوتياً بالمسار السريع
+class DeleteTaskIntentHandler extends VoiceIntentHandler {
+  @override
+  String get intentId => 'DELETE_TASK';
+
+  @override
+  int get priority => 70;
+
+  @override
+  RegExp get fastPathPattern => RegExp(
+        r'^(?:delete task|remove task)\s+(.+)',
+        caseSensitive: false,
+      );
+
+  @override
+  Future<LauncherCommandResult> execute(
+    BuildContext context,
+    VoiceIntentContext intentContext,
+  ) async {
+    final tasksRepo = context.read<TaskAgendaRepository>();
+    String targetQuery = '';
+
+    final match = fastPathPattern?.firstMatch(intentContext.rawQuery);
+    if (match != null && match.groupCount >= 1) {
+      targetQuery = match.group(1)?.trim() ?? '';
+    }
+
+    final pending = await tasksRepo.getPendingTasks();
+    final cleanQuery = targetQuery.toLowerCase();
+
+    final matchedTask = pending.where((t) =>
+        t.title.toLowerCase().contains(cleanQuery) ||
+        cleanQuery.contains(t.title.toLowerCase())).firstOrNull;
+
+    if (matchedTask != null) {
+      await tasksRepo.deleteTask(matchedTask.id);
+      return LauncherCommandResult(
+        intent: 'DELETE_TASK',
+        spokenResponse: 'Deleted task: ${matchedTask.title}.',
+        actionPayload: matchedTask,
+      );
+    }
+
+    return LauncherCommandResult(
+      intent: 'DELETE_TASK_NOT_FOUND',
+      spokenResponse: 'Could not find a task matching $targetQuery to delete.',
+    );
+  }
+}

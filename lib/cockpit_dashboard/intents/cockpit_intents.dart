@@ -185,3 +185,66 @@ class DailyBriefingIntentHandler extends VoiceIntentHandler {
     );
   }
 }
+
+// أضف هذا الكلاس في نهاية lib/cockpit_dashboard/intents/cockpit_intents.dart
+
+/// معالج فتح وتشغيل التطبيقات الخارجية بالمسار السريع (Sub-5ms)
+class OpenAppIntentHandler extends VoiceIntentHandler {
+  @override
+  String get intentId => 'OPEN_APP';
+
+  @override
+  int get priority => 85;
+
+  @override
+  RegExp get fastPathPattern => RegExp(
+        r'^(?:open|launch|start|run)\s+(.+)',
+        caseSensitive: false,
+      );
+
+  @override
+  Future<LauncherCommandResult> execute(
+    BuildContext context,
+    VoiceIntentContext intentContext,
+  ) async {
+    final hardwareRepo = context.read<SystemHardwareRepository>();
+    String appTarget = '';
+
+    // 1. استخراج اسم التطبيق من المسار السريع
+    final match = fastPathPattern?.firstMatch(intentContext.rawQuery);
+    if (match != null && match.groupCount >= 1) {
+      appTarget = match.group(1)?.trim() ?? '';
+    }
+
+    // 2. استخراج الاسم من بارامترات الـ LLM إذا أتى عبر المسار الذكي
+    if (appTarget.isEmpty && intentContext.llmParameters.containsKey('app_name')) {
+      appTarget = intentContext.llmParameters['app_name'] as String? ?? '';
+    }
+
+    // تنظيف الكلمات الزائدة مثل كلمة "app" (مثلاً: "open whatsapp app" -> "whatsapp")
+    appTarget = appTarget.replaceAll(RegExp(r'\bapp\b', caseSensitive: false), '').trim();
+
+    if (appTarget.isEmpty) {
+      return const LauncherCommandResult(
+        intent: 'OPEN_APP_FAILED',
+        spokenResponse: 'Which app would you like me to open?',
+      );
+    }
+
+    final success = await hardwareRepo.openApp(appTarget);
+
+    if (success) {
+      return LauncherCommandResult(
+        intent: 'OPEN_APP',
+        spokenResponse: 'Opening $appTarget.',
+        actionPayload: appTarget,
+      );
+    } else {
+      return LauncherCommandResult(
+        intent: 'OPEN_APP_NOT_FOUND',
+        spokenResponse: 'Could not open $appTarget. It might not be installed.',
+        actionPayload: appTarget,
+      );
+    }
+  }
+}

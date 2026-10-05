@@ -49,6 +49,7 @@ class FocusAlarmsModule extends SpatialModule {
       create: (context) => FocusAlarmsCubit(
         focusRepository: context.read<FocusAlarmsRepository>(),
         assistantRepository: context.read<AssistantRepository>(), // 👈 التحديث تم هنا
+        settingsRepository: context.read<SettingsRepository>(),
       ),
       child: Builder(
         builder: (ctx) {
