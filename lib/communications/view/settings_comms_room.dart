@@ -123,14 +123,17 @@ class SettingsCommsRoom extends StatelessWidget {
 
   Widget _buildCard(BuildContext context, {required Widget child}) {
     final colors = context.colors;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surface,
+    return Material(
+      color: colors.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.outline, width: 1.2),
+        side: BorderSide(color: colors.outline, width: 1.2),
       ),
-      child: child,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: child,
+      ),
     );
   }
 }

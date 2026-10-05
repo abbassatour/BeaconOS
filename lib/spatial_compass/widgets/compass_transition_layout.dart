@@ -24,7 +24,6 @@ class CompassTransitionLayout extends StatelessWidget {
         ? (isSettingsFloor! ? 1 : 0)
         : floorLevel;
 
-    // استخراج غرف الطابق الحالي مباشرة من شبكة الطوبولوجيا
     final roomsOnFloor = topology.roomsOnFloor(effectiveFloor);
 
     return Stack(
@@ -33,6 +32,7 @@ class CompassTransitionLayout extends StatelessWidget {
         final module = entry.value;
 
         return _buildRoomLayer(
+          key: ValueKey('floor_${effectiveFloor}_dir_${roomDir.name}'),
           child: module.buildFloorView(context, effectiveFloor),
           translation: roomDir.translation,
           roomDir: roomDir,
@@ -44,6 +44,7 @@ class CompassTransitionLayout extends StatelessWidget {
   /// ⚡️ الفرز الفضائي (Spatial Culling & GPU Optimization):
   /// تفعيل المحركات الحركية (Tickers) والتركيز البصري للغرفة النشطة والمركز فقط
   Widget _buildRoomLayer({
+    required Key key,
     required Widget child,
     required Offset translation,
     required CompassDirection roomDir,
@@ -53,6 +54,7 @@ class CompassTransitionLayout extends StatelessWidget {
     final isProcessingAllowed = isActive || isCenter;
 
     return FractionalTranslation(
+      key: key,
       translation: translation,
       child: RepaintBoundary(
         child: TickerMode(

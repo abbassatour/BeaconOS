@@ -17,6 +17,7 @@ class SpatialFloorLayout extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CompassTransitionLayout(
+      key: ValueKey('compass_transition_floor_$floorLevel'),
       direction: direction,
       floorLevel: floorLevel,
     );

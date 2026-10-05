@@ -1,5 +1,4 @@
 // lib/cockpit_dashboard/cockpit_module.dart
-import 'package:beacon_os/cockpit_dashboard/cubit/cockpit_dashboard_cubit.dart';
 import 'package:beacon_os/cockpit_dashboard/intents/cockpit_intents.dart';
 import 'package:beacon_os/cockpit_dashboard/view/cockpit_dashboard_view.dart';
 import 'package:beacon_os/cockpit_dashboard/view/settings_core_room.dart';
@@ -7,8 +6,6 @@ import 'package:beacon_os/core/audio/sound_cue.dart';
 import 'package:beacon_os/core/spatial_kernel/spatial_module.dart';
 import 'package:beacon_os/core/spatial_kernel/voice_intent_handler.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:launcher_repository/launcher_repository.dart';
 
 class CockpitModule extends SpatialModule {
   CockpitModule._();
@@ -45,26 +42,18 @@ class CockpitModule extends SpatialModule {
         LockScreenIntentHandler(),
         TimeDateIntentHandler(),
         DailyBriefingIntentHandler(),
-        OpenAppIntentHandler(), // 👈 تم التسجيل هنا
+        OpenAppIntentHandler(),
       ];
 
   @override
   Widget buildFloorView(BuildContext context, int floorLevel) {
-    return BlocProvider(
-      create: (context) => CockpitDashboardCubit(
-        taskRepository: context.read<TaskAgendaRepository>(),
-        focusAlarmsRepository: context.read<FocusAlarmsRepository>(),
-        hardwareRepository: context.read<SystemHardwareRepository>(),
-        assistantRepository: context.read<AssistantRepository>(),
-      ),
-      child: Builder(
-        builder: (ctx) {
-          if (floorLevel == 1) {
-            return const SettingsCoreRoom();
-          }
-          return const CockpitDashboardContentView();
-        },
-      ),
+    if (floorLevel == 1) {
+      return const SettingsCoreRoom(
+        key: ValueKey('settings_core_room_view'),
+      );
+    }
+    return const CockpitDashboardContentView(
+      key: ValueKey('cockpit_dashboard_content_view'),
     );
   }
 }

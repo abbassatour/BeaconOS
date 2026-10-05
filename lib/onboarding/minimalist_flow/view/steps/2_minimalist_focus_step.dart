@@ -94,27 +94,30 @@ class MinimalistFocusStep extends StatelessWidget {
                 }).toList(),
               ),
               const SizedBox(height: 28),
-              // بطاقة أرشفة المهام
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardSurface,
+              // بطاقة أرشفة المهام عبر Material لمنع تحذيرات الحبر
+              Material(
+                color: AppTheme.cardSurface,
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppTheme.softBorder),
+                  side: const BorderSide(color: AppTheme.softBorder),
                 ),
-                child: SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Auto-Archive Completed Priorities',
-                    style: TextStyle(color: AppTheme.carbonInk, fontWeight: FontWeight.bold),
+                clipBehavior: Clip.antiAlias,
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Auto-Archive Completed Priorities',
+                      style: TextStyle(color: AppTheme.carbonInk, fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: const Text(
+                      'Clear completed tasks instantly to maintain visual zen.',
+                      style: TextStyle(color: AppTheme.mutedInk, fontSize: 12),
+                    ),
+                    activeColor: AppTheme.terracotta,
+                    value: state.autoArchiveCompletedTasks,
+                    onChanged: cubit.toggleAutoArchive,
                   ),
-                  subtitle: const Text(
-                    'Clear completed tasks instantly to maintain visual zen.',
-                    style: TextStyle(color: AppTheme.mutedInk, fontSize: 12),
-                  ),
-                  activeColor: AppTheme.terracotta,
-                  value: state.autoArchiveCompletedTasks,
-                  onChanged: cubit.toggleAutoArchive,
                 ),
               ),
               const Spacer(),

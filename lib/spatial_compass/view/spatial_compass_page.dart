@@ -1,12 +1,16 @@
 // lib/spatial_compass/view/spatial_compass_page.dart
 import 'dart:async';
 
+import 'package:beacon_os/agenda/cubit/agenda_cubit.dart';
+import 'package:beacon_os/cockpit_dashboard/cubit/cockpit_dashboard_cubit.dart';
+import 'package:beacon_os/communications/cubit/communications_cubit.dart';
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/core/physics/spatial_physics.dart';
 import 'package:beacon_os/core/spatial_kernel/ambient_voice/cubit/ambient_voice_cubit.dart';
 import 'package:beacon_os/core/spatial_kernel/spatial_topology.dart';
 import 'package:beacon_os/core/spatial_kernel/voice_command_dispatcher.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
+import 'package:beacon_os/focus_alarms/cubit/focus_alarms_cubit.dart';
 import 'package:beacon_os/settings/cubit/settings_cubit.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_cubit.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
@@ -14,6 +18,7 @@ import 'package:beacon_os/spatial_compass/widgets/ambient_voice_sheet.dart';
 import 'package:beacon_os/spatial_compass/widgets/corner_swipe_detector.dart';
 import 'package:beacon_os/spatial_compass/widgets/floor_layouts.dart';
 import 'package:beacon_os/spatial_compass/widgets/spatial_compass_hud.dart';
+import 'package:beacon_os/spatial_vision/cubit/spatial_vision_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
@@ -45,6 +50,44 @@ class SpatialCompassPage extends StatelessWidget {
             voiceDispatcher: context.read<VoiceCommandDispatcher>(),
           ),
         ),
+        // 🌟 تثبيت الـ Cubits الخمسة هنا لضمان استمراريتها وعدم مسحها عند التنقل بين الطوابق
+        BlocProvider(
+          create: (context) => CockpitDashboardCubit(
+            taskRepository: context.read<TaskAgendaRepository>(),
+            focusAlarmsRepository: context.read<FocusAlarmsRepository>(),
+            hardwareRepository: context.read<SystemHardwareRepository>(),
+            assistantRepository: context.read<AssistantRepository>(),
+          ),
+        ),
+        BlocProvider(
+          create: (context) => FocusAlarmsCubit(
+            focusRepository: context.read<FocusAlarmsRepository>(),
+            assistantRepository: context.read<AssistantRepository>(),
+            settingsRepository: context.read<SettingsRepository>(),
+          ),
+        ),
+        BlocProvider(
+          create: (context) => CommunicationsCubit(
+            commsRepository: context.read<CommsRepository>(),
+            hardwareRepository: context.read<SystemHardwareRepository>(),
+            assistantRepository: context.read<AssistantRepository>(),
+          ),
+        ),
+        BlocProvider(
+          create: (context) => SpatialVisionCubit(
+            assistantRepository: context.read<AssistantRepository>(),
+            hardwareRepository: context.read<SystemHardwareRepository>(),
+            settingsRepository: context.read<SettingsRepository>(),
+            taskRepository: context.read<TaskAgendaRepository>(),
+          ),
+        ),
+        BlocProvider(
+          create: (context) => AgendaCubit(
+            taskRepository: context.read<TaskAgendaRepository>(),
+            assistantRepository: context.read<AssistantRepository>(),
+            settingsRepository: context.read<SettingsRepository>(),
+          ),
+        ),
       ],
       child: const _SpatialCompassBody(),
     );
@@ -72,7 +115,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   double _startYAtGesture = 0.0;
   bool _hapticDetentFired = false;
 
-  // --- تتبع إيماءات اللمس السريع (Triple Tap SOS & 2-Finger Context & Hold-to-Speak) ---
   int _activePointers = 0;
   DateTime? _multiTouchStartTime;
   bool _hasTwoFingerMoved = false;
@@ -80,7 +122,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   int _tapCount = 0;
   DateTime? _lastTapTime;
 
-  // 🎙️ متغيرات نمط التحدث بالضغط المطول (Hold-to-Speak)
   Timer? _holdToSpeakTimer;
   bool _isHoldingToSpeak = false;
   Offset? _pointerDownPos;
@@ -107,10 +148,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     _floorZ.dispose();
     super.dispose();
   }
-
-  // ===========================================================================
-  // 🚨 رصد إيماءات اللمس المتعدد (Triple Tap SOS & 2-Finger Context & Hold-to-Speak)
-  // ===========================================================================
 
   void _onPointerDown(PointerDownEvent event, AmbientVoiceCubit voiceCubit) {
     _activePointers++;
@@ -140,7 +177,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         return;
       }
 
-      // 🎙️ جدولة الضغط المطول للتحدث بعد 400ms من الثبات
       _holdToSpeakTimer?.cancel();
       _holdToSpeakTimer = Timer(const Duration(milliseconds: 400), () {
         if (_activePointers == 1 &&
@@ -161,7 +197,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       _hasTwoFingerMoved = true;
     }
 
-    // إذا تحرك الإصبع مسافة معتبرة (> 14dp) قبل اكتمال الـ 400ms، يُلغى التحدث لصالح السحب
     if (!_isHoldingToSpeak && _pointerDownPos != null) {
       final moved = (event.position - _pointerDownPos!).distance;
       if (moved > 14.0) {
@@ -177,7 +212,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   ) {
     _holdToSpeakTimer?.cancel();
 
-    // 🎙️ إذا كان في وضع Hold-to-Speak، بمجرد رفع الإصبع يتم إرسال الصوت للتنفيذ فوراً
     if (_isHoldingToSpeak) {
       _isHoldingToSpeak = false;
       voiceCubit.stopAndExecute(context: context);
@@ -218,12 +252,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     } catch (_) {}
   }
 
-  // ===========================================================================
-  // 🧭 فيزياء السحب والتكبير (Scale & Pan Physics)
-  // ===========================================================================
-
   void _onScaleStart(ScaleStartDetails details) {
-    // 🛡️ حظر تحريك الكاميرا إذا كان المستخدم في وضع الضغط للتحدث
     if (_isHoldingToSpeak) return;
 
     _panX.stop();
@@ -239,7 +268,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   }
 
   void _onScaleUpdate(ScaleUpdateDetails details) {
-    // 🛡️ حظر تحريك الكاميرا أثناء التحدث
     if (_isHoldingToSpeak) return;
 
     final state = context.read<SpatialCompassCubit>().state;
@@ -631,9 +659,9 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                     return Stack(
                       children: [
                         // ⚙️ الطبقة العميقة (Floor 1: الإعدادات والمحركات)
-                        Visibility(
-                          visible: settingsOpacity > 0.02,
-                          child: Transform(
+                        // نستخدم if بدلاً من Visibility لندمر الشجرة بالكامل ونحرر الذاكرة
+                        if (settingsOpacity > 0.0)
+                          Transform(
                             alignment: Alignment.center,
                             transform: Matrix4.identity()
                               ..translate(_panX.value, _panY.value)
@@ -643,18 +671,17 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                               child: IgnorePointer(
                                 ignoring: zFloor < 0.5,
                                 child: SpatialFloorLayout(
+                                  key: const ValueKey('spatial_floor_layout_1'),
                                   direction: state.currentDirection,
                                   floorLevel: 1,
                                 ),
                               ),
                             ),
                           ),
-                        ),
 
                         // 🏠 الطبقة السطحية (Floor 0: الغرف الأساسية وقمرة القيادة)
-                        Visibility(
-                          visible: coreOpacity > 0.02,
-                          child: Transform(
+                        if (coreOpacity > 0.0)
+                          Transform(
                             alignment: Alignment.center,
                             transform: Matrix4.identity()
                               ..translate(_panX.value, _panY.value)
@@ -664,13 +691,13 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                               child: IgnorePointer(
                                 ignoring: zFloor > 0.5,
                                 child: SpatialFloorLayout(
+                                  key: const ValueKey('spatial_floor_layout_0'),
                                   direction: state.currentDirection,
                                   floorLevel: 0,
                                 ),
                               ),
                             ),
                           ),
-                        ),
 
                         // 🗺️ شريط الـ HUD الملاحي المتصل بالطوبولوجيا
                         SpatialCompassHud(

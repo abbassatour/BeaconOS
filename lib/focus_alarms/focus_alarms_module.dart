@@ -2,13 +2,10 @@
 import 'package:beacon_os/core/audio/sound_cue.dart';
 import 'package:beacon_os/core/spatial_kernel/spatial_module.dart';
 import 'package:beacon_os/core/spatial_kernel/voice_intent_handler.dart';
-import 'package:beacon_os/focus_alarms/cubit/focus_alarms_cubit.dart';
 import 'package:beacon_os/focus_alarms/intents/focus_intents.dart';
 import 'package:beacon_os/focus_alarms/view/focus_alarms_view.dart';
 import 'package:beacon_os/focus_alarms/view/settings_focus_room.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:launcher_repository/launcher_repository.dart';
 
 class FocusAlarmsModule extends SpatialModule {
   FocusAlarmsModule._();
@@ -45,20 +42,13 @@ class FocusAlarmsModule extends SpatialModule {
 
   @override
   Widget buildFloorView(BuildContext context, int floorLevel) {
-    return BlocProvider(
-      create: (context) => FocusAlarmsCubit(
-        focusRepository: context.read<FocusAlarmsRepository>(),
-        assistantRepository: context.read<AssistantRepository>(), // 👈 التحديث تم هنا
-        settingsRepository: context.read<SettingsRepository>(),
-      ),
-      child: Builder(
-        builder: (ctx) {
-          if (floorLevel == 1) {
-            return const SettingsFocusRoom();
-          }
-          return const FocusAlarmsContentView();
-        },
-      ),
+    if (floorLevel == 1) {
+      return const SettingsFocusRoom(
+        key: ValueKey('settings_focus_room_view'),
+      );
+    }
+    return const FocusAlarmsContentView(
+      key: ValueKey('focus_alarms_content_view'),
     );
   }
 }
