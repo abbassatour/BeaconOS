@@ -129,22 +129,19 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
     }
   }
 
-  /// إطلاق رادار الاستغاثة وبث الموقع عبر الأقمار الصناعية
+  /// إطلاق رادار الاستغاثة وبث الموقع الحقيقي عبر الأقمار الصناعية
   Future<void> triggerEmergencySos() async {
     emit(state.copyWith(isSosBroadcasting: true));
 
     await _sound.play(SoundCue.sosAlarm);
     await _haptics.emergencyAlarmPulse();
 
-    await _assistant.speak( // 👈 التحديث هنا
-      'Emergency SOS broadcast initiated! Broadcasting coordinates to family radar.',
+    await _assistant.speak(
+      'Emergency SOS broadcast initiated! Broadcasting real GPS coordinates to family radar.',
     );
 
-    await _commsRepo.triggerEmergencySos(
-      latitude: 0.0,
-      longitude: 0.0,
-      batteryLevel: 100,
-    );
+    // ⚡️ جلب تلقائي للإحداثيات الحقيقية والبطارية والاتصال بجهة الطوارئ
+    await _commsRepo.triggerEmergencySos();
 
     await Future<void>.delayed(const Duration(seconds: 4));
     emit(state.copyWith(isSosBroadcasting: false));

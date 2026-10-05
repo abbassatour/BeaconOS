@@ -1,14 +1,29 @@
 // packages/launcher_repository/lib/src/domains/assistant_repository.dart
 import 'package:voice_ai_api/voice_ai_api.dart';
 
+export 'package:voice_ai_api/voice_ai_api.dart' show VoiceRecognitionEvent;
+
+/// العقد النطاقي المخصص لإدارة المساعد الصوتي، الاستماع المباشر، والـ LLM
 abstract class AssistantRepository {
   Future<void> initializeEngines();
   Future<void> setSpeechRate(double rate);
+
+  // --- التدفقات التفاعلية المباشرة (Reactive Streams) ---
+  Stream<String> get textStream;
+  Stream<double> get soundLevelStream;
+  Stream<bool> get isListeningStream;
+  Stream<VoiceRecognitionEvent> get recognitionStream;
+  bool get isListening;
+
+  // --- التحكم بجلسات الميكروفون ---
   Future<void> startListening({
-    required Function(String text, bool isFinal) onResult,
+    Function(String text, bool isFinal)? onResult,
     Function(double level)? onSoundLevel,
   });
   Future<String> stopListening();
+  Future<void> cancelListening();
+
+  // --- محرك النطق والتحليل ---
   Future<void> speak(String text);
   Future<void> stopSpeaking();
   Future<String> analyzeVisionFrame({
@@ -43,15 +58,32 @@ class AssistantRepositoryImpl implements AssistantRepository {
 
   @override
   Future<void> setSpeechRate(double rate) async {
-    // ⚡️ تفعيل المحرك وتمرير السرعة لـ FlutterTts مباشرة
     await _tts.setSpeechRate(rate);
   }
 
+  // --- ربط التدفقات مباشرة مع محرك الصوت الحي ---
+  @override
+  Stream<String> get textStream => _speech.textStream;
+
+  @override
+  Stream<double> get soundLevelStream => _speech.soundLevelStream;
+
+  @override
+  Stream<bool> get isListeningStream => _speech.isListeningStream;
+
+  @override
+  Stream<VoiceRecognitionEvent> get recognitionStream =>
+      _speech.recognitionStream;
+
+  @override
+  bool get isListening => _speech.isListening;
+
   @override
   Future<void> startListening({
-    required Function(String text, bool isFinal) onResult,
+    Function(String text, bool isFinal)? onResult,
     Function(double level)? onSoundLevel,
   }) async {
+    // 🛡️ حماية حاسمة: إيقاف النطق فوراً قبل فتح الميكروفون لمنع ارتداد صوت السماعة
     await _tts.stop();
     await _speech.startListening(
       onResult: onResult,
@@ -61,6 +93,9 @@ class AssistantRepositoryImpl implements AssistantRepository {
 
   @override
   Future<String> stopListening() => _speech.stopListening();
+
+  @override
+  Future<void> cancelListening() => _speech.cancelListening();
 
   @override
   Future<void> speak(String text) => _tts.speak(text);
@@ -77,7 +112,8 @@ class AssistantRepositoryImpl implements AssistantRepository {
       userCommand: prompt,
       base64Image: base64Image,
     );
-    return result['spoken_response'] as String? ?? 'Could not inspect the scene.';
+    return result['spoken_response'] as String? ??
+        'Could not inspect the scene.';
   }
 
   @override

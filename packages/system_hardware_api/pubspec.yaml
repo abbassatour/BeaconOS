@@ -12,6 +12,7 @@ dependencies:
   battery_plus: ^7.1.1
   flutter:
     sdk: flutter
+  geolocator: ^14.1.1
   permission_handler: 11.3.1
   url_launcher: ^6.3.2
 

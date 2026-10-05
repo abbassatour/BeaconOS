@@ -25,17 +25,13 @@ class EmergencySosIntentHandler extends VoiceIntentHandler {
   ) async {
     final commsRepo = context.read<CommsRepository>();
 
-    // إطلاق بث الرادار واستدعاء جهة الطوارئ الأساسية
-    final alertId = await commsRepo.triggerEmergencySos(
-      latitude: 0.0,
-      longitude: 0.0,
-      batteryLevel: 100,
-    );
+    // ⚡️ إطلاق بث الرادار الحي بالإحداثيات الحقيقية
+    final alertId = await commsRepo.triggerEmergencySos();
 
     return LauncherCommandResult(
       intent: 'EMERGENCY_SOS',
       spokenResponse:
-          'Emergency SOS broadcast initiated! Broadcasting coordinates to family radar and dialing primary contact.',
+          'Emergency SOS broadcast initiated! Live GPS coordinates shared to family radar.',
       actionPayload: alertId,
     );
   }

@@ -28,9 +28,10 @@ abstract class CommsRepository {
     bool isOutgoing = false,
   });
 
+  /// إطلاق استغاثة الطوارئ مع جلب تلقائي للـ GPS ونسبة البطارية الحقيقية
   Future<String> triggerEmergencySos({
-    required double latitude,
-    required double longitude,
+    double? latitude,
+    double? longitude,
     int? batteryLevel,
   });
 
@@ -58,7 +59,8 @@ class CommsRepositoryImpl implements CommsRepository {
   Future<List<Contact>> getEmergencyContacts() => _db.getEmergencyContacts();
 
   @override
-  Future<Contact?> findContact(String query) => _db.findContactByNameOrRelation(query);
+  Future<Contact?> findContact(String query) =>
+      _db.findContactByNameOrRelation(query);
 
   @override
   Future<String> saveContact({
@@ -89,7 +91,8 @@ class CommsRepositoryImpl implements CommsRepository {
 
   @override
   Future<void> deleteContact(dynamic contactOrId) async {
-    final String id = contactOrId is Contact ? contactOrId.id : contactOrId.toString();
+    final String id =
+        contactOrId is Contact ? contactOrId.id : contactOrId.toString();
     await _db.softDeleteContact(id);
     _cloud.softDeleteContactInCloud(id).catchError((Object error) {
       log('CommsRepository: Cloud contact delete deferred: $error');
@@ -101,7 +104,8 @@ class CommsRepositoryImpl implements CommsRepository {
       _db.watchMessagesForContact(contactIdentifier);
 
   @override
-  Future<List<MessagesVaultData>> getUnreadMessages() => _db.getUnreadMessages();
+  Future<List<MessagesVaultData>> getUnreadMessages() =>
+      _db.getUnreadMessages();
 
   @override
   Future<void> markMessagesAsRead(String contactIdentifier) async {
@@ -141,41 +145,60 @@ class CommsRepositoryImpl implements CommsRepository {
     return id;
   }
 
-  // استبدال دالة triggerEmergencySos في packages/launcher_repository/lib/src/domains/comms_repository.dart:
-
   @override
   Future<String> triggerEmergencySos({
-    required double latitude,
-    required double longitude,
+    double? latitude,
+    double? longitude,
     int? batteryLevel,
   }) async {
-    // ⚡️ 1. قراءة تفضيلات الطوارئ والـ GPS المحفوظة
+    // ⚡️ 1. قراءة تفضيلات المستخدم من قاعدة البيانات
     final settings = await _db.getSettings();
-
     final shareGps = settings.shareGpsOnSos;
-    final effectiveLat = shareGps ? latitude : 0.0;
-    final effectiveLng = shareGps ? longitude : 0.0;
-    final googleMapsUrl = shareGps
-        ? 'https://maps.google.com/?q=$latitude,$longitude'
-        : 'GPS Sharing Disabled';
 
+    // ⚡️ 2. قراءة نسبة البطارية الحقيقية من العتاد
+    final actualBattery = batteryLevel ?? await _hardware.getBatteryPercentage();
+
+    // ⚡️ 3. قراءة إحداثيات الـ GPS الحقيقية إذا لم تُمرر
+    double actualLat = latitude ?? 0.0;
+    double actualLng = longitude ?? 0.0;
+
+    if (shareGps && (latitude == null || longitude == null)) {
+      final coords = await _hardware.getCurrentLocation();
+      if (coords != null) {
+        actualLat = coords.latitude;
+        actualLng = coords.longitude;
+      }
+    }
+
+    final effectiveLat = shareGps ? actualLat : 0.0;
+    final effectiveLng = shareGps ? actualLng : 0.0;
+
+    // توليد رابط خرائط جوجل الفعلي
+    final googleMapsUrl = (shareGps && effectiveLat != 0.0 && effectiveLng != 0.0)
+        ? 'https://maps.google.com/?q=$effectiveLat,$effectiveLng'
+        : (shareGps ? 'GPS Unavailable (Searching satellites...)' : 'GPS Sharing Disabled');
+
+    log('CommsRepository: SOS Triggered! Lat: $effectiveLat, Lng: $effectiveLng, Battery: $actualBattery%');
+
+    // ⚡️ 4. حفظ الاستغاثة في الخزنة المشفرة محلياً (Drift)
     final alertId = await _db.insertSosAlert(
       latitude: effectiveLat,
       longitude: effectiveLng,
-      batteryLevel: batteryLevel ?? 100,
+      batteryLevel: actualBattery,
       googleMapsUrl: googleMapsUrl,
     );
 
+    // ⚡️ 5. بث رادار الاستغاثة سحابياً عبر Supabase
     _cloud.broadcastEmergencySos(
       id: alertId,
       latitude: effectiveLat,
       longitude: effectiveLng,
-      batteryLevel: batteryLevel ?? 100,
+      batteryLevel: actualBattery,
     ).catchError((Object error) {
       log('CommsRepository: Cloud SOS broadcast deferred: $error');
     });
 
-    // ⚡️ 2. الاتصال التلقائي بجهة الطوارئ فقط إذا كان الخيار مفعلاً
+    // ⚡️ 6. الاتصال التلقائي بجهة الطوارئ الأساسية إن كان الخيار مفعلاً
     if (settings.autoDialEmergency) {
       final emergencyContacts = await _db.getEmergencyContacts();
       if (emergencyContacts.isNotEmpty) {
@@ -186,7 +209,6 @@ class CommsRepositoryImpl implements CommsRepository {
 
     return alertId;
   }
-  
 
   @override
   Future<void> restoreCommsFromCloud() async {
@@ -215,7 +237,9 @@ class CommsRepositoryImpl implements CommsRepository {
   Future<void> syncPendingComms() async {
     if (!_cloud.isAuthenticated) return;
     try {
-      final pending = await (_db.select(_db.contacts)..where((c) => c.isSynced.equals(false))).get();
+      final pending = await (_db.select(_db.contacts)
+            ..where((c) => c.isSynced.equals(false)))
+          .get();
       for (final c in pending) {
         if (c.deletedAt != null) {
           await _cloud.softDeleteContactInCloud(c.id);

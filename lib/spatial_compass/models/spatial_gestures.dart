@@ -6,7 +6,7 @@ enum SpatialGesture {
   ascendToSettings(
     symbol: '🤏',
     shortLabel: 'Pinch together',
-    visualHint: '🤏 Pinch with 2 fingers to enter Floor 2 (Settings)',
+    visualHint: '🤏 Pinch with 2 fingers to enter Floor 1 (Settings)',
     spokenPrompt:
         'Elevator activated. Pinching two fingers together ascends to the Settings floor.',
     onboardingStepLabel: 'Pinch together 🤏 to dive into Settings Floor',
@@ -70,6 +70,16 @@ enum SpatialGesture {
     spokenPrompt:
         'Double tap anywhere with two fingers to announce your current room location.',
     onboardingStepLabel: 'Double tap with 2 fingers to hear location',
+  ),
+
+  // 🎙️ 4. السحب من زوايا الهاتف لاستدعاء المساعد الذكي
+  cornerSwipeAssistant(
+    symbol: '📐',
+    shortLabel: 'Corner Swipe',
+    visualHint: 'Swipe diagonally inward from bottom corners to summon Beacon AI',
+    spokenPrompt:
+        'Swipe diagonally inward from either bottom corner of your device to speak with your assistant.',
+    onboardingStepLabel: 'Swipe from bottom corner for Voice Assistant',
   );
 
   const SpatialGesture({

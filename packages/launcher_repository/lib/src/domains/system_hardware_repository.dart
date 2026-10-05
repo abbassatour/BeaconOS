@@ -1,8 +1,12 @@
 // packages/launcher_repository/lib/src/domains/system_hardware_repository.dart
 import 'package:system_hardware_api/system_hardware_api.dart';
 
+export 'package:system_hardware_api/system_hardware_api.dart' show GpsCoordinates;
+
 abstract class SystemHardwareRepository {
   Future<String> getBatteryStatus();
+  Future<int> getBatteryPercentage();
+  Future<GpsCoordinates?> getCurrentLocation();
   Future<bool> toggleFlashlight({bool? enable});
   Future<bool> lockScreen();
   Future<bool> openApp(String packageNameOrCommonName);
@@ -31,6 +35,12 @@ class SystemHardwareRepositoryImpl implements SystemHardwareRepository {
 
   @override
   Future<String> getBatteryStatus() => _hardware.getBatteryStatus();
+
+  @override
+  Future<int> getBatteryPercentage() => _hardware.getBatteryPercentage();
+
+  @override
+  Future<GpsCoordinates?> getCurrentLocation() => _hardware.getCurrentLocation();
 
   @override
   Future<bool> toggleFlashlight({bool? enable}) =>

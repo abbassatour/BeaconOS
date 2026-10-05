@@ -1,5 +1,8 @@
 // lib/core/spatial_kernel/voice_command_dispatcher.dart
 import 'dart:developer';
+import 'package:beacon_os/core/audio/sound_controller.dart';
+import 'package:beacon_os/core/audio/sound_cue.dart';
+import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/core/spatial_kernel/spatial_topology.dart';
 import 'package:beacon_os/core/spatial_kernel/voice_intent_handler.dart';
 import 'package:flutter/widgets.dart';
@@ -11,13 +14,19 @@ class VoiceCommandDispatcher {
     required SpatialTopology topology,
     required AssistantRepository assistantRepository,
     GlobalKey<NavigatorState>? navigatorKey,
+    SoundController? soundController,
+    HapticManager? hapticManager,
   })  : _topology = topology,
         _assistant = assistantRepository,
-        _navigatorKey = navigatorKey;
+        _navigatorKey = navigatorKey,
+        _sound = soundController ?? SoundController.instance,
+        _haptics = hapticManager ?? HapticManager.instance;
 
   final SpatialTopology _topology;
   final AssistantRepository _assistant;
   final GlobalKey<NavigatorState>? _navigatorKey;
+  final SoundController _sound;
+  final HapticManager _haptics;
 
   /// تجميع كل الأوامر المسجلة عبر الموديولات وترتيبها بالأولوية التنازلية
   List<VoiceIntentHandler> get _registeredHandlers {
@@ -30,7 +39,7 @@ class VoiceCommandDispatcher {
     return handlers;
   }
 
-  /// معالجة وتوجيه الأمر الصوتي عبر المستويين (Fast-Path ثم LLM)
+  /// تنفيذ وتوجيه الأمر الصوتي عبر المستويين (Fast-Path ثم LLM)
   Future<LauncherCommandResult> dispatch(
     String rawQuery, {
     String? base64Image,
@@ -58,7 +67,8 @@ class VoiceCommandDispatcher {
           try {
             return await handler.execute(effectiveContext, intentContext);
           } catch (e, st) {
-            log('VoiceDispatcher: Error executing fast-path [${handler.intentId}]: $e', stackTrace: st);
+            log('VoiceDispatcher: Error executing fast-path [${handler.intentId}]: $e',
+                stackTrace: st);
           }
         }
       }
@@ -76,12 +86,13 @@ class VoiceCommandDispatcher {
       );
 
       final intentName = llmResult['intent'] as String? ?? 'GENERAL_CHAT';
-      final spokenResponse = llmResult['spoken_response'] as String? ?? 'Done.';
+      final spokenResponse =
+          llmResult['spoken_response'] as String? ?? 'Done.';
       final parameters = llmResult['parameters'] is Map
           ? Map<String, dynamic>.from(llmResult['parameters'] as Map)
           : <String, dynamic>{};
 
-      // البحث عن موديول مسجل يدعم هذا الـ Intent المستخرج من الذكاء الاصطناعي
+      // البحث عن معالج مسجل يدعم هذا الـ Intent
       VoiceIntentHandler? targetHandler;
       for (final h in handlers) {
         if (h.intentId.toUpperCase() == intentName.toUpperCase()) {
@@ -90,7 +101,6 @@ class VoiceCommandDispatcher {
         }
       }
 
-      // إذا وُجد معالج معتمد لهذا الأمر، ننفذ إجراءات الحفظ/التعديل عبره
       if (targetHandler != null && effectiveContext != null) {
         log('VoiceDispatcher: LLM intent [$intentName] executing via handler.');
         final enrichedContext = VoiceIntentContext(
@@ -102,7 +112,6 @@ class VoiceCommandDispatcher {
         return await targetHandler.execute(effectiveContext, enrichedContext);
       }
 
-      // إذا كان حديثاً عاماً أو رداً توليدياً
       return LauncherCommandResult(
         intent: intentName,
         spokenResponse: spokenResponse,
@@ -112,8 +121,35 @@ class VoiceCommandDispatcher {
       log('VoiceDispatcher: LLM dispatch exception: $e', stackTrace: st);
       return const LauncherCommandResult(
         intent: 'ERROR',
-        spokenResponse: "I'm sorry, I encountered a connection error. Please try again.",
+        spokenResponse:
+            "I'm sorry, I encountered a connection error. Please try again.",
       );
     }
+  }
+
+  /// تنفيذ الأمر الصوتي مع تشغيل النغمات والاهتزازات ونطق النتيجة تلقائياً
+  Future<LauncherCommandResult> dispatchAndAnnounce(
+    String rawQuery, {
+    BuildContext? context,
+    String? base64Image,
+    Map<String, dynamic>? systemContext,
+  }) async {
+    final result = await dispatch(
+      rawQuery,
+      context: context,
+      base64Image: base64Image,
+      systemContext: systemContext,
+    );
+
+    if (result.intent == 'ERROR' || result.intent.endsWith('_FAILED')) {
+      await _sound.play(SoundCue.error);
+      await _haptics.errorAlert();
+    } else {
+      await _sound.play(SoundCue.success);
+      await _haptics.successNotification();
+    }
+
+    await _assistant.speak(result.spokenResponse);
+    return result;
   }
 }

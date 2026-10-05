@@ -1,11 +1,15 @@
 // lib/spatial_compass/view/spatial_compass_page.dart
 import 'package:beacon_os/core/haptics/haptic_manager.dart';
 import 'package:beacon_os/core/physics/spatial_physics.dart';
+import 'package:beacon_os/core/spatial_kernel/ambient_voice/cubit/ambient_voice_cubit.dart';
 import 'package:beacon_os/core/spatial_kernel/spatial_topology.dart';
+import 'package:beacon_os/core/spatial_kernel/voice_command_dispatcher.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
 import 'package:beacon_os/settings/cubit/settings_cubit.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_cubit.dart';
 import 'package:beacon_os/spatial_compass/cubit/spatial_compass_state.dart';
+import 'package:beacon_os/spatial_compass/widgets/ambient_voice_sheet.dart';
+import 'package:beacon_os/spatial_compass/widgets/corner_swipe_detector.dart';
 import 'package:beacon_os/spatial_compass/widgets/floor_layouts.dart';
 import 'package:beacon_os/spatial_compass/widgets/spatial_compass_hud.dart';
 import 'package:flutter/material.dart';
@@ -31,6 +35,12 @@ class SpatialCompassPage extends StatelessWidget {
           create: (context) => SettingsCubit(
             settingsRepository: context.read<SettingsRepository>(),
             assistantRepository: context.read<AssistantRepository>(),
+          ),
+        ),
+        BlocProvider(
+          create: (context) => AmbientVoiceCubit(
+            assistantRepository: context.read<AssistantRepository>(),
+            voiceDispatcher: context.read<VoiceCommandDispatcher>(),
           ),
         ),
       ],
@@ -60,12 +70,11 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   double _startYAtGesture = 0.0;
   bool _hapticDetentFired = false;
 
-  // --- تتبع إيماءات اللمس المتقدمة (SOS & Context) ---
+  // --- تتبع إيماءات اللمس السريع (Triple Tap SOS & 2-Finger Context) ---
   int _activePointers = 0;
   DateTime? _multiTouchStartTime;
   bool _hasTwoFingerMoved = false;
 
-  // متغيرات رصد النقر الثلاثي السريع للطوارئ
   int _tapCount = 0;
   DateTime? _lastTapTime;
 
@@ -98,13 +107,11 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   void _onPointerDown(PointerDownEvent event) {
     _activePointers++;
 
-    // رصد اللمس بإصبعين لنطق الموقع
     if (_activePointers == 2) {
       _multiTouchStartTime = DateTime.now();
       _hasTwoFingerMoved = false;
-      _tapCount = 0; // إلغاء عداد الـ SOS إذا كان اللمس بإصبعين
+      _tapCount = 0;
     } else if (_activePointers == 1) {
-      // 🚨 فحص النقر الثلاثي السريع للطوارئ (SOS)
       final now = DateTime.now();
       if (_lastTapTime == null ||
           now.difference(_lastTapTime!).inMilliseconds > 450) {
@@ -128,7 +135,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   }
 
   void _onPointerUp(PointerUpEvent event, SpatialCompassCubit cubit) {
-    // نطق الموقع عند النقر السريع بإصبعين
     if (_activePointers == 2 && _multiTouchStartTime != null) {
       final tapDuration = DateTime.now().difference(_multiTouchStartTime!);
       if (!_hasTwoFingerMoved && tapDuration.inMilliseconds < 300) {
@@ -144,16 +150,11 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     _activePointers = (_activePointers - 1).clamp(0, 10);
   }
 
-  /// إطلاق استغاثة الطوارئ فور رصد 3 نقرات سريعة
   Future<void> _triggerTripleTapSos() async {
     HapticManager.instance.emergencyAlarmPulse();
     try {
       final commsRepo = context.read<CommsRepository>();
-      await commsRepo.triggerEmergencySos(
-        latitude: 0,
-        longitude: 0,
-        batteryLevel: 100,
-      );
+      await commsRepo.triggerEmergencySos();
     } catch (_) {}
   }
 
@@ -177,7 +178,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   void _onScaleUpdate(ScaleUpdateDetails details) {
     final state = context.read<SpatialCompassCubit>().state;
 
-    // 🤏 1. فيزياء محور العمق (Z-Axis Pinch / Zoom)
     if (_isTwoFingerPinch || details.pointerCount >= 2) {
       _isTwoFingerPinch = true;
 
@@ -188,7 +188,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       if ((rawZ > 0.35 && _initialScale < 0.5) ||
           (rawZ < 0.65 && _initialScale >= 0.5)) {
         if (!_hapticDetentFired) {
-          // 👈 تم الربط بـ HapticManager الواعي للإعدادات
           HapticManager.instance.selectionClick();
           _hapticDetentFired = true;
         }
@@ -201,7 +200,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       return;
     }
 
-    // 🧭 2. فيزياء محور التنقل الأفقي بين الغرف (XY-Axis Pan)
     final dx = details.focalPointDelta.dx;
     final dy = details.focalPointDelta.dy;
 
@@ -262,13 +260,11 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         final dragDistance = (_panX.value - _startXAtGesture).abs();
         if (dragDistance > screenWidth * 0.35) {
           if (!_hapticDetentFired) {
-            // 👈 تم الربط بـ HapticManager الواعي للإعدادات
             HapticManager.instance.selectionClick();
             _hapticDetentFired = true;
           }
         } else {
           if (_hapticDetentFired) {
-            // 👈 تم الربط بـ HapticManager الواعي للإعدادات
             HapticManager.instance.selectionClick();
             _hapticDetentFired = false;
           }
@@ -324,13 +320,11 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         final dragDistance = (_panY.value - _startYAtGesture).abs();
         if (dragDistance > screenHeight * 0.25) {
           if (!_hapticDetentFired) {
-            // 👈 تم الربط بـ HapticManager الواعي للإعدادات
             HapticManager.instance.selectionClick();
             _hapticDetentFired = true;
           }
         } else {
           if (_hapticDetentFired) {
-            // 👈 تم الربط بـ HapticManager الواعي للإعدادات
             HapticManager.instance.selectionClick();
             _hapticDetentFired = false;
           }
@@ -344,7 +338,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     final screenH = MediaQuery.of(context).size.height;
     final state = cubit.state;
 
-    // 🏢 إنهاء إيماءة الطابق والقفز السلس بالنوابض (Z Simulation)
     if (_isTwoFingerPinch) {
       _isTwoFingerPinch = false;
 
@@ -368,7 +361,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       return;
     }
 
-    // إنهاء إيماءات الغرف الأفقية والرأسية
     if (_lockedAxis == Axis.horizontal) {
       final vx = details.velocity.pixelsPerSecond.dx;
       var targetX = _panX.value;
@@ -520,7 +512,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
 
   @override
   Widget build(BuildContext context) {
-    final cubit = context.read<SpatialCompassCubit>();
+    final compassCubit = context.read<SpatialCompassCubit>();
+    final ambientVoiceCubit = context.read<AmbientVoiceCubit>();
 
     return BlocListener<SpatialCompassCubit, SpatialCompassState>(
       listenWhen: (previous, current) =>
@@ -545,80 +538,87 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       child: Scaffold(
         backgroundColor: context.scaffoldBg,
         body: SafeArea(
-          child: Listener(
-            onPointerDown: _onPointerDown,
-            onPointerMove: _onPointerMove,
-            onPointerUp: (e) => _onPointerUp(e, cubit),
-            onPointerCancel: _onPointerCancel,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onScaleStart: _onScaleStart,
-              onScaleUpdate: _onScaleUpdate,
-              onScaleEnd: (d) => _onScaleEnd(d, cubit),
-              child: BlocBuilder<SpatialCompassCubit, SpatialCompassState>(
-                builder: (context, state) {
-                  final zFloor = _floorZ.value.clamp(0.0, 1.0);
+          // 📐 1. ملتقط السحب من زوايا الهاتف لاستدعاء المساعد الصوتي
+          child: CornerSwipeDetector(
+            onCornerSwipe: () => ambientVoiceCubit.startSession(),
+            child: Listener(
+              onPointerDown: _onPointerDown,
+              onPointerMove: _onPointerMove,
+              onPointerUp: (e) => _onPointerUp(e, compassCubit),
+              onPointerCancel: _onPointerCancel,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onScaleStart: _onScaleStart,
+                onScaleUpdate: _onScaleUpdate,
+                onScaleEnd: (d) => _onScaleEnd(d, compassCubit),
+                child: BlocBuilder<SpatialCompassCubit, SpatialCompassState>(
+                  builder: (context, state) {
+                    final zFloor = _floorZ.value.clamp(0.0, 1.0);
 
-                  final coreScale = 1.0 + (zFloor * 0.45);
-                  final coreOpacity = (1.0 - zFloor).clamp(0.0, 1.0);
+                    final coreScale = 1.0 + (zFloor * 0.45);
+                    final coreOpacity = (1.0 - zFloor).clamp(0.0, 1.0);
 
-                  final settingsScale = 0.75 + (zFloor * 0.25);
-                  final settingsOpacity = zFloor.clamp(0.0, 1.0);
+                    final settingsScale = 0.75 + (zFloor * 0.25);
+                    final settingsOpacity = zFloor.clamp(0.0, 1.0);
 
-                  return Stack(
-                    children: [
-                      // ⚙️ الطبقة العميقة (Floor 1: الإعدادات والمحركات)
-                      Visibility(
-                        visible: settingsOpacity > 0.02,
-                        child: Transform(
-                          alignment: Alignment.center,
-                          transform: Matrix4.identity()
-                            ..translate(_panX.value, _panY.value)
-                            ..scale(settingsScale, settingsScale),
-                          child: Opacity(
-                            opacity: settingsOpacity,
-                            child: IgnorePointer(
-                              ignoring: zFloor < 0.5,
-                              child: SpatialFloorLayout(
-                                direction: state.currentDirection,
-                                floorLevel: 1,
+                    return Stack(
+                      children: [
+                        // ⚙️ الطبقة العميقة (Floor 1: الإعدادات والمحركات)
+                        Visibility(
+                          visible: settingsOpacity > 0.02,
+                          child: Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4.identity()
+                              ..translate(_panX.value, _panY.value)
+                              ..scale(settingsScale, settingsScale),
+                            child: Opacity(
+                              opacity: settingsOpacity,
+                              child: IgnorePointer(
+                                ignoring: zFloor < 0.5,
+                                child: SpatialFloorLayout(
+                                  direction: state.currentDirection,
+                                  floorLevel: 1,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
 
-                      // 🏠 الطبقة السطحية (Floor 0: الغرف الأساسية وقمرة القيادة)
-                      Visibility(
-                        visible: coreOpacity > 0.02,
-                        child: Transform(
-                          alignment: Alignment.center,
-                          transform: Matrix4.identity()
-                            ..translate(_panX.value, _panY.value)
-                            ..scale(coreScale, coreScale),
-                          child: Opacity(
-                            opacity: coreOpacity,
-                            child: IgnorePointer(
-                              ignoring: zFloor > 0.5,
-                              child: SpatialFloorLayout(
-                                direction: state.currentDirection,
-                                floorLevel: 0,
+                        // 🏠 الطبقة السطحية (Floor 0: الغرف الأساسية وقمرة القيادة)
+                        Visibility(
+                          visible: coreOpacity > 0.02,
+                          child: Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4.identity()
+                              ..translate(_panX.value, _panY.value)
+                              ..scale(coreScale, coreScale),
+                            child: Opacity(
+                              opacity: coreOpacity,
+                              child: IgnorePointer(
+                                ignoring: zFloor > 0.5,
+                                child: SpatialFloorLayout(
+                                  direction: state.currentDirection,
+                                  floorLevel: 0,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
 
-                      // 🗺️ شريط الـ HUD الملاحي المتصل بالطوبولوجيا
-                      SpatialCompassHud(
-                        direction: state.currentDirection,
-                        currentFloor: state.currentFloor,
-                        onCenterTap: cubit.returnToCenter,
-                        onFloorToggle: cubit.toggleFloor,
-                      ),
-                    ],
-                  );
-                },
+                        // 🗺️ شريط الـ HUD الملاحي المتصل بالطوبولوجيا
+                        SpatialCompassHud(
+                          direction: state.currentDirection,
+                          currentFloor: state.currentFloor,
+                          onCenterTap: compassCubit.returnToCenter,
+                          onFloorToggle: compassCubit.toggleFloor,
+                        ),
+
+                        // 🎙️ لوحة المساعد الصوتي العائمة المستدعاة من الزاوية
+                        const AmbientVoiceOverlay(),
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ),
