@@ -124,7 +124,7 @@ class FocusAlarmsContentView extends StatelessWidget {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.outline)),
                         child: Text(
-                          'No scheduled alarms for today. Swipe ${CompassDirection.north.arrowSymbol} for Focus & Alarms.',
+                          'No scheduled alarms. Tap + above or ask Beacon AI to set an alarm.',
                           style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
                         ),
                       ),

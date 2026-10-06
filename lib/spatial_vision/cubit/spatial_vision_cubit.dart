@@ -80,7 +80,7 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
     emit(state.copyWith(status: VisionStatus.idle));
   }
 
-  /// الالتقاط الفوري والتحليل الذكي المتوافق مع تفضيلات الطابق الثاني
+  /// الالتقاط الفوري والتحليل الذكي المتوافق مع تفضيلات الطابق الثاني ونظام الأذونات
   Future<void> captureAndAnalyze() async {
     if (state.isBusy) return;
 
@@ -94,12 +94,31 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
       await _sound.stopAll();
       await _assistantRepo.stopSpeaking();
 
-      // 1. بدء الالتقاط بنبضة تكتيكية وصوت المعالجة
-      emit(state.copyWith(status: VisionStatus.capturing));
-      await _haptics.successNotification();
-      await _sound.play(SoundCue.processing);
+      // 🛡️ 1. فحص إذن الكاميرا وتوجيه المستخدم صوتياً قبل بدء الالتقاط
+      final permState = await _camera.getPermissionState();
+      if (permState == CameraPermissionState.permanentlyDenied) {
+        emit(
+          state.copyWith(
+            status: VisionStatus.error,
+            errorMessage: 'Camera permission permanently disabled in device settings.',
+          ),
+        );
+        await _sound.play(SoundCue.error);
+        await _haptics.errorAlert();
+        await _assistantRepo.speak(
+          'Camera permission is disabled. Please enable it in device settings to use AI vision.',
+        );
+        return;
+      }
 
-      // قراءة تفضيلات الطابق الثاني من مستودع الإعدادات
+      if (permState == CameraPermissionState.denied) {
+        await _assistantRepo.speak('Please allow camera access on your screen.');
+      } else {
+        await _haptics.successNotification();
+        await _sound.play(SoundCue.processing);
+      }
+
+      // 2. قراءة تفضيلات الطابق الثاني من مستودع الإعدادات
       AppSetting? settings;
       try {
         settings = await _settingsRepo.getSettings();
@@ -107,30 +126,46 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
 
       // تشغيل الكشاف تلقائياً إذا كان الخيار مفعلاً
       final shouldAutoTorch = (settings?.autoFlashlightInDark ?? false) && !state.isTorchOn;
-      if (shouldAutoTorch) {
-        await _hardwareRepo.toggleFlashlight(enable: true);
+
+      emit(state.copyWith(status: VisionStatus.capturing));
+
+      String? base64Image;
+      try {
+        if (shouldAutoTorch) {
+          await _hardwareRepo.toggleFlashlight(enable: true);
+        }
+        base64Image = await _camera.captureAsBase64();
+      } finally {
+        // ضمان إطفاء الكشاف حتى لو فشل الالتقاط
+        if (shouldAutoTorch) {
+          await _hardwareRepo.toggleFlashlight(enable: false);
+        }
       }
 
-      final base64Image = await _camera.captureAsBase64();
-
-      if (shouldAutoTorch) {
-        await _hardwareRepo.toggleFlashlight(enable: false);
-      }
-
+      // 3. التحقق من نجاح الالتقاط
       if (base64Image == null || base64Image.isEmpty) {
+        final recheckedPerm = await _camera.getPermissionState();
+        final isPermIssue = recheckedPerm != CameraPermissionState.granted;
+
         emit(
           state.copyWith(
             status: VisionStatus.error,
-            errorMessage: 'Unable to capture frame from camera.',
+            errorMessage: isPermIssue
+                ? 'Camera permission denied.'
+                : 'Unable to capture frame from camera.',
           ),
         );
         await _sound.play(SoundCue.error);
         await _haptics.errorAlert();
-        await _assistantRepo.speak('Camera capture failed. Please tap again to retry.');
+        await _assistantRepo.speak(
+          isPermIssue
+              ? 'Camera permission was not granted.'
+              : 'Camera capture failed. Please tap again to retry.',
+        );
         return;
       }
 
-      // 2. إرسال الإطار إلى Gemini عبر مستودع المساعد الذكي
+      // 4. إرسال الإطار إلى Gemini عبر مستودع المساعد الذكي
       emit(state.copyWith(status: VisionStatus.analyzing));
       final prompt = _buildPromptForMode(state.activeMode, settings);
 
@@ -139,7 +174,7 @@ class SpatialVisionCubit extends Cubit<SpatialVisionState> {
         prompt: prompt,
       );
 
-      // 3. تأكيد النجاح ونطق الإجابة فوراً للكفيف
+      // 5. تأكيد النجاح ونطق الإجابة فوراً
       await _haptics.successNotification();
       await _sound.play(SoundCue.success);
 

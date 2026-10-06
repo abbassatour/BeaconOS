@@ -95,15 +95,34 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
 
     try {
       emit(state.copyWith(isCameraBusy: true, status: BlindFlowStatus.testingVision));
-      await _sound.play(SoundCue.processing);
-      await _haptics.successNotification();
-      await _assistant.speak('Inspecting scene with Gemini...');
+
+      // 🛡️ 1. فحص مسبق للإذن للتوجيه الصوتي
+      final permState = await _camera.getPermissionState();
+      if (permState == CameraPermissionState.permanentlyDenied) {
+        emit(state.copyWith(isCameraBusy: false, status: BlindFlowStatus.active));
+        await _sound.play(SoundCue.error);
+        await _haptics.errorAlert();
+        await _assistant.speak(
+          'Camera permission is permanently denied. Please enable camera in device settings.',
+        );
+        return;
+      }
+
+      // إذا لم يمنح الإذن بعد، ننبه الكفيف صوتياً ليستعد للضغط على نافذة النظام
+      if (permState == CameraPermissionState.denied) {
+        await _assistant.speak('Please allow camera access on your screen.');
+      } else {
+        await _sound.play(SoundCue.processing);
+        await _haptics.successNotification();
+        await _assistant.speak('Inspecting scene with Gemini...');
+      }
 
       final base64 = await _camera.captureAsBase64();
       if (base64 == null || base64.isEmpty) {
         emit(state.copyWith(isCameraBusy: false, status: BlindFlowStatus.active));
         await _sound.play(SoundCue.error);
-        await _assistant.speak('Camera capture failed. Please tap again to retry.');
+        await _haptics.errorAlert();
+        await _assistant.speak('Camera capture failed or permission was denied. Tap again to retry.');
         return;
       }
 

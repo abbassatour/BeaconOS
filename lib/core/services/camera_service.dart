@@ -3,6 +3,13 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'package:camera/camera.dart';
+import 'package:permission_handler/permission_handler.dart';
+
+enum CameraPermissionState {
+  granted,
+  denied,
+  permanentlyDenied,
+}
 
 class CameraService {
   CameraService._();
@@ -10,11 +17,44 @@ class CameraService {
 
   bool _isCapturing = false;
 
-  /// التقاط صورة فورية عند الطلب فقط وإغلاق الكاميرا فوراً
-  /// يمنع استهلاك البطارية ويقضي تماماً على انهيار FlutterJNI
+  /// فحص حالة إذن الكاميرا الحالية
+  Future<CameraPermissionState> getPermissionState() async {
+    final status = await Permission.camera.status;
+    if (status.isGranted) {
+      return CameraPermissionState.granted;
+    } else if (status.isPermanentlyDenied) {
+      return CameraPermissionState.permanentlyDenied;
+    } else {
+      return CameraPermissionState.denied;
+    }
+  }
+
+  /// طلب إذن استخدام الكاميرا من نظام أندرويد
+  Future<bool> requestCameraPermission() async {
+    final status = await Permission.camera.request();
+    return status.isGranted;
+  }
+
+  /// فتح شاشة إعدادات التطبيق في النظام في حال الرفض الدائم
+  Future<bool> openSettings() async {
+    return openAppSettings();
+  }
+
+  /// التقاط صورة فورية مع فحص وطلب الإذن تلقائياً وتحرير الموارد فوراً
   Future<String?> captureAsBase64() async {
     if (_isCapturing) return null;
     _isCapturing = true;
+
+    // 1. فحص إذن الكاميرا وطلبه وقت التشغيل إن لم يكن ممنوحاً
+    final isGranted = await Permission.camera.isGranted;
+    if (!isGranted) {
+      final requested = await Permission.camera.request();
+      if (!requested.isGranted) {
+        log('CameraService: Camera permission denied by user.');
+        _isCapturing = false;
+        return null;
+      }
+    }
 
     CameraController? controller;
     try {
@@ -42,16 +82,19 @@ class CameraService {
       final bytes = await File(file.path).readAsBytes();
       final base64String = base64Encode(bytes);
 
-      // مسح الملف المؤقت فوراً
+      // مسح الملف المؤقت فوراً لحماية الخصوصية وتوفير المساحة
       await File(file.path).delete();
       log('CameraService: Scene captured and encoded successfully.');
 
       return base64String;
+    } on CameraException catch (e, st) {
+      log('CameraService: CameraException [${e.code}]: ${e.description}', stackTrace: st);
+      return null;
     } catch (e, st) {
-      log('CameraService: Capture Error: $e', stackTrace: st);
+      log('CameraService: General Capture Error: $e', stackTrace: st);
       return null;
     } finally {
-      // إغلاق الكاميرا وتحرير العتاد فوراً (يسمح للكشاف بالعمل ويوفر البطارية)
+      // إغلاق الكاميرا وتحرير العتاد فوراً (يسمح للكشاف بالعمل ويمنع استهلاك البطارية)
       await controller?.dispose();
       _isCapturing = false;
     }
