@@ -39,6 +39,8 @@ class CommunicationsModule extends SpatialModule {
   List<VoiceIntentHandler> get voiceIntents => [
         EmergencySosIntentHandler(),
         CallContactIntentHandler(),
+        SaveContactIntentHandler(),   // 👈 مسجل حديثاً لـ SAVE_CONTACT
+        DeleteContactIntentHandler(), // 👈 مسجل حديثاً لـ DELETE_CONTACT
       ];
 
   @override

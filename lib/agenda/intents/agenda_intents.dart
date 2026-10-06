@@ -3,6 +3,7 @@ import 'package:beacon_os/core/spatial_kernel/voice_intent_handler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
+import 'package:local_vault_api/local_vault_api.dart';
 
 /// معالج قراءة المهام بالمسار السريع الفوري (Sub-5ms)
 class ReadTasksIntentHandler extends VoiceIntentHandler {
@@ -159,8 +160,6 @@ class SaveMemoIntentHandler extends VoiceIntentHandler {
   }
 }
 
-// أضف هذين الكلاسين في نهاية lib/agenda/intents/agenda_intents.dart
-
 /// معالج إتمام المهمة صوتياً بالمسار السريع (Sub-5ms)
 class CompleteTaskIntentHandler extends VoiceIntentHandler {
   @override
@@ -181,6 +180,7 @@ class CompleteTaskIntentHandler extends VoiceIntentHandler {
     VoiceIntentContext intentContext,
   ) async {
     final tasksRepo = context.read<TaskAgendaRepository>();
+    final params = intentContext.llmParameters;
     String targetQuery = '';
 
     final match = fastPathPattern?.firstMatch(intentContext.rawQuery);
@@ -196,12 +196,21 @@ class CompleteTaskIntentHandler extends VoiceIntentHandler {
       );
     }
 
-    final cleanQuery = targetQuery.toLowerCase();
-    
-    // مطابقة ذكية للعنوان
-    final matchedTask = pending.where((t) =>
-        t.title.toLowerCase().contains(cleanQuery) ||
-        cleanQuery.contains(t.title.toLowerCase())).firstOrNull;
+    Task? matchedTask;
+    final taskId = params['task_id'] as String?;
+    if (taskId != null && taskId.isNotEmpty) {
+      matchedTask = pending.where((t) => t.id == taskId).firstOrNull;
+    }
+
+    if (matchedTask == null) {
+      final cleanQuery = targetQuery.isNotEmpty
+          ? targetQuery.toLowerCase()
+          : (params['title'] as String? ?? '').toLowerCase();
+
+      matchedTask = pending.where((t) =>
+          t.title.toLowerCase().contains(cleanQuery) ||
+          cleanQuery.contains(t.title.toLowerCase())).firstOrNull;
+    }
 
     if (matchedTask != null) {
       await tasksRepo.toggleTask(matchedTask);
@@ -239,6 +248,7 @@ class DeleteTaskIntentHandler extends VoiceIntentHandler {
     VoiceIntentContext intentContext,
   ) async {
     final tasksRepo = context.read<TaskAgendaRepository>();
+    final params = intentContext.llmParameters;
     String targetQuery = '';
 
     final match = fastPathPattern?.firstMatch(intentContext.rawQuery);
@@ -247,11 +257,22 @@ class DeleteTaskIntentHandler extends VoiceIntentHandler {
     }
 
     final pending = await tasksRepo.getPendingTasks();
-    final cleanQuery = targetQuery.toLowerCase();
 
-    final matchedTask = pending.where((t) =>
-        t.title.toLowerCase().contains(cleanQuery) ||
-        cleanQuery.contains(t.title.toLowerCase())).firstOrNull;
+    Task? matchedTask;
+    final taskId = params['task_id'] as String?;
+    if (taskId != null && taskId.isNotEmpty) {
+      matchedTask = pending.where((t) => t.id == taskId).firstOrNull;
+    }
+
+    if (matchedTask == null) {
+      final cleanQuery = targetQuery.isNotEmpty
+          ? targetQuery.toLowerCase()
+          : (params['title'] as String? ?? '').toLowerCase();
+
+      matchedTask = pending.where((t) =>
+          t.title.toLowerCase().contains(cleanQuery) ||
+          cleanQuery.contains(t.title.toLowerCase())).firstOrNull;
+    }
 
     if (matchedTask != null) {
       await tasksRepo.deleteTask(matchedTask.id);
@@ -265,6 +286,155 @@ class DeleteTaskIntentHandler extends VoiceIntentHandler {
     return LauncherCommandResult(
       intent: 'DELETE_TASK_NOT_FOUND',
       spokenResponse: 'Could not find a task matching $targetQuery to delete.',
+    );
+  }
+}
+
+/// معالج تعديل المهمة بالمسار الذكي والسريع (UPDATE_TASK)
+class UpdateTaskIntentHandler extends VoiceIntentHandler {
+  @override
+  String get intentId => 'UPDATE_TASK';
+
+  @override
+  int get priority => 70;
+
+  @override
+  RegExp get fastPathPattern => RegExp(
+        r'^(?:update task|change task|edit task|set task)\s+(.+)',
+        caseSensitive: false,
+      );
+
+  @override
+  Future<LauncherCommandResult> execute(
+    BuildContext context,
+    VoiceIntentContext intentContext,
+  ) async {
+    final tasksRepo = context.read<TaskAgendaRepository>();
+    final params = intentContext.llmParameters;
+
+    final taskId = params['task_id'] as String?;
+    final newTitle = params['title'] as String?;
+    String? newPriority = params['priority'] as String?;
+    DateTime? newDueDate;
+    if (params['due_date'] != null) {
+      newDueDate = DateTime.tryParse(params['due_date'].toString());
+    }
+
+    final pending = await tasksRepo.getPendingTasks();
+
+    Task? targetTask;
+    if (taskId != null && taskId.isNotEmpty) {
+      targetTask = await tasksRepo.getTaskById(taskId);
+    }
+
+    // مطابقة احتياطية بالاسم في حال تعذر الحصول على الـ id
+    if (targetTask == null) {
+      final raw = intentContext.rawQuery.toLowerCase();
+      targetTask = pending.where((t) =>
+          raw.contains(t.title.toLowerCase()) ||
+          t.title.toLowerCase().contains(raw)).firstOrNull;
+    }
+
+    // استخراج أولوية المسار السريع إن لم يمررها الـ LLM
+    if (targetTask != null && newPriority == null && newTitle == null) {
+      final query = intentContext.normalizedQuery;
+      if (query.contains('urgent') || query.contains('high')) {
+        newPriority = 'high';
+      } else if (query.contains('medium') || query.contains('normal')) {
+        newPriority = 'medium';
+      } else if (query.contains('low')) {
+        newPriority = 'low';
+      }
+    }
+
+    if (targetTask == null) {
+      return const LauncherCommandResult(
+        intent: 'UPDATE_TASK_NOT_FOUND',
+        spokenResponse: 'Could not find a matching task to update.',
+      );
+    }
+
+    await tasksRepo.updateTask(
+      taskId: targetTask.id,
+      title: newTitle,
+      priority: newPriority,
+      dueDate: newDueDate,
+    );
+
+    final updates = <String>[];
+    if (newPriority != null) updates.add('priority set to $newPriority');
+    if (newTitle != null) updates.add('renamed to $newTitle');
+    if (newDueDate != null) updates.add('deadline updated');
+
+    final changeSummary =
+        updates.isNotEmpty ? updates.join(' and ') : 'updated successfully';
+
+    return LauncherCommandResult(
+      intent: 'UPDATE_TASK',
+      spokenResponse: 'Task "${targetTask.title}" $changeSummary.',
+      actionPayload: targetTask,
+    );
+  }
+}
+
+/// معالج حذف الملاحظات الصوتية (DELETE_MEMO)
+class DeleteMemoIntentHandler extends VoiceIntentHandler {
+  @override
+  String get intentId => 'DELETE_MEMO';
+
+  @override
+  int get priority => 70;
+
+  @override
+  RegExp get fastPathPattern => RegExp(
+        r'^(?:delete note|remove note|delete memo|remove memo)\s+(.+)',
+        caseSensitive: false,
+      );
+
+  @override
+  Future<LauncherCommandResult> execute(
+    BuildContext context,
+    VoiceIntentContext intentContext,
+  ) async {
+    final tasksRepo = context.read<TaskAgendaRepository>();
+    final params = intentContext.llmParameters;
+
+    final memoId = params['memo_id'] as String?;
+    final memos = await tasksRepo.watchMemos().first;
+
+    VoiceMemo? targetMemo;
+    if (memoId != null && memoId.isNotEmpty) {
+      targetMemo = memos.where((m) => m.id == memoId).firstOrNull;
+    }
+
+    if (targetMemo == null) {
+      String queryTarget = '';
+      final match = fastPathPattern?.firstMatch(intentContext.rawQuery);
+      if (match != null && match.groupCount >= 1) {
+        queryTarget = match.group(1)?.trim() ?? '';
+      } else if (params.containsKey('title')) {
+        queryTarget = params['title'] as String? ?? '';
+      }
+
+      final cleanQuery = queryTarget.toLowerCase();
+      targetMemo = memos.where((m) =>
+          m.title.toLowerCase().contains(cleanQuery) ||
+          cleanQuery.contains(m.title.toLowerCase()) ||
+          m.content.toLowerCase().contains(cleanQuery)).firstOrNull;
+    }
+
+    if (targetMemo != null) {
+      await tasksRepo.deleteMemo(targetMemo.id);
+      return LauncherCommandResult(
+        intent: 'DELETE_MEMO',
+        spokenResponse: 'Deleted note titled: ${targetMemo.title}.',
+        actionPayload: targetMemo,
+      );
+    }
+
+    return const LauncherCommandResult(
+      intent: 'DELETE_MEMO_NOT_FOUND',
+      spokenResponse: 'Could not find a note matching your request to delete.',
     );
   }
 }

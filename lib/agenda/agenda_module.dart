@@ -42,6 +42,8 @@ class AgendaModule extends SpatialModule {
         SaveMemoIntentHandler(),
         CompleteTaskIntentHandler(),
         DeleteTaskIntentHandler(),
+        UpdateTaskIntentHandler(), // 👈 مسجل حديثاً لـ UPDATE_TASK
+        DeleteMemoIntentHandler(), // 👈 مسجل حديثاً لـ DELETE_MEMO
       ];
 
   @override

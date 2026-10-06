@@ -38,6 +38,8 @@ class FocusAlarmsModule extends SpatialModule {
   @override
   List<VoiceIntentHandler> get voiceIntents => [
         SetAlarmIntentHandler(),
+        ToggleAlarmIntentHandler(), // 👈 مسجل حديثاً لـ TOGGLE_ALARM
+        DeleteAlarmIntentHandler(), // 👈 مسجل حديثاً لـ DELETE_ALARM
       ];
 
   @override

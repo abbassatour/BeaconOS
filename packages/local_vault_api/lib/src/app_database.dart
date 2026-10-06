@@ -487,4 +487,32 @@ class AppDatabase extends _$AppDatabase {
 
   Future<int> deleteAlarm(String id) =>
       (delete(alarms)..where((a) => a.id.equals(id))).go();
+  
+  // ===========================================================================
+  // 📋 عمليات المهام الإضافية للتعديل بالذكاء الاصطناعي
+  // ===========================================================================
+
+  Future<Task?> getTaskById(String taskId) =>
+      (select(tasks)..where((t) => t.id.equals(taskId) & t.deletedAt.isNull()))
+          .getSingleOrNull();
+
+  Future<void> updateTaskDetails({
+    required String taskId,
+    String? title,
+    DateTime? dueDate,
+    String? priority,
+    bool clearDueDate = false,
+  }) {
+    return (update(tasks)..where((t) => t.id.equals(taskId))).write(
+      TasksCompanion(
+        title: title != null ? Value(title) : const Value.absent(),
+        dueDate: clearDueDate
+            ? const Value(null)
+            : (dueDate != null ? Value(dueDate) : const Value.absent()),
+        priority: priority != null ? Value(priority) : const Value.absent(),
+        updatedAt: Value(DateTime.now()),
+        isSynced: const Value(false),
+      ),
+    );
+  }
 }
