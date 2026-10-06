@@ -44,10 +44,15 @@ class SpatialCompassPage extends StatelessWidget {
             assistantRepository: context.read<AssistantRepository>(),
           ),
         ),
+        // 🎙️ حقن AmbientVoiceCubit بالمستودعات الأربعة لجمع سياق النظام الحي ذاتياً
         BlocProvider(
           create: (context) => AmbientVoiceCubit(
             assistantRepository: context.read<AssistantRepository>(),
             voiceDispatcher: context.read<VoiceCommandDispatcher>(),
+            taskRepository: context.read<TaskAgendaRepository>(),
+            focusAlarmsRepository: context.read<FocusAlarmsRepository>(),
+            settingsRepository: context.read<SettingsRepository>(),
+            commsRepository: context.read<CommsRepository>(),
           ),
         ),
         // 🌟 تثبيت الـ Cubits الخمسة هنا لضمان استمراريتها وعدم مسحها عند التنقل بين الطوابق
@@ -214,7 +219,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
 
     if (_isHoldingToSpeak) {
       _isHoldingToSpeak = false;
-      voiceCubit.stopAndExecute(context: context);
+      // ⚡️ استدعاء نظيف ومستقل بدون الحاجة لتمرير context
+      voiceCubit.stopAndExecute();
     } else if (_activePointers == 2 && _multiTouchStartTime != null) {
       final tapDuration = DateTime.now().difference(_multiTouchStartTime!);
       if (!_hasTwoFingerMoved && tapDuration.inMilliseconds < 300) {
@@ -659,7 +665,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                     return Stack(
                       children: [
                         // ⚙️ الطبقة العميقة (Floor 1: الإعدادات والمحركات)
-                        // نستخدم if بدلاً من Visibility لندمر الشجرة بالكامل ونحرر الذاكرة
                         if (settingsOpacity > 0.0)
                           Transform(
                             alignment: Alignment.center,

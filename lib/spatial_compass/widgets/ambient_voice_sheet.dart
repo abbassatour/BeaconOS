@@ -17,6 +17,11 @@ class AmbientVoiceOverlay extends StatelessWidget {
         if (!state.isOpen) return const SizedBox.shrink();
 
         final cubit = context.read<AmbientVoiceCubit>();
+        final isError = state.status == AmbientVoiceStatus.error;
+
+        final accentColor = isError
+            ? colors.error
+            : (state.isProcessing ? colors.secondary : colors.primary);
 
         return AnimatedPositioned(
           duration: const Duration(milliseconds: 320),
@@ -26,79 +31,86 @@ class AmbientVoiceOverlay extends StatelessWidget {
           bottom: 24,
           child: Material(
             color: Colors.transparent,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: colors.surface.withValues(alpha: 0.98),
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(
-                  color: state.isProcessing ? colors.secondary : colors.primary,
-                  width: 2.0,
+            child: Semantics(
+              liveRegion: true,
+              label: '${_getStatusLabel(state)}. ${_getContentText(state)}',
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: colors.surface.withValues(alpha: 0.98),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(
+                    color: accentColor,
+                    width: 2.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor.withValues(alpha: 0.18),
+                      blurRadius: 28,
+                      spreadRadius: 2,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.primary.withValues(alpha: 0.18),
-                    blurRadius: 28,
-                    spreadRadius: 2,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      _buildPulsingRadar(context, state),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _getStatusLabel(state),
-                              style: TextStyle(
-                                color: colors.primary,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.4,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        _buildPulsingRadar(context, state),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _getStatusLabel(state),
+                                style: TextStyle(
+                                  color: accentColor,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.4,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _getContentText(state),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: colors.onSurface,
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                height: 1.3,
+                              const SizedBox(height: 2),
+                              Text(
+                                _getContentText(state),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.onSurface,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.3,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          state.isListening
-                              ? Icons.stop_circle_rounded
-                              : Icons.close_rounded,
-                          color: colors.onSurfaceVariant,
-                          size: 26,
+                        IconButton(
+                          icon: Icon(
+                            state.isListening
+                                ? Icons.stop_circle_rounded
+                                : Icons.close_rounded,
+                            color: colors.onSurfaceVariant,
+                            size: 26,
+                          ),
+                          tooltip:
+                              state.isListening ? 'Done Speaking' : 'Dismiss',
+                          onPressed: () {
+                            if (state.isListening) {
+                              // ⚡️ استدعاء مستقل ونظيف بدون context
+                              cubit.stopAndExecute();
+                            } else {
+                              cubit.closeSession();
+                            }
+                          },
                         ),
-                        tooltip: state.isListening ? 'Done Speaking' : 'Dismiss',
-                        onPressed: () {
-                          if (state.isListening) {
-                            cubit.stopAndExecute(context: context);
-                          } else {
-                            cubit.closeSession();
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -110,6 +122,11 @@ class AmbientVoiceOverlay extends StatelessWidget {
   Widget _buildPulsingRadar(BuildContext context, AmbientVoiceState state) {
     final colors = context.colors;
     final normalizedLevel = (state.soundLevel.abs() / 10).clamp(0.2, 1.0);
+    final isError = state.status == AmbientVoiceStatus.error;
+
+    final accentColor = isError
+        ? colors.error
+        : (state.isProcessing ? colors.secondary : colors.primary);
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -117,22 +134,24 @@ class AmbientVoiceOverlay extends StatelessWidget {
       height: 44,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: colors.primary.withValues(
+        color: accentColor.withValues(
           alpha: state.isListening ? (normalizedLevel * 0.4) : 0.15,
         ),
         border: Border.all(
-          color: state.isProcessing ? colors.secondary : colors.primary,
+          color: accentColor,
           width: 2,
         ),
       ),
       child: Center(
         child: Icon(
-          state.isListening
-              ? Icons.mic_rounded
-              : (state.isProcessing
-                  ? Icons.hourglass_top_rounded
-                  : Icons.volume_up_rounded),
-          color: state.isProcessing ? colors.secondary : colors.primary,
+          isError
+              ? Icons.error_outline_rounded
+              : (state.isListening
+                  ? Icons.mic_rounded
+                  : (state.isProcessing
+                      ? Icons.hourglass_top_rounded
+                      : Icons.volume_up_rounded)),
+          color: accentColor,
           size: 22,
         ),
       ),
@@ -146,9 +165,13 @@ class AmbientVoiceOverlay extends StatelessWidget {
       case AmbientVoiceStatus.processing:
         return 'THINKING...';
       case AmbientVoiceStatus.speaking:
-        return state.intent != null ? 'EXECUTED • ${state.intent}' : 'BEACON RESPONSE';
+        return state.intent != null
+            ? 'EXECUTED • ${state.intent}'
+            : 'BEACON RESPONSE';
       case AmbientVoiceStatus.error:
-        return 'ERROR';
+        return state.errorMessage != null
+            ? 'ERROR • ${state.errorMessage!.toUpperCase()}'
+            : 'ERROR';
       case AmbientVoiceStatus.idle:
         return '';
     }
@@ -167,6 +190,11 @@ class AmbientVoiceOverlay extends StatelessWidget {
     }
     if (state.isSpeaking) {
       return state.spokenResponse;
+    }
+    if (state.status == AmbientVoiceStatus.error) {
+      return state.spokenResponse.isNotEmpty
+          ? state.spokenResponse
+          : (state.errorMessage ?? 'Could not process audio request.');
     }
     return '';
   }
