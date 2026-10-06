@@ -19,6 +19,7 @@ import 'package:beacon_os/spatial_compass/widgets/corner_swipe_detector.dart';
 import 'package:beacon_os/spatial_compass/widgets/floor_layouts.dart';
 import 'package:beacon_os/spatial_compass/widgets/spatial_compass_hud.dart';
 import 'package:beacon_os/spatial_vision/cubit/spatial_vision_cubit.dart';
+import 'package:flutter/gestures.dart'; // 👈 ضروري لـ kTouchSlop
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
@@ -44,7 +45,6 @@ class SpatialCompassPage extends StatelessWidget {
             assistantRepository: context.read<AssistantRepository>(),
           ),
         ),
-        // 🎙️ حقن AmbientVoiceCubit بالمستودعات الأربعة لجمع سياق النظام الحي ذاتياً
         BlocProvider(
           create: (context) => AmbientVoiceCubit(
             assistantRepository: context.read<AssistantRepository>(),
@@ -55,7 +55,6 @@ class SpatialCompassPage extends StatelessWidget {
             commsRepository: context.read<CommsRepository>(),
           ),
         ),
-        // 🌟 تثبيت الـ Cubits الخمسة هنا لضمان استمراريتها وعدم مسحها عند التنقل بين الطوابق
         BlocProvider(
           create: (context) => CockpitDashboardCubit(
             taskRepository: context.read<TaskAgendaRepository>(),
@@ -137,13 +136,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     _panX = AnimationController.unbounded(vsync: this);
     _panY = AnimationController.unbounded(vsync: this);
     _floorZ = AnimationController.unbounded(vsync: this, value: 0.0);
-
-    _panX.addListener(_forceRender);
-    _panY.addListener(_forceRender);
-    _floorZ.addListener(_forceRender);
+    // 🛡️ تمت إزالة _forceRender بالكامل لتفادي القاتل الصامت للأداء
   }
-
-  void _forceRender() => setState(() {});
 
   @override
   void dispose() {
@@ -219,7 +213,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
 
     if (_isHoldingToSpeak) {
       _isHoldingToSpeak = false;
-      // ⚡️ استدعاء نظيف ومستقل بدون الحاجة لتمرير context
       voiceCubit.stopAndExecute();
     } else if (_activePointers == 2 && _multiTouchStartTime != null) {
       final tapDuration = DateTime.now().difference(_multiTouchStartTime!);
@@ -303,7 +296,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     final dx = details.focalPointDelta.dx;
     final dy = details.focalPointDelta.dy;
 
-    if (_lockedAxis == null && (dx.abs() > 3 || dy.abs() > 3)) {
+    // 🌟 1. استخدام عتبة اللمس المعيارية الديناميكية لضمان عدم الاعتراض العشوائي
+    if (_lockedAxis == null && (dx.abs() > kTouchSlop || dy.abs() > kTouchSlop)) {
       _lockedAxis = dx.abs() > dy.abs() ? Axis.horizontal : Axis.vertical;
     }
 
@@ -371,6 +365,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         }
       }
     } else if (_lockedAxis == Axis.vertical) {
+      // 🌟 2. تم إزالة فك القيد الصلب، لأن الإزاحة الآن تُحسب داخلياً، فقائمة المهام
+      // ستمرر رأسياً بصورة طبيعية وعند الـ Overscroll سيقوم الـ GestureDetector بأخذ الأولوية
       final rawVal = _panY.value + dy;
 
       var isWall = false;
@@ -654,67 +650,74 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                 onScaleEnd: (d) => _onScaleEnd(d, compassCubit),
                 child: BlocBuilder<SpatialCompassCubit, SpatialCompassState>(
                   builder: (context, state) {
-                    final zFloor = _floorZ.value.clamp(0.0, 1.0);
+                    
+                    // 🌟 3. استخدام AnimatedBuilder للرسم بكفاءة 120 FPS
+                    return AnimatedBuilder(
+                      animation: Listenable.merge([_panX, _panY, _floorZ]),
+                      builder: (context, child) {
+                        final zFloor = _floorZ.value.clamp(0.0, 1.0);
 
-                    final coreScale = 1.0 + (zFloor * 0.45);
-                    final coreOpacity = (1.0 - zFloor).clamp(0.0, 1.0);
+                        final coreScale = 1.0 + (zFloor * 0.45);
+                        final coreOpacity = (1.0 - zFloor).clamp(0.0, 1.0);
 
-                    final settingsScale = 0.75 + (zFloor * 0.25);
-                    final settingsOpacity = zFloor.clamp(0.0, 1.0);
+                        final settingsScale = 0.75 + (zFloor * 0.25);
+                        final settingsOpacity = zFloor.clamp(0.0, 1.0);
 
-                    return Stack(
-                      children: [
-                        // ⚙️ الطبقة العميقة (Floor 1: الإعدادات والمحركات)
-                        if (settingsOpacity > 0.0)
-                          Transform(
-                            alignment: Alignment.center,
-                            transform: Matrix4.identity()
-                              ..translate(_panX.value, _panY.value)
-                              ..scale(settingsScale, settingsScale),
-                            child: Opacity(
-                              opacity: settingsOpacity,
-                              child: IgnorePointer(
-                                ignoring: zFloor < 0.5,
-                                child: SpatialFloorLayout(
-                                  key: const ValueKey('spatial_floor_layout_1'),
-                                  direction: state.currentDirection,
-                                  floorLevel: 1,
+                        return Stack(
+                          children: [
+                            // ⚙️ الطبقة العميقة (Floor 1: الإعدادات والمحركات)
+                            if (settingsOpacity > 0.0)
+                              Transform(
+                                alignment: Alignment.center,
+                                transform: Matrix4.identity()
+                                  ..scale(settingsScale, settingsScale),
+                                child: Opacity(
+                                  opacity: settingsOpacity,
+                                  child: IgnorePointer(
+                                    ignoring: zFloor < 0.5,
+                                    child: SpatialFloorLayout(
+                                      key: const ValueKey('spatial_floor_layout_1'),
+                                      direction: state.currentDirection,
+                                      floorLevel: 1,
+                                      panOffset: Offset(_panX.value, _panY.value),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
 
-                        // 🏠 الطبقة السطحية (Floor 0: الغرف الأساسية وقمرة القيادة)
-                        if (coreOpacity > 0.0)
-                          Transform(
-                            alignment: Alignment.center,
-                            transform: Matrix4.identity()
-                              ..translate(_panX.value, _panY.value)
-                              ..scale(coreScale, coreScale),
-                            child: Opacity(
-                              opacity: coreOpacity,
-                              child: IgnorePointer(
-                                ignoring: zFloor > 0.5,
-                                child: SpatialFloorLayout(
-                                  key: const ValueKey('spatial_floor_layout_0'),
-                                  direction: state.currentDirection,
-                                  floorLevel: 0,
+                            // 🏠 الطبقة السطحية (Floor 0: الغرف الأساسية وقمرة القيادة)
+                            if (coreOpacity > 0.0)
+                              Transform(
+                                alignment: Alignment.center,
+                                transform: Matrix4.identity()
+                                  ..scale(coreScale, coreScale),
+                                child: Opacity(
+                                  opacity: coreOpacity,
+                                  child: IgnorePointer(
+                                    ignoring: zFloor > 0.5,
+                                    child: SpatialFloorLayout(
+                                      key: const ValueKey('spatial_floor_layout_0'),
+                                      direction: state.currentDirection,
+                                      floorLevel: 0,
+                                      panOffset: Offset(_panX.value, _panY.value),
+                                    ),
+                                  ),
                                 ),
                               ),
+
+                            // 🗺️ شريط الـ HUD الملاحي المتصل بالطوبولوجيا
+                            SpatialCompassHud(
+                              direction: state.currentDirection,
+                              currentFloor: state.currentFloor,
+                              onCenterTap: compassCubit.returnToCenter,
+                              onFloorToggle: compassCubit.toggleFloor,
                             ),
-                          ),
 
-                        // 🗺️ شريط الـ HUD الملاحي المتصل بالطوبولوجيا
-                        SpatialCompassHud(
-                          direction: state.currentDirection,
-                          currentFloor: state.currentFloor,
-                          onCenterTap: compassCubit.returnToCenter,
-                          onFloorToggle: compassCubit.toggleFloor,
-                        ),
-
-                        // 🎙️ لوحة المساعد الصوتي العائمة المستدعاة بالضغط أو الزاوية
-                        const AmbientVoiceOverlay(),
-                      ],
+                            // 🎙️ لوحة المساعد الصوتي العائمة المستدعاة بالضغط أو الزاوية
+                            const AmbientVoiceOverlay(),
+                          ],
+                        );
+                      },
                     );
                   },
                 ),

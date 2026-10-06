@@ -8,11 +8,13 @@ class SpatialFloorLayout extends StatelessWidget {
   const SpatialFloorLayout({
     required this.direction,
     required this.floorLevel,
+    this.panOffset = Offset.zero, // 👈 تم إضافة المتغير هنا
     super.key,
   });
 
   final CompassDirection direction;
   final int floorLevel;
+  final Offset panOffset; // 👈 تم الاستقبال هنا
 
   @override
   Widget build(BuildContext context) {
@@ -20,34 +22,47 @@ class SpatialFloorLayout extends StatelessWidget {
       key: ValueKey('compass_transition_floor_$floorLevel'),
       direction: direction,
       floorLevel: floorLevel,
+      panOffset: panOffset, // 👈 وتم تمريره إلى الطبقة الداخلية بنجاح
     );
   }
 }
 
 /// توافق عكسي مع الطابق الأرضي
 class CoreFloorLayout extends StatelessWidget {
-  const CoreFloorLayout({required this.direction, super.key});
+  const CoreFloorLayout({
+    required this.direction,
+    this.panOffset = Offset.zero,
+    super.key,
+  });
   final CompassDirection direction;
+  final Offset panOffset;
 
   @override
   Widget build(BuildContext context) {
     return SpatialFloorLayout(
       direction: direction,
       floorLevel: 0,
+      panOffset: panOffset,
     );
   }
 }
 
 /// توافق عكسي مع طابق الإعدادات
 class SettingsFloorLayout extends StatelessWidget {
-  const SettingsFloorLayout({required this.direction, super.key});
+  const SettingsFloorLayout({
+    required this.direction,
+    this.panOffset = Offset.zero,
+    super.key,
+  });
   final CompassDirection direction;
+  final Offset panOffset;
 
   @override
   Widget build(BuildContext context) {
     return SpatialFloorLayout(
       direction: direction,
       floorLevel: 1,
+      panOffset: panOffset,
     );
   }
 }

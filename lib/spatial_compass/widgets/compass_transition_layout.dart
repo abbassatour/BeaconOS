@@ -9,12 +9,14 @@ class CompassTransitionLayout extends StatelessWidget {
   const CompassTransitionLayout({
     required this.direction,
     required this.floorLevel,
-    this.isSettingsFloor, // للتوافق العكسي
+    this.panOffset = Offset.zero,
+    this.isSettingsFloor,
     super.key,
   });
 
   final CompassDirection direction;
   final int floorLevel;
+  final Offset panOffset;
   final bool? isSettingsFloor;
 
   @override
@@ -25,45 +27,59 @@ class CompassTransitionLayout extends StatelessWidget {
         : floorLevel;
 
     final roomsOnFloor = topology.roomsOnFloor(effectiveFloor);
+    final size = MediaQuery.of(context).size;
 
     return Stack(
+      clipBehavior: Clip.none, // 🛡️ تمنع اختفاء أو قص الغرف أثناء التمرير خارج الشاشة
       children: roomsOnFloor.entries.map((entry) {
         final roomDir = entry.key;
         final module = entry.value;
 
         return _buildRoomLayer(
           key: ValueKey('floor_${effectiveFloor}_dir_${roomDir.name}'),
+          context: context,
           child: module.buildFloorView(context, effectiveFloor),
-          translation: roomDir.translation,
           roomDir: roomDir,
+          screenWidth: size.width,
+          screenHeight: size.height,
         );
       }).toList(),
     );
   }
 
-  /// ⚡️ الفرز الفضائي (Spatial Culling & GPU Optimization):
-  /// تفعيل المحركات الحركية (Tickers) والتركيز البصري للغرفة النشطة والمركز فقط
+  /// ⚡️ معالجة التمركز الحقيقي للغرف والتحكم بالنقرات (Hit-Test Safe Architecture)
   Widget _buildRoomLayer({
     required Key key,
+    required BuildContext context,
     required Widget child,
-    required Offset translation,
     required CompassDirection roomDir,
+    required double screenWidth,
+    required double screenHeight,
   }) {
     final isActive = direction == roomDir;
     final isCenter = roomDir == CompassDirection.center;
     final isProcessingAllowed = isActive || isCenter;
 
-    return FractionalTranslation(
+    // 🌟 حساب الإزاحة الفعلية المباشرة لكل غرفة على الشاشة
+    final roomOffset = Offset(
+      roomDir.translation.dx * screenWidth + panOffset.dx,
+      roomDir.translation.dy * screenHeight + panOffset.dy,
+    );
+
+    return Transform.translate(
       key: key,
-      translation: translation,
+      offset: roomOffset,
       child: RepaintBoundary(
         child: TickerMode(
           enabled: isProcessingAllowed,
-          child: ExcludeSemantics(
-            excluding: !isActive,
-            child: FocusScope(
-              canRequestFocus: isActive,
-              child: child,
+          child: IgnorePointer(
+            ignoring: !isActive, // 🛡️ الغرفة غير النشطة لا تعترض النقرات أبداً
+            child: ExcludeSemantics(
+              excluding: !isActive,
+              child: FocusScope(
+                canRequestFocus: isActive,
+                child: child,
+              ),
             ),
           ),
         ),
