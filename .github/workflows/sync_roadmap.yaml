@@ -127,4 +127,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .readme/02_roadmap.md README.md
-          git diff --staged --quiet || (git commit -m "docs: auto-sync roadmap metrics and progress [skip ci]" && git push)
+          if ! git diff --staged --quiet; then
+            git commit -m "docs: auto-sync roadmap metrics and progress [skip ci]"
+            git push origin HEAD:main
+          fi
