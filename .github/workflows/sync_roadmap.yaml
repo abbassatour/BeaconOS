@@ -6,6 +6,7 @@ on:
   push:
     paths:
       - '.readme/**'
+      - '.github/scripts/**'
   workflow_dispatch:
 
 jobs:
@@ -22,105 +23,10 @@ jobs:
       - name: 🧭 Compute Velocity & Build English Roadmap
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cat << 'EOF' > update_roadmap.py
-          import json, subprocess
-
-          # 1. Fetch Open and Closed Issues
-          cmd_open = "gh issue list --state open --limit 50 --json number,title,labels,url"
-          cmd_closed = "gh issue list --state closed --limit 50 --json number,title,labels,url"
-
-          try:
-              open_issues = json.loads(subprocess.check_output(cmd_open, shell=True))
-          except Exception:
-              open_issues = []
-
-          try:
-              closed_issues = json.loads(subprocess.check_output(cmd_closed, shell=True))
-          except Exception:
-              closed_issues = []
-
-          # 2. Calculate Milestone Progress (Base: 14 pre-shipped deliverables)
-          base_shipped = 14
-          dynamic_closed = len(closed_issues)
-          total_closed = base_shipped + dynamic_closed
-          total_open = len(open_issues)
-          total_tasks = total_closed + total_open
-
-          percent = int((total_closed / total_tasks * 100)) if total_tasks > 0 else 100
-          filled_blocks = int(percent / 5)
-          bar = "█" * filled_blocks + "░" * (20 - filled_blocks)
-
-          # 3. Construct Markdown Content
-          lines = []
-          lines.append("## 🧭 Project Velocity & Milestone Roadmap\n")
-          lines.append(f"**Target Milestone:** `v1.0.0 — Hackathon Final MVP`  ")
-          lines.append(f"**Overall Completion:** `{percent}%`  ")
-          lines.append(f"`[{bar}] {total_closed}/{total_tasks} Deliverables Shipped`\n")
-
-          lines.append("| Milestone Metric | Value | Status |")
-          lines.append("| :--- | :--- | :--- |")
-          lines.append(f"| 🎯 **Target Release** | Hackathon Final Submission | Active Sprint |")
-          lines.append(f"| ✅ **Shipped Features** | **{total_closed} Core Epics** | Verified & Integrated |")
-          lines.append(f"| ⏳ **Active Priorities** | **{total_open} Engineering Issues** | In Progress |")
-          
-          blockers_count = sum(1 for i in open_issues if any('P0' in l['name'] for l in i.get('labels', [])))
-          lines.append(f"| 🔴 **Critical Blockers (P0)** | **{blockers_count} Tasks** | Next in Queue |\n")
-          lines.append("---\n")
-
-          lines.append("### 📌 Active Priorities (Sprint Backlog)\n")
-          lines.append("| Priority | Issue / Epic | Track | Status |")
-          lines.append("| :--- | :--- | :---: | :---: |")
-
-          for issue in open_issues:
-              labels = [l['name'] for l in issue.get('labels', [])]
-              priority = next((l for l in labels if l.startswith('P0') or l.startswith('P1') or l.startswith('P2')), 'P2')
-              track = next((l for l in labels if l.startswith('Track')), 'General')
-              p_badge = "🔴 P0 Blocker" if "P0" in priority else ("🟡 P1 High" if "P1" in priority else "⚪ P2 Normal")
-              lines.append(f"| **{p_badge}** | [#{issue['number']} {issue['title']}]({issue['url']}) | `{track}` | ⏳ In Progress |")
-
-          if not open_issues:
-              lines.append("| — | All milestone backlog tasks shipped! | — | 🎯 Clean Sheet |")
-
-          lines.append("\n---\n")
-
-          # 4. Append Shipped Features
-          shipped_section = """### ✅ Shipped & Verified Architectural Deliverables (14 Core Epics)
-
-#### 🏛️ 1. Spatial Micro-Kernel & OS Router
-- [x] **SpatialTopology Engine**: Implemented multi-floor coordinate indexing `(x, y, z)` supporting Floors `-1, 0, 1` with continuous spring physics.
-- [x] **Pluggable SpatialModule Contract**: Vertical-slice architecture allowing each room to define its Floor 0 and Floor 1 views independently.
-- [x] **Spatial Physics & Motion**: Configured Runge-Kutta springs (`SpatialPhysics`), critical damping, and overscroll rubber-banding.
-
-#### 🧠 2. Zero-UI Hybrid Voice Intent Bus
-- [x] **Two-Tier Dispatcher**: Sub-5ms fast-path regex execution for sovereign offline commands + Multimodal fallback via Gemini 2.0 Flash.
-- [x] **Core Audio Synthesis**: Dynamic sound cue tokens (`SoundCue`) with spatial frequency shifts when ascending to Floor 1.
-- [x] **Tactile Haptic Feedback**: Context-aware haptics manager with pulse ticking for microphone listening and triple-tap SOS alerts.
-
-#### 🗄️ 3. Encrypted Local Vault & Cloud Sync (Offline-First)
-- [x] **Drift SQLite Architecture**: 10 relational encrypted tables managing tasks, alarms, contacts, messages, SOS alerts, and vision scans.
-- [x] **Schema Migration v6**: Persistent user persona state (`blind_accessible` vs `digital_minimalist`) and onboarding completion flags.
-- [x] **Supabase Sync Engine**: Non-blocking bidirectional synchronization with soft-delete reconciliation and network resilience.
-
-#### 👁️ 4. Inclusive Design & Dual Interaction Paradigms
-- [x] **WCAG 2.2 AAA Theme**: Pure OLED pitch-black palette with 21:1 high-contrast cyan/yellow tokens for visual impairments.
-- [x] **Editorial Warm Paper Theme**: Calming serif typography and muted earthy tones for digital minimalists.
-- [x] **Interactive Onboarding Gateways**: 4-step voice-guided accessibility flow + 4-step intentional productivity flow.
-- [x] **5 Core Spatial Rooms**: Complete implementation of Cockpit, Focus/Timer, Comms/Radar, Vision Studio, and Agenda across Floors 0 and 1.
-- [x] **Hardware Abstraction Layer**: Native Android MethodChannel integration for system flashlight, background alarms, and app launch.
-
----
-"""
-          lines.append(shipped_section)
-
-          with open(".readme/02_roadmap.md", "w", encoding="utf-8") as f:
-              f.write("\n".join(lines))
-          EOF
-          python3 update_roadmap.py
+        run: python3 .github/scripts/update_roadmap.py
 
       - name: 🧱 Assemble All Parts into README.md
-        run: |
-          cat .readme/*.md > README.md
+        run: cat .readme/*.md > README.md
 
       - name: 🚀 Commit & Push Updates
         run: |
@@ -131,4 +37,3 @@ jobs:
             git commit -m "docs: auto-sync roadmap metrics and progress [skip ci]"
             git push origin HEAD:main
           fi
-          
