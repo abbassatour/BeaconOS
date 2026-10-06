@@ -68,15 +68,42 @@ class CommunicationsContentView extends StatelessWidget {
                                 letterSpacing: 1.5,
                               ),
                             ),
-                            IconButton.filledTonal(
-                              style: IconButton.styleFrom(
-                                backgroundColor: colors.surface,
-                                foregroundColor: colors.onSurface,
-                                side: BorderSide(color: colors.outline),
-                              ),
-                              icon: const Icon(Icons.person_add_alt_1_rounded),
-                              tooltip: 'Add Contact',
-                              onPressed: () => _showAddDialog(context, cubit),
+                            Row(
+                              children: [
+                                // 🔄 زر المزامنة الجديد مع مؤشر دوران أثناء العمل
+                                IconButton.filledTonal(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: colors.surface,
+                                    foregroundColor: colors.onSurface,
+                                    side: BorderSide(color: colors.outline),
+                                  ),
+                                  icon: state.isSyncingContacts
+                                      ? SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: colors.primary,
+                                          ),
+                                        )
+                                      : const Icon(Icons.sync_rounded),
+                                  tooltip: 'Sync Device Contacts',
+                                  onPressed: state.isSyncingContacts
+                                      ? null
+                                      : cubit.syncDeviceContacts,
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton.filledTonal(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: colors.surface,
+                                    foregroundColor: colors.onSurface,
+                                    side: BorderSide(color: colors.outline),
+                                  ),
+                                  icon: const Icon(Icons.person_add_alt_1_rounded),
+                                  tooltip: 'Add Contact',
+                                  onPressed: () => _showAddDialog(context, cubit),
+                                ),
+                              ],
                             ),
                           ],
                         ),

@@ -2,6 +2,7 @@
 import 'dart:developer';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -19,15 +20,71 @@ class GpsCoordinates {
   String toString() => 'GpsCoordinates($latitude, $longitude)';
 }
 
+/// كائن خفيف يمثل جهة اتصال مجلوبة من نظام أندرويد
+class DeviceContactRecord {
+  const DeviceContactRecord({
+    required this.name,
+    required this.phoneNumber,
+  });
+
+  final String name;
+  final String phoneNumber;
+
+  @override
+  String toString() => 'DeviceContactRecord(name: $name, phone: $phoneNumber)';
+}
+
 class HardwareClient {
   HardwareClient();
 
   final Battery _battery = Battery();
 
-  // قناة الاتصال مع طبقة أندرويد الأصلية في MainActivity.kt
   static const MethodChannel _systemChannel = MethodChannel(
     'com.beaconos/system',
   );
+
+  /// جلب جهات الاتصال المسجلة في نظام أندرويد وتنظيف أرقامها
+  Future<List<DeviceContactRecord>> getDeviceContacts() async {
+    try {
+      // 1. طلب إذن القراءة بالطريقة الحديثة لـ flutter_contacts 2.x
+      final status = await FlutterContacts.permissions.request(PermissionType.read);
+      if (status != PermissionStatus.granted) {
+        log('HardwareClient: Read contacts permission denied by user.');
+        return [];
+      }
+
+      // 2. جلب جهات الاتصال مع أرقام الهواتف عبر getAll
+      final rawContacts = await FlutterContacts.getAll(
+        properties: {ContactProperty.phone},
+      );
+
+      final List<DeviceContactRecord> records = [];
+
+      for (final contact in rawContacts) {
+        final displayName = (contact.displayName ?? '').trim();
+        if (displayName.isEmpty || contact.phones.isEmpty) continue;
+
+        for (final phone in contact.phones) {
+          // تنظيف الرقم من المسافات، الشحطات، والأقواس (مثال: +1 (234) 567-890 -> +1234567890)
+          final cleanNumber = phone.number.replaceAll(RegExp(r'[\s\(\)\-\.]'), '').trim();
+          if (cleanNumber.length >= 3) {
+            records.add(
+              DeviceContactRecord(
+                name: displayName,
+                phoneNumber: cleanNumber,
+              ),
+            );
+          }
+        }
+      }
+
+      log('HardwareClient: Successfully fetched ${records.length} contact records from phone.');
+      return records;
+    } catch (e, st) {
+      log('HardwareClient: Error reading phone contacts: $e', stackTrace: st);
+      return [];
+    }
+  }
 
   /// جلب مستوى البطارية وحالتها كنص مقروء للمستخدم
   Future<String> getBatteryStatus() async {
@@ -57,14 +114,12 @@ class HardwareClient {
   /// جلب إحداثيات الـ GPS الحقيقية مع التحقق الآمن من الصلاحيات والخدمة
   Future<GpsCoordinates?> getCurrentLocation() async {
     try {
-      // 1. فحص هل خدمة الموقع مفعلة في الجهاز
       final isServiceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!isServiceEnabled) {
         log('HardwareClient: Location services are disabled by user.');
         return null;
       }
 
-      // 2. فحص والطلب التلقائي لصلاحيات الموقع
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -79,7 +134,6 @@ class HardwareClient {
         return null;
       }
 
-      // 3. محاولة جلب الإحداثيات الدقيقة مع مهلة 7 ثوانٍ
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,

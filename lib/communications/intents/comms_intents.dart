@@ -249,3 +249,37 @@ class DeleteContactIntentHandler extends VoiceIntentHandler {
     );
   }
 }
+
+/// معالج مزامنة جهات اتصال الهاتف صوتياً (SYNC_CONTACTS)
+class SyncContactsIntentHandler extends VoiceIntentHandler {
+  @override
+  String get intentId => 'SYNC_CONTACTS';
+
+  @override
+  int get priority => 85;
+
+  @override
+  RegExp get fastPathPattern => RegExp(
+        r'^(?:sync contacts|import contacts|sync phone contacts|update contacts|import phonebook)',
+        caseSensitive: false,
+      );
+
+  @override
+  Future<LauncherCommandResult> execute(
+    BuildContext context,
+    VoiceIntentContext intentContext,
+  ) async {
+    final commsRepo = context.read<CommsRepository>();
+    final result = await commsRepo.syncDeviceContactsToVault();
+
+    final feedback = result.addedCount == 0 && result.updatedCount == 0
+        ? 'Your contacts are already up to date.'
+        : 'Synced ${result.addedCount} new contacts and updated ${result.updatedCount}.';
+
+    return LauncherCommandResult(
+      intent: 'SYNC_CONTACTS',
+      spokenResponse: feedback,
+      actionPayload: result,
+    );
+  }
+}

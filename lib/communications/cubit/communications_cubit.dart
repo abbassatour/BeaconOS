@@ -147,6 +147,28 @@ class CommunicationsCubit extends Cubit<CommunicationsState> {
     emit(state.copyWith(isSosBroadcasting: false));
   }
 
+  /// مزامنة جهات اتصال الهاتف وتسويتها داخل الخزنة مع تغذية صوتية ولمسية
+  Future<void> syncDeviceContacts() async {
+    if (state.isSyncingContacts) return;
+
+    emit(state.copyWith(isSyncingContacts: true));
+    _haptics.selectionClick();
+    await _sound.play(SoundCue.processing);
+    await _assistant.speak('Syncing contacts from your device...');
+
+    final result = await _commsRepo.syncDeviceContactsToVault();
+
+    await _haptics.successNotification();
+    await _sound.play(SoundCue.success);
+
+    final feedback = result.addedCount == 0 && result.updatedCount == 0
+        ? 'Your contacts are already up to date.'
+        : 'Synced ${result.addedCount} new contacts and updated ${result.updatedCount}.';
+
+    await _assistant.speak(feedback);
+    emit(state.copyWith(isSyncingContacts: false));
+  }
+
   @override
   Future<void> close() {
     _contactsSubscription?.cancel();

@@ -1,5 +1,6 @@
 // lib/app/view/app.dart
 import 'package:beacon_os/auth/cubit/auth_cubit.dart';
+import 'package:beacon_os/core/services/permission_service.dart';
 import 'package:beacon_os/core/spatial_kernel/spatial_topology.dart';
 import 'package:beacon_os/core/spatial_kernel/voice_command_dispatcher.dart';
 import 'package:beacon_os/core/theme/app_theme.dart';
@@ -54,6 +55,11 @@ class _AppState extends State<App> {
         base64Image: base64Image,
       ),
     );
+
+    // 4. طلب كافة الأذونات السيادية فور اكتمال رسم أول إطار في الواجهة
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      PermissionService.instance.requestAllPermissions();
+    });
   }
 
   @override

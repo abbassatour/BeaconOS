@@ -19,7 +19,6 @@ import 'package:beacon_os/spatial_compass/widgets/corner_swipe_detector.dart';
 import 'package:beacon_os/spatial_compass/widgets/floor_layouts.dart';
 import 'package:beacon_os/spatial_compass/widgets/spatial_compass_hud.dart';
 import 'package:beacon_os/spatial_vision/cubit/spatial_vision_cubit.dart';
-import 'package:flutter/gestures.dart'; // 👈 ضروري لـ kTouchSlop
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:launcher_repository/launcher_repository.dart';
@@ -117,6 +116,11 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   double _initialScale = 0.0;
   double _startXAtGesture = 0.0;
   double _startYAtGesture = 0.0;
+
+  // 🌟 استرجاع الإزاحة المتراكمة لحظياً (Delta Catch-up)
+  double _accumulatedDeltaX = 0.0;
+  double _accumulatedDeltaY = 0.0;
+
   bool _hapticDetentFired = false;
 
   int _activePointers = 0;
@@ -136,7 +140,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     _panX = AnimationController.unbounded(vsync: this);
     _panY = AnimationController.unbounded(vsync: this);
     _floorZ = AnimationController.unbounded(vsync: this, value: 0.0);
-    // 🛡️ تمت إزالة _forceRender بالكامل لتفادي القاتل الصامت للأداء
   }
 
   @override
@@ -263,6 +266,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     _initialScale = _floorZ.value;
     _startXAtGesture = _panX.value;
     _startYAtGesture = _panY.value;
+    _accumulatedDeltaX = 0.0;
+    _accumulatedDeltaY = 0.0;
     _hapticDetentFired = false;
   }
 
@@ -271,6 +276,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
 
     final state = context.read<SpatialCompassCubit>().state;
 
+    // 1. معالجة المصعد الرأسي بين الطوابق (Z-Axis)
     if (_isTwoFingerPinch || details.pointerCount >= 2) {
       _isTwoFingerPinch = true;
 
@@ -287,6 +293,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       } else if ((rawZ < 0.35 && _initialScale < 0.5) ||
           (rawZ > 0.65 && _initialScale >= 0.5)) {
         if (_hapticDetentFired) {
+          HapticManager.instance.selectionClick();
           _hapticDetentFired = false;
         }
       }
@@ -296,16 +303,28 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     final dx = details.focalPointDelta.dx;
     final dy = details.focalPointDelta.dy;
 
-    // 🌟 1. استخدام عتبة اللمس المعيارية الديناميكية لضمان عدم الاعتراض العشوائي
-    if (_lockedAxis == null && (dx.abs() > kTouchSlop || dy.abs() > kTouchSlop)) {
-      _lockedAxis = dx.abs() > dy.abs() ? Axis.horizontal : Axis.vertical;
+    _accumulatedDeltaX += dx;
+    _accumulatedDeltaY += dy;
+
+    // 🌟 2. استجابة سريعة فورية بدون لزوجة (عتبة 6.0 بكسل بدلاً من 18)
+    const touchSlopThreshold = 6.0;
+    if (_lockedAxis == null) {
+      if (_accumulatedDeltaX.abs() > touchSlopThreshold ||
+          _accumulatedDeltaY.abs() > touchSlopThreshold) {
+        _lockedAxis = _accumulatedDeltaX.abs() > _accumulatedDeltaY.abs()
+            ? Axis.horizontal
+            : Axis.vertical;
+      } else {
+        return; // لم يتجاوز 6 بكسل بعد
+      }
     }
 
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (_lockedAxis == Axis.horizontal) {
-      final rawVal = _panX.value + dx;
+      // 🌟 3. Delta Catch-up: احتساب كامل الإزاحة التراكمية من البداية دون فقدان
+      final rawVal = _startXAtGesture + _accumulatedDeltaX;
 
       var isWall = false;
       var wallLimit = 0.0;
@@ -350,9 +369,11 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         _panX.value = rawVal;
       }
 
+      // 🌟 4. مزامنة الاهتزاز اللمسي مع عتبة التبديل الرشيقة (18% من عرض الشاشة)
       if (!isWall) {
         final dragDistance = (_panX.value - _startXAtGesture).abs();
-        if (dragDistance > screenWidth * 0.35) {
+        final hapticThreshold = screenWidth * 0.18;
+        if (dragDistance > hapticThreshold) {
           if (!_hapticDetentFired) {
             HapticManager.instance.selectionClick();
             _hapticDetentFired = true;
@@ -365,9 +386,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         }
       }
     } else if (_lockedAxis == Axis.vertical) {
-      // 🌟 2. تم إزالة فك القيد الصلب، لأن الإزاحة الآن تُحسب داخلياً، فقائمة المهام
-      // ستمرر رأسياً بصورة طبيعية وعند الـ Overscroll سيقوم الـ GestureDetector بأخذ الأولوية
-      final rawVal = _panY.value + dy;
+      // 🌟 3. Delta Catch-up الرأسي
+      final rawVal = _startYAtGesture + _accumulatedDeltaY;
 
       var isWall = false;
       var wallLimit = 0.0;
@@ -412,9 +432,11 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         _panY.value = rawVal;
       }
 
+      // مزامنة الاهتزاز اللمسي رأسياً مع 18% من ارتفاع الشاشة
       if (!isWall) {
         final dragDistance = (_panY.value - _startYAtGesture).abs();
-        if (dragDistance > screenHeight * 0.25) {
+        final hapticThreshold = screenHeight * 0.18;
+        if (dragDistance > hapticThreshold) {
           if (!_hapticDetentFired) {
             HapticManager.instance.selectionClick();
             _hapticDetentFired = true;
@@ -459,23 +481,27 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       return;
     }
 
+    // 🌟 5. عتبات الإفلات الخفيفة والسريعة (18% مسافة و 180 px/sec سرعة)
+    const distanceThresholdPercent = 0.18;
+    const velocityThreshold = 180.0;
+
     if (_lockedAxis == Axis.horizontal) {
       final vx = details.velocity.pixelsPerSecond.dx;
       var targetX = _panX.value;
       var targetDir = state.currentDirection;
 
       if (state.currentDirection == CompassDirection.center) {
-        if (_panX.value > screenW * 0.35 || vx > 400) {
+        if (_panX.value > screenW * distanceThresholdPercent || vx > velocityThreshold) {
           targetX = screenW;
           targetDir = CompassDirection.west;
-        } else if (_panX.value < -screenW * 0.35 || vx < -400) {
+        } else if (_panX.value < -screenW * distanceThresholdPercent || vx < -velocityThreshold) {
           targetX = -screenW;
           targetDir = CompassDirection.east;
         } else {
           targetX = 0.0;
         }
       } else if (state.currentDirection == CompassDirection.east) {
-        if (_panX.value > -screenW * 0.65 || vx > 400) {
+        if (_panX.value > -screenW * (1.0 - distanceThresholdPercent) || vx > velocityThreshold) {
           targetX = 0.0;
           targetDir = CompassDirection.center;
         } else {
@@ -483,7 +509,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
           targetDir = CompassDirection.east;
         }
       } else if (state.currentDirection == CompassDirection.west) {
-        if (_panX.value < screenW * 0.65 || vx < -400) {
+        if (_panX.value < screenW * (1.0 - distanceThresholdPercent) || vx < -velocityThreshold) {
           targetX = 0.0;
           targetDir = CompassDirection.center;
         } else {
@@ -516,17 +542,17 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       var targetDir = state.currentDirection;
 
       if (state.currentDirection == CompassDirection.center) {
-        if (_panY.value > screenH * 0.35 || vy > 400) {
+        if (_panY.value > screenH * distanceThresholdPercent || vy > velocityThreshold) {
           targetY = screenH;
           targetDir = CompassDirection.north;
-        } else if (_panY.value < -screenH * 0.35 || vy < -400) {
+        } else if (_panY.value < -screenH * distanceThresholdPercent || vy < -velocityThreshold) {
           targetY = -screenH;
           targetDir = CompassDirection.south;
         } else {
           targetY = 0.0;
         }
       } else if (state.currentDirection == CompassDirection.north) {
-        if (_panY.value < screenH * 0.65 || vy < -400) {
+        if (_panY.value < screenH * (1.0 - distanceThresholdPercent) || vy < -velocityThreshold) {
           targetY = 0.0;
           targetDir = CompassDirection.center;
         } else {
@@ -534,7 +560,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
           targetDir = CompassDirection.north;
         }
       } else if (state.currentDirection == CompassDirection.south) {
-        if (_panY.value > -screenH * 0.65 || vy > 400) {
+        if (_panY.value > -screenH * (1.0 - distanceThresholdPercent) || vy > velocityThreshold) {
           targetY = 0.0;
           targetDir = CompassDirection.center;
         } else {
@@ -650,8 +676,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                 onScaleEnd: (d) => _onScaleEnd(d, compassCubit),
                 child: BlocBuilder<SpatialCompassCubit, SpatialCompassState>(
                   builder: (context, state) {
-                    
-                    // 🌟 3. استخدام AnimatedBuilder للرسم بكفاءة 120 FPS
                     return AnimatedBuilder(
                       animation: Listenable.merge([_panX, _panY, _floorZ]),
                       builder: (context, child) {

@@ -41,6 +41,7 @@ class CommunicationsModule extends SpatialModule {
         CallContactIntentHandler(),
         SaveContactIntentHandler(),   // 👈 مسجل حديثاً لـ SAVE_CONTACT
         DeleteContactIntentHandler(), // 👈 مسجل حديثاً لـ DELETE_CONTACT
+        SyncContactsIntentHandler(),
       ];
 
   @override

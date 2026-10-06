@@ -11,17 +11,16 @@ class SpatialPhysics {
   // ===========================================================================
 
   /// نابض الانتقال الأفقي والرأسي (XY-Axis Pan) للغرف
-  /// - Mass: 1.0 (كتلة افتراضية قياسية)
-  /// - Stiffness: 350.0 (صلابة عالية لاستجابة سريعة جداً)
-  /// - Damping: 37.4 (تخميد حرج Critical Damping لمنع الارتداد Bouncing)
+  /// - Mass: 1.0 (كتلة قياسية خفيفة)
+  /// - Stiffness: 300.0 (صلابة رشيقة وسريعة الاستجابة)
+  /// - Damping: 26.8 (نسبة تخميد ζ ≈ 0.77 تعطي انزلاقاً انسيابياً بلا فرملة قاسية)
   static const SpringDescription panSpring = SpringDescription(
     mass: 1.0,
-    stiffness: 350.0,
-    damping: 37.4, 
+    stiffness: 300.0,
+    damping: 26.8, 
   );
 
   /// نابض الانتقال الرأسي في العمق (Z-Axis Pinch/Zoom) للطوابق
-  /// يحتاج لصلابة وكتلة أعلى قليلاً لإعطاء إحساس بثقل الطابق بأكمله
   static const SpringDescription zAxisSpring = SpringDescription(
     mass: 1.2,
     stiffness: 400.0,
@@ -64,11 +63,6 @@ class SpatialPhysics {
   // ✋ 3. حسابات الاحتكاك والمطاطية (Rubber-banding)
   // ===========================================================================
 
-  /// تطبيق مقاومة مطاطية فيزيائية عند سحب الشاشة إلى حافة غير موجودة (Overscroll)
-  /// يحاكي ملمس حواف الشاشة في الأنظمة الرائدة.
-  /// [delta]: مقدار الإزاحة التي قام بها المستخدم.
-  /// [limit]: الحد الأقصى للإزاحة المسموحة (عادةً عرض الشاشة).
-  /// [stiffness]: مدى مقاومة المطاط (0.55 قياسي).
   static double applyRubberBanding({
     required double delta,
     required double limit,
@@ -76,7 +70,6 @@ class SpatialPhysics {
   }) {
     if (delta == 0) return 0.0;
     final absDelta = delta.abs();
-    // دالة لوغاريتمية لتخفيف الإزاحة تدريجياً كلما ابتعدنا عن المركز
     final rubberDelta = limit * (1.0 - (1.0 / ((absDelta * stiffness / limit) + 1.0)));
     return delta < 0 ? -rubberDelta : rubberDelta;
   }

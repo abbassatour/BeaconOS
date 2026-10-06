@@ -10,6 +10,7 @@ class CommunicationsState extends Equatable {
     this.contacts = const [],
     this.recentMessages = const [],
     this.isSosBroadcasting = false,
+    this.isSyncingContacts = false, // 👈 متغير حالة المزامنة الجديد
     this.errorMessage,
   });
 
@@ -17,6 +18,7 @@ class CommunicationsState extends Equatable {
   final List<Contact> contacts;
   final List<MessagesVaultData> recentMessages;
   final bool isSosBroadcasting;
+  final bool isSyncingContacts;
   final String? errorMessage;
 
   /// جهات اتصال الطوارئ مرتبة أبجدياً
@@ -38,6 +40,7 @@ class CommunicationsState extends Equatable {
     List<Contact>? contacts,
     List<MessagesVaultData>? recentMessages,
     bool? isSosBroadcasting,
+    bool? isSyncingContacts,
     String? errorMessage,
   }) {
     return CommunicationsState(
@@ -45,6 +48,7 @@ class CommunicationsState extends Equatable {
       contacts: contacts ?? this.contacts,
       recentMessages: recentMessages ?? this.recentMessages,
       isSosBroadcasting: isSosBroadcasting ?? this.isSosBroadcasting,
+      isSyncingContacts: isSyncingContacts ?? this.isSyncingContacts,
       errorMessage: errorMessage,
     );
   }
@@ -55,6 +59,7 @@ class CommunicationsState extends Equatable {
         contacts,
         recentMessages,
         isSosBroadcasting,
+        isSyncingContacts,
         errorMessage,
       ];
 }
