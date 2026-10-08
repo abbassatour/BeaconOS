@@ -19,7 +19,7 @@ class CommunicationsView extends StatelessWidget {
       create: (context) => CommunicationsCubit(
         commsRepository: context.read<CommsRepository>(),
         hardwareRepository: context.read<SystemHardwareRepository>(),
-        assistantRepository: context.read<AssistantRepository>(), // 👈 التحديث تم هنا
+        assistantRepository: context.read<AssistantRepository>(),
       ),
       child: const CommunicationsContentView(),
     );
@@ -56,26 +56,34 @@ class CommunicationsContentView extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // 🌟 معالجة الـ Overflow في الشريط العلوي بالكامل
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'COMMUNICATIONS',
-                              style: TextStyle(
-                                color: colors.onSurface,
-                                fontSize: 26,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 1.5,
+                            Expanded(
+                              child: Text(
+                                'COMMUNICATIONS',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.onSurface,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.1,
+                                ),
                               ),
                             ),
+                            const SizedBox(width: 8),
                             Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                // 🔄 زر المزامنة الجديد مع مؤشر دوران أثناء العمل
                                 IconButton.filledTonal(
                                   style: IconButton.styleFrom(
                                     backgroundColor: colors.surface,
                                     foregroundColor: colors.onSurface,
                                     side: BorderSide(color: colors.outline),
+                                    minimumSize: const Size(40, 40),
+                                    padding: EdgeInsets.zero,
                                   ),
                                   icon: state.isSyncingContacts
                                       ? SizedBox(
@@ -86,20 +94,22 @@ class CommunicationsContentView extends StatelessWidget {
                                             color: colors.primary,
                                           ),
                                         )
-                                      : const Icon(Icons.sync_rounded),
+                                      : const Icon(Icons.sync_rounded, size: 20),
                                   tooltip: 'Sync Device Contacts',
                                   onPressed: state.isSyncingContacts
                                       ? null
                                       : cubit.syncDeviceContacts,
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
                                 IconButton.filledTonal(
                                   style: IconButton.styleFrom(
                                     backgroundColor: colors.surface,
                                     foregroundColor: colors.onSurface,
                                     side: BorderSide(color: colors.outline),
+                                    minimumSize: const Size(40, 40),
+                                    padding: EdgeInsets.zero,
                                   ),
-                                  icon: const Icon(Icons.person_add_alt_1_rounded),
+                                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 20),
                                   tooltip: 'Add Contact',
                                   onPressed: () => _showAddDialog(context, cubit),
                                 ),
@@ -110,7 +120,11 @@ class CommunicationsContentView extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           '$returnHint or double-tap to return to Cockpit.',
-                          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
@@ -141,19 +155,45 @@ class CommunicationsContentView extends StatelessWidget {
                                 CircleAvatar(
                                   radius: 22,
                                   backgroundColor: colors.error,
-                                  child: Icon(state.isSosBroadcasting ? Icons.wifi_tethering_rounded : Icons.warning_amber_rounded, color: colors.surface, size: 26),
+                                  child: Icon(
+                                    state.isSosBroadcasting
+                                        ? Icons.wifi_tethering_rounded
+                                        : Icons.warning_amber_rounded,
+                                    color: colors.surface,
+                                    size: 26,
+                                  ),
                                 ),
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(state.isSosBroadcasting ? 'BROADCASTING SOS RADAR...' : 'EMERGENCY RADAR & SOS', style: TextStyle(color: colors.error, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                                      Text(
+                                        state.isSosBroadcasting
+                                            ? 'BROADCASTING SOS RADAR...'
+                                            : 'EMERGENCY RADAR & SOS',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: colors.error,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
                                       const SizedBox(height: 2),
-                                      Text('Tap to sound alarm, stream GPS & call emergency primary.', style: TextStyle(color: colors.onSurface, fontSize: 12, fontWeight: FontWeight.w600)),
+                                      Text(
+                                        'Tap to sound alarm, stream GPS & call emergency primary.',
+                                        style: TextStyle(
+                                          color: colors.onSurface,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
+                                const SizedBox(width: 8),
                                 Icon(Icons.emergency_rounded, color: colors.error),
                               ],
                             ),
@@ -171,14 +211,32 @@ class CommunicationsContentView extends StatelessWidget {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Icon(Icons.shield_rounded, color: colors.error, size: 18),
-                              const SizedBox(width: 8),
-                              Text('EMERGENCY CONTACTS (${state.emergencyContacts.length})', style: TextStyle(color: colors.error, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
-                            ],
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Icon(Icons.shield_rounded, color: colors.error, size: 18),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    'EMERGENCY CONTACTS (${state.emergencyContacts.length})',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: colors.error,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          Text('Swipe left to delete', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 10)),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Swipe left to delete',
+                            style: TextStyle(color: colors.onSurfaceVariant, fontSize: 10),
+                          ),
                         ],
                       ),
                     ),
@@ -187,7 +245,11 @@ class CommunicationsContentView extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, index) => _buildDismissibleEmergencyCard(context, state.emergencyContacts[index], cubit),
+                        (context, index) => _buildDismissibleEmergencyCard(
+                          context,
+                          state.emergencyContacts[index],
+                          cubit,
+                        ),
                         childCount: state.emergencyContacts.length,
                       ),
                     ),
@@ -201,7 +263,19 @@ class CommunicationsContentView extends StatelessWidget {
                       children: [
                         Icon(Icons.mark_chat_unread_rounded, color: colors.primary, size: 18),
                         const SizedBox(width: 8),
-                        Text('UNREAD MESSAGES (${state.recentMessages.length})', style: TextStyle(color: colors.onSurface, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
+                        Expanded(
+                          child: Text(
+                            'UNREAD MESSAGES (${state.recentMessages.length})',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -212,8 +286,15 @@ class CommunicationsContentView extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                       child: Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.outline)),
-                        child: Text('No unread messages. Your messaging vault is completely quiet.', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: colors.outline),
+                        ),
+                        child: Text(
+                          'No unread messages. Your messaging vault is completely quiet.',
+                          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+                        ),
                       ),
                     ),
                   )
@@ -222,7 +303,11 @@ class CommunicationsContentView extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, index) => _buildMessageTile(context, state.recentMessages[index], cubit),
+                        (context, index) => _buildMessageTile(
+                          context,
+                          state.recentMessages[index],
+                          cubit,
+                        ),
                         childCount: state.recentMessages.length,
                       ),
                     ),
@@ -234,14 +319,32 @@ class CommunicationsContentView extends StatelessWidget {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Icon(Icons.contacts_rounded, color: colors.primary, size: 18),
-                            const SizedBox(width: 8),
-                            Text('PHONE DIRECTORY (${state.regularContacts.length})', style: TextStyle(color: colors.onSurface, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
-                          ],
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(Icons.contacts_rounded, color: colors.primary, size: 18),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  'PHONE DIRECTORY (${state.regularContacts.length})',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: colors.onSurface,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.1,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        Text('Swipe left to delete', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 10)),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Swipe left to delete',
+                          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 10),
+                        ),
                       ],
                     ),
                   ),
@@ -252,8 +355,15 @@ class CommunicationsContentView extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                       child: Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(color: colors.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.outline)),
-                        child: Text('No standard contacts saved. Tap + above to add one.', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: colors.outline),
+                        ),
+                        child: Text(
+                          'No standard contacts saved. Tap + above to add one.',
+                          style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13),
+                        ),
                       ),
                     ),
                   )
@@ -262,7 +372,11 @@ class CommunicationsContentView extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     sliver: SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (context, index) => _buildDismissibleRegularCard(context, state.regularContacts[index], cubit),
+                        (context, index) => _buildDismissibleRegularCard(
+                          context,
+                          state.regularContacts[index],
+                          cubit,
+                        ),
                         childCount: state.regularContacts.length,
                       ),
                     ),
@@ -282,7 +396,12 @@ class CommunicationsContentView extends StatelessWidget {
       context: context,
       builder: (_) => AddContactDialog(
         onSave: ({required name, required phoneNumber, relationship, required isEmergency}) {
-          cubit.addNewContact(name: name, phoneNumber: phoneNumber, relationship: relationship, isEmergency: isEmergency);
+          cubit.addNewContact(
+            name: name,
+            phoneNumber: phoneNumber,
+            relationship: relationship,
+            isEmergency: isEmergency,
+          );
         },
       ),
     );
@@ -299,7 +418,10 @@ class CommunicationsContentView extends StatelessWidget {
         background: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
-          decoration: BoxDecoration(color: colors.error.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(
+            color: colors.error.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Icon(Icons.delete_outline_rounded, color: colors.error),
         ),
         onDismissed: (_) => cubit.deleteContact(contact),
@@ -314,22 +436,52 @@ class CommunicationsContentView extends StatelessWidget {
               onTap: () => cubit.readContactDetailsAloud(contact),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.error, width: 1.5)),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.error, width: 1.5),
+                ),
                 child: Row(
                   children: [
-                    CircleAvatar(radius: 20, backgroundColor: colors.error.withValues(alpha: 0.15), child: Icon(Icons.phone_in_talk_rounded, color: colors.error, size: 20)),
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: colors.error.withValues(alpha: 0.15),
+                      child: Icon(Icons.phone_in_talk_rounded, color: colors.error, size: 20),
+                    ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(contact.name, style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w900, fontSize: 16)),
-                          Text('${contact.relationship ?? 'Emergency'} • ${contact.phoneNumber}', style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                          Text(
+                            contact.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            '${contact.relationship ?? 'Emergency'} • ${contact.phoneNumber}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    IconButton(icon: Icon(Icons.volume_up_rounded, color: colors.primary, size: 20), onPressed: () => cubit.readContactDetailsAloud(contact)),
-                    IconButton(icon: Icon(Icons.call_rounded, color: colors.error, size: 22), onPressed: () => cubit.callContact(contact)),
+                    IconButton(
+                      icon: Icon(Icons.volume_up_rounded, color: colors.primary, size: 20),
+                      onPressed: () => cubit.readContactDetailsAloud(contact),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.call_rounded, color: colors.error, size: 22),
+                      onPressed: () => cubit.callContact(contact),
+                    ),
                   ],
                 ),
               ),
@@ -356,10 +508,21 @@ class CommunicationsContentView extends StatelessWidget {
             onTap: () => cubit.readMessageAloud(msg),
             child: Container(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), border: Border.all(color: colors.outline, width: 1.2)),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.outline, width: 1.2),
+              ),
               child: Row(
                 children: [
-                  CircleAvatar(radius: 20, backgroundColor: colors.primary.withValues(alpha: 0.12), child: Icon(msg.platform == 'whatsapp' ? Icons.chat_rounded : Icons.sms_rounded, color: colors.primary, size: 20)),
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: colors.primary.withValues(alpha: 0.12),
+                    child: Icon(
+                      msg.platform == 'whatsapp' ? Icons.chat_rounded : Icons.sms_rounded,
+                      color: colors.primary,
+                      size: 20,
+                    ),
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
@@ -368,12 +531,39 @@ class CommunicationsContentView extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(msg.senderName, style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.bold, fontSize: 15)),
-                            Text(msg.platform.toUpperCase(), style: TextStyle(color: colors.primary, fontWeight: FontWeight.w900, fontSize: 10)),
+                            Expanded(
+                              child: Text(
+                                msg.senderName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.onSurface,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              msg.platform.toUpperCase(),
+                              style: TextStyle(
+                                color: colors.primary,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 10,
+                              ),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Text(msg.messageText, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 13)),
+                        Text(
+                          msg.messageText,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colors.onSurfaceVariant,
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -399,7 +589,10 @@ class CommunicationsContentView extends StatelessWidget {
         background: Container(
           alignment: Alignment.centerRight,
           padding: const EdgeInsets.only(right: 20),
-          decoration: BoxDecoration(color: colors.error.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(
+            color: colors.error.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Icon(Icons.delete_outline_rounded, color: colors.error),
         ),
         onDismissed: (_) => cubit.deleteContact(contact),
@@ -414,21 +607,50 @@ class CommunicationsContentView extends StatelessWidget {
               onTap: () => cubit.readContactDetailsAloud(contact),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: colors.outline, width: 1.2)),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: colors.outline, width: 1.2),
+                ),
                 child: Row(
                   children: [
-                    CircleAvatar(radius: 18, backgroundColor: context.scaffoldBg, child: Icon(Icons.person_rounded, color: colors.onSurfaceVariant, size: 20)),
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: context.scaffoldBg,
+                      child: Icon(Icons.person_rounded, color: colors.onSurfaceVariant, size: 20),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(contact.name, style: TextStyle(color: colors.onSurface, fontWeight: FontWeight.w800, fontSize: 15)),
-                          Text(contact.relationship != null ? '${contact.relationship} • ${contact.phoneNumber}' : contact.phoneNumber, style: TextStyle(color: colors.onSurfaceVariant, fontSize: 12)),
+                          Text(
+                            contact.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.onSurface,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
+                          ),
+                          Text(
+                            contact.relationship != null
+                                ? '${contact.relationship} • ${contact.phoneNumber}'
+                                : contact.phoneNumber,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colors.onSurfaceVariant,
+                              fontSize: 12,
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    IconButton(icon: Icon(Icons.call_rounded, color: colors.primary, size: 20), onPressed: () => cubit.callContact(contact)),
+                    IconButton(
+                      icon: Icon(Icons.call_rounded, color: colors.primary, size: 20),
+                      onPressed: () => cubit.callContact(contact),
+                    ),
                   ],
                 ),
               ),
