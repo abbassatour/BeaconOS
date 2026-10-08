@@ -128,17 +128,11 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
 
     await _haptics.successNotification();
 
-    final targetModule = _topology.moduleAt(state.currentFloor, destination);
-    final cue = targetModule?.sonicSignature ??
-        switch (destination) {
-          CompassDirection.north => SoundCue.navNorth,
-          CompassDirection.south => SoundCue.navSouth,
-          CompassDirection.east => SoundCue.navEast,
-          CompassDirection.west => SoundCue.navWest,
-          CompassDirection.center => SoundCue.navCenter,
-        };
-
-    await _sound.play(cue, floorLevel: state.currentFloor);
+    // 🌟 استدعاء المحرك النغمي الجديد ذي الطبقات المتمايزة
+    await _sound.playCompassMove(
+      direction: destination,
+      floorLevel: state.currentFloor,
+    );
 
     emit(
       state.copyWith(

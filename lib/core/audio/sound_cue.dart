@@ -2,12 +2,16 @@
 
 /// كتالوج أصوات النظام ونغمات الملاحة الفضائية الموحد (Sound Design Tokens)
 enum SoundCue {
-  // --- إيماءات الملاحة الفضائية (Spatial Pan) ---
-  navNorth('audio/nav_north.mp3', volume: 0.5, allowFloorPitchShift: true),
-  navSouth('audio/nav_south.mp3', volume: 0.5, allowFloorPitchShift: true),
-  navEast('audio/nav_east.mp3', volume: 0.5, allowFloorPitchShift: true),
-  navWest('audio/nav_west.mp3', volume: 0.5, allowFloorPitchShift: true),
-  navCenter('audio/nav_center.mp3', volume: 0.6, allowFloorPitchShift: true),
+  // --- إيماءات الملاحة الفضائية الديناميكية (Dynamic Spatial Pan) ---
+  navMove('audio/nav_move.mp3', volume: 0.35, allowFloorPitchShift: true),
+  navReturn('audio/nav_return.mp3', volume: 0.30, allowFloorPitchShift: true),
+
+  // نغمات ثابتة إضافية (للتوافق القديم)
+  navNorth('audio/nav_move.mp3', volume: 0.35, allowFloorPitchShift: true),
+  navSouth('audio/nav_move.mp3', volume: 0.35, allowFloorPitchShift: true),
+  navEast('audio/nav_move.mp3', volume: 0.35, allowFloorPitchShift: true),
+  navWest('audio/nav_move.mp3', volume: 0.35, allowFloorPitchShift: true),
+  navCenter('audio/nav_return.mp3', volume: 0.30, allowFloorPitchShift: true),
 
   // --- المصعد الرأسي بين الطوابق (Vertical Z-Axis) ---
   elevatorUp('audio/elevator_up.mp3', volume: 0.8),
@@ -27,15 +31,8 @@ enum SoundCue {
     this.isLooping = false,
   });
 
-  /// المسار داخل مجلد assets
   final String path;
-
-  /// مستوى الصوت الافتراضي
   final double volume;
-
-  /// هل ترتفع نبرة الصوت في الطابق الثاني لإعطاء إحساس بالارتفاع
   final bool allowFloorPitchShift;
-
-  /// هل يستمر الصوت بالتكرار (مثل إنذار الطوارئ)
   final bool isLooping;
 }
