@@ -80,6 +80,8 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
   }
 
   Future<void> handleTrainingPinch() async {
+    if (state.hasMasteredPinch) return; // 🛡️ يمنع تكرار النغمة والصوت طالما الأصابع مفتوحة
+
     await _sound.play(SoundCue.elevatorUp);
     await _haptics.successNotification();
     emit(state.copyWith(hasMasteredPinch: true));

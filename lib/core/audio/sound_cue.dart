@@ -14,8 +14,8 @@ enum SoundCue {
   navCenter('audio/nav_return.mp3', volume: 0.30, allowFloorPitchShift: true),
 
   // --- المصعد الرأسي بين الطوابق (Vertical Z-Axis) ---
-  elevatorUp('audio/elevator_up.mp3', volume: 0.8),
-  elevatorDown('audio/elevator_down.mp3', volume: 0.8),
+  elevatorUp('audio/elevator_up.mp3', volume: 0.38),
+  elevatorDown('audio/elevator_down.mp3', volume: 0.35),
 
   // --- الواجهة الصفرية وحالات الاستماع (Zero-UI Cues) ---
   wake('audio/wake.mp3', volume: 0.6),

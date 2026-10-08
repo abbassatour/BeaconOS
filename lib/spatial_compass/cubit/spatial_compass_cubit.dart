@@ -1,4 +1,5 @@
 // lib/spatial_compass/cubit/spatial_compass_cubit.dart
+import 'dart:async'; 
 import 'dart:developer';
 import 'package:beacon_os/core/audio/sound_controller.dart';
 import 'package:beacon_os/core/audio/sound_cue.dart';
@@ -47,14 +48,11 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
     if (state.currentFloor == targetFloor) return;
 
     final isAscending = targetFloor > state.currentFloor;
-    if (isAscending) {
-      // 📳 تحديث: نبضة نجاح لطيفة وناعمة بدلاً من نبضات إنذار الطوارئ
-      await _haptics.successNotification();
-      await _sound.play(SoundCue.elevatorUp, floorLevel: targetFloor);
-    } else {
-      await _haptics.successNotification();
-      await _sound.play(SoundCue.elevatorDown, floorLevel: targetFloor);
-    }
+    final cue = isAscending ? SoundCue.elevatorUp : SoundCue.elevatorDown;
+
+    // ⚡️ إطلاق متزامن وفوري بدون تأخير في نفس فريم انطلاق النابض الفيزيائي
+    unawaited(_haptics.successNotification());
+    unawaited(_sound.play(cue, floorLevel: targetFloor));
 
     emit(state.copyWith(currentFloor: targetFloor));
   }
