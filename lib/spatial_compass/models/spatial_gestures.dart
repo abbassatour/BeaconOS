@@ -2,22 +2,22 @@
 
 /// الكتالوج المركزي الموحد لإيماءات النظام (Spatial Interaction Tokens)
 enum SpatialGesture {
-  // 🏢 1. مصعد الطوابق (Z-Axis Elevator)
+  // 🏢 1. مصعد الطوابق (Z-Axis Elevator - مقلوب: توسيع للصعود وضم للهبوط)
   ascendToSettings(
-    symbol: '🤏',
-    shortLabel: 'Pinch together',
-    visualHint: '🤏 Pinch with 2 fingers to enter Floor 1 (Settings)',
-    spokenPrompt:
-        'Elevator activated. Pinching two fingers together ascends to the Settings floor.',
-    onboardingStepLabel: 'Pinch together 🤏 to dive into Settings Floor',
-  ),
-  descendToGround(
     symbol: '👐',
     shortLabel: 'Spread apart',
-    visualHint: '👐 Spread 2 fingers or tap HUD to return to Cockpit',
+    visualHint: '👐 Spread 2 fingers to enter Floor 1 (Settings)',
     spokenPrompt:
-        'Spreading two fingers apart descends back to your Cockpit.',
-    onboardingStepLabel: 'Spread 2 fingers 👐 to return to Ground Floor',
+        'Elevator activated. Spreading two fingers apart ascends to the Settings floor.',
+    onboardingStepLabel: 'Spread 2 fingers 👐 to dive into Settings Floor',
+  ),
+  descendToGround(
+    symbol: '🤏',
+    shortLabel: 'Pinch together',
+    visualHint: '🤏 Pinch 2 fingers or tap HUD to return to Cockpit',
+    spokenPrompt:
+        'Pinching two fingers together descends back to your Cockpit.',
+    onboardingStepLabel: 'Pinch together 🤏 to return to Ground Floor',
   ),
 
   // 🧭 2. إيماءات الملاحة الفضائية (Compass Pan)

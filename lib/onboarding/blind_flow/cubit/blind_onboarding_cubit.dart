@@ -75,13 +75,13 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     emit(state.copyWith(hasMasteredSouthSwipe: true));
     await _assistant.speak(
       'Great job! That is the South Communications chime. '
-      'Now pinch your fingers together to test the elevator, or tap continue to proceed.',
+      'Now spread your fingers apart to test the elevator, or tap continue to proceed.',
     );
   }
 
   Future<void> handleTrainingPinch() async {
     await _sound.play(SoundCue.elevatorUp);
-    await _haptics.emergencyAlarmPulse();
+    await _haptics.successNotification();
     emit(state.copyWith(hasMasteredPinch: true));
     await _assistant.speak(SpatialGesture.ascendToSettings.spokenPrompt);
   }
@@ -96,7 +96,6 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
     try {
       emit(state.copyWith(isCameraBusy: true, status: BlindFlowStatus.testingVision));
 
-      // 🛡️ 1. فحص مسبق للإذن للتوجيه الصوتي
       final permState = await _camera.getPermissionState();
       if (permState == CameraPermissionState.permanentlyDenied) {
         emit(state.copyWith(isCameraBusy: false, status: BlindFlowStatus.active));
@@ -108,7 +107,6 @@ class BlindOnboardingCubit extends Cubit<BlindOnboardingState> {
         return;
       }
 
-      // إذا لم يمنح الإذن بعد، ننبه الكفيف صوتياً ليستعد للضغط على نافذة النظام
       if (permState == CameraPermissionState.denied) {
         await _assistant.speak('Please allow camera access on your screen.');
       } else {

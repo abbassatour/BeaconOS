@@ -110,14 +110,14 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
   late final AnimationController _panY;
   late final AnimationController _floorZ;
 
-  bool _isTwoFingerPinch = false;
+  bool _isTwoFingerElevator = false;
+  bool _isTransitioningViaGesture = false;
   Axis? _lockedAxis;
 
   double _initialScale = 0.0;
   double _startXAtGesture = 0.0;
   double _startYAtGesture = 0.0;
 
-  // 🌟 استرجاع الإزاحة المتراكمة لحظياً (Delta Catch-up)
   double _accumulatedDeltaX = 0.0;
   double _accumulatedDeltaY = 0.0;
 
@@ -182,7 +182,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       _holdToSpeakTimer?.cancel();
       _holdToSpeakTimer = Timer(const Duration(milliseconds: 400), () {
         if (_activePointers == 1 &&
-            !_isTwoFingerPinch &&
+            !_isTwoFingerElevator &&
             !voiceCubit.state.isOpen) {
           _isHoldingToSpeak = true;
           voiceCubit.startSession();
@@ -261,7 +261,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     _panY.stop();
     _floorZ.stop();
 
-    _isTwoFingerPinch = details.pointerCount >= 2;
+    _isTwoFingerElevator = details.pointerCount >= 2;
     _lockedAxis = null;
     _initialScale = _floorZ.value;
     _startXAtGesture = _panX.value;
@@ -276,22 +276,40 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
 
     final state = context.read<SpatialCompassCubit>().state;
 
-    // 1. معالجة المصعد الرأسي بين الطوابق (Z-Axis)
-    if (_isTwoFingerPinch || details.pointerCount >= 2) {
-      _isTwoFingerPinch = true;
+    // 🌟 1. معالجة المصعد الرأسي: توسيع لدخول الطابق 1، ضم للعودة للطابق 0
+    if (_isTwoFingerElevator || details.pointerCount >= 2) {
+      _isTwoFingerElevator = true;
 
-      final pinchDelta = (1.0 - details.scale) * 1.8;
-      final rawZ = (_initialScale + pinchDelta).clamp(-0.2, 1.2);
-      _floorZ.value = rawZ;
+      final scaleDelta = (details.scale - 1.0) * 1.6;
+      final rawZ = _initialScale + scaleDelta;
 
-      if ((rawZ > 0.35 && _initialScale < 0.5) ||
-          (rawZ < 0.65 && _initialScale >= 0.5)) {
+      double computedZ;
+      if (rawZ < 0.0) {
+        computedZ = -SpatialPhysics.applyRubberBanding(
+          delta: -rawZ,
+          limit: 0.22,
+        );
+      } else if (rawZ > 1.0) {
+        computedZ = 1.0 +
+            SpatialPhysics.applyRubberBanding(
+              delta: rawZ - 1.0,
+              limit: 0.22,
+            );
+      } else {
+        computedZ = rawZ;
+      }
+
+      _floorZ.value = computedZ;
+
+      // نبض لمسي ذكي مع Hysteresis
+      if ((_floorZ.value > 0.45 && _initialScale < 0.5) ||
+          (_floorZ.value < 0.55 && _initialScale >= 0.5)) {
         if (!_hapticDetentFired) {
           HapticManager.instance.selectionClick();
           _hapticDetentFired = true;
         }
-      } else if ((rawZ < 0.35 && _initialScale < 0.5) ||
-          (rawZ > 0.65 && _initialScale >= 0.5)) {
+      } else if ((_floorZ.value < 0.40 && _initialScale < 0.5) ||
+                 (_floorZ.value > 0.60 && _initialScale >= 0.5)) {
         if (_hapticDetentFired) {
           HapticManager.instance.selectionClick();
           _hapticDetentFired = false;
@@ -306,7 +324,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     _accumulatedDeltaX += dx;
     _accumulatedDeltaY += dy;
 
-    // 🌟 2. استجابة سريعة فورية بدون لزوجة (عتبة 6.0 بكسل بدلاً من 18)
     const touchSlopThreshold = 6.0;
     if (_lockedAxis == null) {
       if (_accumulatedDeltaX.abs() > touchSlopThreshold ||
@@ -315,7 +332,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
             ? Axis.horizontal
             : Axis.vertical;
       } else {
-        return; // لم يتجاوز 6 بكسل بعد
+        return;
       }
     }
 
@@ -323,9 +340,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     final screenHeight = MediaQuery.of(context).size.height;
 
     if (_lockedAxis == Axis.horizontal) {
-      // 🌟 3. Delta Catch-up: احتساب كامل الإزاحة التراكمية من البداية دون فقدان
       final rawVal = _startXAtGesture + _accumulatedDeltaX;
-
       var isWall = false;
       var wallLimit = 0.0;
 
@@ -369,7 +384,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         _panX.value = rawVal;
       }
 
-      // 🌟 4. مزامنة الاهتزاز اللمسي مع عتبة التبديل الرشيقة (18% من عرض الشاشة)
       if (!isWall) {
         final dragDistance = (_panX.value - _startXAtGesture).abs();
         final hapticThreshold = screenWidth * 0.18;
@@ -386,9 +400,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         }
       }
     } else if (_lockedAxis == Axis.vertical) {
-      // 🌟 3. Delta Catch-up الرأسي
       final rawVal = _startYAtGesture + _accumulatedDeltaY;
-
       var isWall = false;
       var wallLimit = 0.0;
 
@@ -432,7 +444,6 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         _panY.value = rawVal;
       }
 
-      // مزامنة الاهتزاز اللمسي رأسياً مع 18% من ارتفاع الشاشة
       if (!isWall) {
         final dragDistance = (_panY.value - _startYAtGesture).abs();
         final hapticThreshold = screenHeight * 0.18;
@@ -458,30 +469,49 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     final screenH = MediaQuery.of(context).size.height;
     final state = cubit.state;
 
-    if (_isTwoFingerPinch) {
-      _isTwoFingerPinch = false;
+    // 🌟 معالجة انتهاء إيماءة المصعد الرأسي مع الحفاظ على عزم السرعة
+    if (_isTwoFingerElevator) {
+      _isTwoFingerElevator = false;
+      _isTransitioningViaGesture = true;
 
-      final targetZ = _initialScale < 0.5
-          ? (_floorZ.value > 0.35 ? 1.0 : 0.0)
-          : (_floorZ.value < 0.65 ? 0.0 : 1.0);
+      final scaleVel = details.scaleVelocity;
+      final vz = scaleVel * 1.6;
+
+      int targetFloor;
+      if (_initialScale < 0.5) {
+        // كنا في الطابق 0: الصعود للطابق 1 يتم بتوسيع المسافة (Spread)
+        if (_floorZ.value > 0.35 || vz > 0.5) {
+          targetFloor = 1;
+        } else {
+          targetFloor = 0;
+        }
+      } else {
+        // كنا في الطابق 1: الهبوط للطابق 0 يتم بضم الأصابع (Pinch)
+        if (_floorZ.value < 0.65 || vz < -0.5) {
+          targetFloor = 0;
+        } else {
+          targetFloor = 1;
+        }
+      }
+
+      final targetZ = targetFloor.toDouble();
 
       _floorZ.animateWith(
         SpatialPhysics.createZAxisSimulation(
           start: _floorZ.value,
           end: targetZ,
-          velocity: 0,
+          velocity: vz.clamp(-5.0, 5.0),
         ),
-      );
+      ).whenComplete(() {
+        _isTransitioningViaGesture = false;
+      });
 
-      if (targetZ == 1.0) {
-        cubit.jumpToFloor(1);
-      } else {
-        cubit.jumpToFloor(0);
+      if (targetFloor != cubit.state.currentFloor) {
+        cubit.jumpToFloor(targetFloor);
       }
       return;
     }
 
-    // 🌟 5. عتبات الإفلات الخفيفة والسريعة (18% مسافة و 180 px/sec سرعة)
     const distanceThresholdPercent = 0.18;
     const velocityThreshold = 180.0;
 
@@ -644,12 +674,12 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
           previous.currentDirection != current.currentDirection ||
           previous.currentFloor != current.currentFloor,
       listener: (context, state) {
-        if (_lockedAxis == null && !_isTwoFingerPinch) {
+        if (_lockedAxis == null && !_isTwoFingerElevator) {
           _snapToCurrentState(state);
         }
 
         final targetZ = state.currentFloor.toDouble();
-        if (_floorZ.value != targetZ) {
+        if (!_isTransitioningViaGesture && (_floorZ.value - targetZ).abs() > 0.001) {
           _floorZ.animateWith(
             SpatialPhysics.createZAxisSimulation(
               start: _floorZ.value,
@@ -679,13 +709,13 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                     return AnimatedBuilder(
                       animation: Listenable.merge([_panX, _panY, _floorZ]),
                       builder: (context, child) {
-                        final zFloor = _floorZ.value.clamp(0.0, 1.0);
+                        final rawZ = _floorZ.value;
 
-                        final coreScale = 1.0 + (zFloor * 0.45);
-                        final coreOpacity = (1.0 - zFloor).clamp(0.0, 1.0);
+                        final coreScale = 1.0 + (rawZ * 0.18);
+                        final coreOpacity = (1.0 - (rawZ * 1.25)).clamp(0.0, 1.0);
 
-                        final settingsScale = 0.75 + (zFloor * 0.25);
-                        final settingsOpacity = zFloor.clamp(0.0, 1.0);
+                        final settingsScale = 0.90 + (rawZ * 0.10);
+                        final settingsOpacity = ((rawZ - 0.2) * 1.25).clamp(0.0, 1.0);
 
                         return Stack(
                           children: [
@@ -698,7 +728,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                                 child: Opacity(
                                   opacity: settingsOpacity,
                                   child: IgnorePointer(
-                                    ignoring: zFloor < 0.5,
+                                    ignoring: rawZ < 0.5,
                                     child: SpatialFloorLayout(
                                       key: const ValueKey('spatial_floor_layout_1'),
                                       direction: state.currentDirection,
@@ -718,7 +748,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                                 child: Opacity(
                                   opacity: coreOpacity,
                                   child: IgnorePointer(
-                                    ignoring: zFloor > 0.5,
+                                    ignoring: rawZ > 0.5,
                                     child: SpatialFloorLayout(
                                       key: const ValueKey('spatial_floor_layout_0'),
                                       direction: state.currentDirection,
@@ -729,7 +759,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                                 ),
                               ),
 
-                            // 🗺️ شريط الـ HUD الملاحي المتصل بالطوبولوجيا
+                            // 🗺️ شريط الـ HUD الملاحي
                             SpatialCompassHud(
                               direction: state.currentDirection,
                               currentFloor: state.currentFloor,
@@ -737,7 +767,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                               onFloorToggle: compassCubit.toggleFloor,
                             ),
 
-                            // 🎙️ لوحة المساعد الصوتي العائمة المستدعاة بالضغط أو الزاوية
+                            // 🎙️ لوحة المساعد الصوتي
                             const AmbientVoiceOverlay(),
                           ],
                         );

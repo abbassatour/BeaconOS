@@ -17,6 +17,12 @@ class BlindCompassStep extends StatelessWidget {
       builder: (context, state) {
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
+          onScaleUpdate: (details) {
+            // كشف توسيع الأصابع (Spread) بدقة أكبر من 1.15
+            if (details.pointerCount >= 2 && details.scale > 1.15) {
+              cubit.handleTrainingPinch();
+            }
+          },
           onScaleEnd: (details) {
             if (details.pointerCount >= 2) {
               cubit.handleTrainingPinch();
@@ -43,7 +49,6 @@ class BlindCompassStep extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                // المؤشرات البصرية/الحسية للإتقان مستدعاة من القاموس الموحد
                 Column(
                   children: [
                     _buildCheckTile(

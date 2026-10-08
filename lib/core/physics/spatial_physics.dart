@@ -11,20 +11,18 @@ class SpatialPhysics {
   // ===========================================================================
 
   /// نابض الانتقال الأفقي والرأسي (XY-Axis Pan) للغرف
-  /// - Mass: 1.0 (كتلة قياسية خفيفة)
-  /// - Stiffness: 300.0 (صلابة رشيقة وسريعة الاستجابة)
-  /// - Damping: 26.8 (نسبة تخميد ζ ≈ 0.77 تعطي انزلاقاً انسيابياً بلا فرملة قاسية)
   static const SpringDescription panSpring = SpringDescription(
     mass: 1.0,
     stiffness: 300.0,
     damping: 26.8, 
   );
 
-  /// نابض الانتقال الرأسي في العمق (Z-Axis Pinch/Zoom) للطوابق
+  /// 🌟 نابض الانتقال الرأسي في العمق (Z-Axis Spread/Pinch) للطوابق
+  /// تم تحسينه بنسبة تخميد ζ ≈ 0.80 ليمنح انتقالاً زبدياً سلساً بلا قساوة أو بطء
   static const SpringDescription zAxisSpring = SpringDescription(
-    mass: 1.2,
-    stiffness: 400.0,
-    damping: 43.8,
+    mass: 1.0,
+    stiffness: 260.0,
+    damping: 26.0,
   );
 
   // ===========================================================================

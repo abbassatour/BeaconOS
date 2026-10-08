@@ -10,17 +10,17 @@ import 'package:launcher_repository/launcher_repository.dart';
 
 class SpatialCompassCubit extends Cubit<SpatialCompassState> {
   SpatialCompassCubit({
-    required AssistantRepository assistantRepository, // 👈 تم التحديث
+    required AssistantRepository assistantRepository,
     required SpatialTopology topology,
     HapticManager? hapticManager,
     SoundController? soundController,
-  })  : _assistant = assistantRepository, // 👈 تم التحديث
+  })  : _assistant = assistantRepository,
         _topology = topology,
         _haptics = hapticManager ?? HapticManager.instance,
         _sound = soundController ?? SoundController.instance,
         super(const SpatialCompassState());
 
-  final AssistantRepository _assistant; // 👈 تم التحديث
+  final AssistantRepository _assistant;
   final SpatialTopology _topology;
   final HapticManager _haptics;
   final SoundController _sound;
@@ -48,7 +48,8 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
 
     final isAscending = targetFloor > state.currentFloor;
     if (isAscending) {
-      await _haptics.emergencyAlarmPulse();
+      // 📳 تحديث: نبضة نجاح لطيفة وناعمة بدلاً من نبضات إنذار الطوارئ
+      await _haptics.successNotification();
       await _sound.play(SoundCue.elevatorUp, floorLevel: targetFloor);
     } else {
       await _haptics.successNotification();
@@ -162,8 +163,8 @@ class SpatialCompassCubit extends Cubit<SpatialCompassState> {
     final announcement = module?.getFloorTitle(state.currentFloor) ??
         '${state.currentDirection.name.toUpperCase()} Floor ${state.currentFloor}';
 
-    await _assistant.stopSpeaking(); // 👈 تم التحديث
-    await _assistant.speak(announcement); // 👈 تم التحديث
+    await _assistant.stopSpeaking();
+    await _assistant.speak(announcement);
     log('SpatialCompass: Context Requested -> "$announcement"');
   }
 }
