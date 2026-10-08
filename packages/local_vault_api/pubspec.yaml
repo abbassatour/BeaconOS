@@ -1,6 +1,7 @@
 name: local_vault_api
 description: "A local-first encrypted vault for BeaconOS using Drift SQLite."
 version: 0.0.2
+publish_to: none
 homepage:
 
 environment:

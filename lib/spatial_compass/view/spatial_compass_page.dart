@@ -280,20 +280,20 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     if (_isTwoFingerElevator || details.pointerCount >= 2) {
       _isTwoFingerElevator = true;
 
-      final scaleDelta = (details.scale - 1.0) * 1.6;
+      final scaleDelta = (details.scale - 1.0) * 1.5;
       final rawZ = _initialScale + scaleDelta;
 
       double computedZ;
       if (rawZ < 0.0) {
         computedZ = -SpatialPhysics.applyRubberBanding(
           delta: -rawZ,
-          limit: 0.22,
+          limit: 0.20,
         );
       } else if (rawZ > 1.0) {
         computedZ = 1.0 +
             SpatialPhysics.applyRubberBanding(
               delta: rawZ - 1.0,
-              limit: 0.22,
+              limit: 0.20,
             );
       } else {
         computedZ = rawZ;
@@ -301,19 +301,16 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
 
       _floorZ.value = computedZ;
 
-      // نبض لمسي ذكي مع Hysteresis
-      if ((_floorZ.value > 0.45 && _initialScale < 0.5) ||
-          (_floorZ.value < 0.55 && _initialScale >= 0.5)) {
+      // نبض لمسي ذكي بنظام Hysteresis دقيق يمنع التكرار العشوائي
+      if ((_floorZ.value >= 0.50 && _initialScale < 0.50) ||
+          (_floorZ.value <= 0.50 && _initialScale >= 0.50)) {
         if (!_hapticDetentFired) {
           HapticManager.instance.selectionClick();
           _hapticDetentFired = true;
         }
-      } else if ((_floorZ.value < 0.40 && _initialScale < 0.5) ||
-                 (_floorZ.value > 0.60 && _initialScale >= 0.5)) {
-        if (_hapticDetentFired) {
-          HapticManager.instance.selectionClick();
-          _hapticDetentFired = false;
-        }
+      } else if ((_floorZ.value < 0.35 && _initialScale < 0.50) ||
+          (_floorZ.value > 0.65 && _initialScale >= 0.50)) {
+        _hapticDetentFired = false;
       }
       return;
     }
@@ -393,10 +390,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
             _hapticDetentFired = true;
           }
         } else {
-          if (_hapticDetentFired) {
-            HapticManager.instance.selectionClick();
-            _hapticDetentFired = false;
-          }
+          _hapticDetentFired = false;
         }
       }
     } else if (_lockedAxis == Axis.vertical) {
@@ -453,10 +447,7 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
             _hapticDetentFired = true;
           }
         } else {
-          if (_hapticDetentFired) {
-            HapticManager.instance.selectionClick();
-            _hapticDetentFired = false;
-          }
+          _hapticDetentFired = false;
         }
       }
     }
@@ -469,24 +460,22 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
     final screenH = MediaQuery.of(context).size.height;
     final state = cubit.state;
 
-    // 🌟 معالجة انتهاء إيماءة المصعد الرأسي مع الحفاظ على عزم السرعة
+    // 🌟 2. معالجة انتهاء إيماءة المصعد الرأسي بعزم فيزيائي متصل
     if (_isTwoFingerElevator) {
       _isTwoFingerElevator = false;
       _isTransitioningViaGesture = true;
 
       final scaleVel = details.scaleVelocity;
-      final vz = scaleVel * 1.6;
+      final vz = scaleVel * 1.5;
 
       int targetFloor;
       if (_initialScale < 0.5) {
-        // كنا في الطابق 0: الصعود للطابق 1 يتم بتوسيع المسافة (Spread)
         if (_floorZ.value > 0.35 || vz > 0.5) {
           targetFloor = 1;
         } else {
           targetFloor = 0;
         }
       } else {
-        // كنا في الطابق 1: الهبوط للطابق 0 يتم بضم الأصابع (Pinch)
         if (_floorZ.value < 0.65 || vz < -0.5) {
           targetFloor = 0;
         } else {
@@ -496,14 +485,20 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
 
       final targetZ = targetFloor.toDouble();
 
-      _floorZ.animateWith(
+      _floorZ
+          .animateWith(
         SpatialPhysics.createZAxisSimulation(
           start: _floorZ.value,
           end: targetZ,
-          velocity: vz.clamp(-5.0, 5.0),
+          velocity: vz.clamp(-4.0, 4.0),
         ),
-      ).whenComplete(() {
-        _isTransitioningViaGesture = false;
+      )
+          .whenComplete(() {
+        if (mounted) {
+          setState(() {
+            _isTransitioningViaGesture = false;
+          });
+        }
       });
 
       if (targetFloor != cubit.state.currentFloor) {
@@ -521,17 +516,20 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       var targetDir = state.currentDirection;
 
       if (state.currentDirection == CompassDirection.center) {
-        if (_panX.value > screenW * distanceThresholdPercent || vx > velocityThreshold) {
+        if (_panX.value > screenW * distanceThresholdPercent ||
+            vx > velocityThreshold) {
           targetX = screenW;
           targetDir = CompassDirection.west;
-        } else if (_panX.value < -screenW * distanceThresholdPercent || vx < -velocityThreshold) {
+        } else if (_panX.value < -screenW * distanceThresholdPercent ||
+            vx < -velocityThreshold) {
           targetX = -screenW;
           targetDir = CompassDirection.east;
         } else {
           targetX = 0.0;
         }
       } else if (state.currentDirection == CompassDirection.east) {
-        if (_panX.value > -screenW * (1.0 - distanceThresholdPercent) || vx > velocityThreshold) {
+        if (_panX.value > -screenW * (1.0 - distanceThresholdPercent) ||
+            vx > velocityThreshold) {
           targetX = 0.0;
           targetDir = CompassDirection.center;
         } else {
@@ -539,7 +537,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
           targetDir = CompassDirection.east;
         }
       } else if (state.currentDirection == CompassDirection.west) {
-        if (_panX.value < screenW * (1.0 - distanceThresholdPercent) || vx < -velocityThreshold) {
+        if (_panX.value < screenW * (1.0 - distanceThresholdPercent) ||
+            vx < -velocityThreshold) {
           targetX = 0.0;
           targetDir = CompassDirection.center;
         } else {
@@ -572,17 +571,20 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
       var targetDir = state.currentDirection;
 
       if (state.currentDirection == CompassDirection.center) {
-        if (_panY.value > screenH * distanceThresholdPercent || vy > velocityThreshold) {
+        if (_panY.value > screenH * distanceThresholdPercent ||
+            vy > velocityThreshold) {
           targetY = screenH;
           targetDir = CompassDirection.north;
-        } else if (_panY.value < -screenH * distanceThresholdPercent || vy < -velocityThreshold) {
+        } else if (_panY.value < -screenH * distanceThresholdPercent ||
+            vy < -velocityThreshold) {
           targetY = -screenH;
           targetDir = CompassDirection.south;
         } else {
           targetY = 0.0;
         }
       } else if (state.currentDirection == CompassDirection.north) {
-        if (_panY.value < screenH * (1.0 - distanceThresholdPercent) || vy < -velocityThreshold) {
+        if (_panY.value < screenH * (1.0 - distanceThresholdPercent) ||
+            vy < -velocityThreshold) {
           targetY = 0.0;
           targetDir = CompassDirection.center;
         } else {
@@ -590,7 +592,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
           targetDir = CompassDirection.north;
         }
       } else if (state.currentDirection == CompassDirection.south) {
-        if (_panY.value > -screenH * (1.0 - distanceThresholdPercent) || vy > velocityThreshold) {
+        if (_panY.value > -screenH * (1.0 - distanceThresholdPercent) ||
+            vy > velocityThreshold) {
           targetY = 0.0;
           targetDir = CompassDirection.center;
         } else {
@@ -679,7 +682,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
         }
 
         final targetZ = state.currentFloor.toDouble();
-        if (!_isTransitioningViaGesture && (_floorZ.value - targetZ).abs() > 0.001) {
+        if (!_isTransitioningViaGesture &&
+            (_floorZ.value - targetZ).abs() > 0.001) {
           _floorZ.animateWith(
             SpatialPhysics.createZAxisSimulation(
               start: _floorZ.value,
@@ -697,7 +701,8 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
             child: Listener(
               onPointerDown: (e) => _onPointerDown(e, ambientVoiceCubit),
               onPointerMove: _onPointerMove,
-              onPointerUp: (e) => _onPointerUp(e, compassCubit, ambientVoiceCubit),
+              onPointerUp: (e) =>
+                  _onPointerUp(e, compassCubit, ambientVoiceCubit),
               onPointerCancel: (e) => _onPointerCancel(e, ambientVoiceCubit),
               child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
@@ -709,65 +714,103 @@ class _SpatialCompassBodyState extends State<_SpatialCompassBody>
                     return AnimatedBuilder(
                       animation: Listenable.merge([_panX, _panY, _floorZ]),
                       builder: (context, child) {
-                        final rawZ = _floorZ.value;
+                        final rawZ = _floorZ.value.clamp(0.0, 1.0);
 
-                        final coreScale = 1.0 + (rawZ * 0.18);
-                        final coreOpacity = (1.0 - (rawZ * 1.25)).clamp(0.0, 1.0);
+                        // 🌀 1. التلاشي المنحني المتصل خماسي الحدود (Perlin's Smootherstep)
+                        final t = SpatialPhysics.smootherStep(rawZ);
+                        final coreOpacity = (1.0 - t).clamp(0.0, 1.0);
+                        final settingsOpacity = t.clamp(0.0, 1.0);
 
-                        final settingsScale = 0.90 + (rawZ * 0.10);
-                        final settingsOpacity = ((rawZ - 0.2) * 1.25).clamp(0.0, 1.0);
+                        // 🔍 2. التكبير والتصغير المنظوري للعمق
+                        final coreScale = 1.0 + (rawZ * 0.10);
+                        final settingsScale = 0.88 + (rawZ * 0.12);
+
+                        // 🛗 3. إزاحة البارالاكس الرأسي المتزامن مع نغمة المصعد
+                        final coreParallaxY =
+                            rawZ * SpatialPhysics.elevationLiftOffset;
+                        final settingsParallaxY = (1.0 - rawZ) *
+                            -SpatialPhysics.elevationLiftOffset;
+
+                        // 📐 4. زاوية الميلان ثلاثية الأبعاد السينمائية (3D Pitch Angle)
+                        final coreTiltX = -0.04 * rawZ;
+                        final settingsTiltX = 0.04 * (1.0 - rawZ);
+
+                        // 🎥 5. بناء مصفوفات المنظور ثلاثي الأبعاد
+                        final coreMatrix = Matrix4.identity()
+                          ..setEntry(
+                            3,
+                            2,
+                            SpatialPhysics.perspectiveCoefficient,
+                          )
+                          ..translate(0.0, coreParallaxY)
+                          ..scale(coreScale, coreScale)
+                          ..rotateX(coreTiltX);
+
+                        final settingsMatrix = Matrix4.identity()
+                          ..setEntry(
+                            3,
+                            2,
+                            SpatialPhysics.perspectiveCoefficient,
+                          )
+                          ..translate(0.0, settingsParallaxY)
+                          ..scale(settingsScale, settingsScale)
+                          ..rotateX(settingsTiltX);
+
+                        final panOffset = Offset(_panX.value, _panY.value);
 
                         return Stack(
                           children: [
-                            // ⚙️ الطبقة العميقة (Floor 1: الإعدادات والمحركات)
-                            if (settingsOpacity > 0.0)
+                            // ⚙️ الطابق 1 (الإعدادات ومحركات الغرف - ينبثق من العمق السحيق)
+                            if (settingsOpacity > 0.001)
                               Transform(
                                 alignment: Alignment.center,
-                                transform: Matrix4.identity()
-                                  ..scale(settingsScale, settingsScale),
+                                transform: settingsMatrix,
                                 child: Opacity(
                                   opacity: settingsOpacity,
                                   child: IgnorePointer(
                                     ignoring: rawZ < 0.5,
                                     child: SpatialFloorLayout(
-                                      key: const ValueKey('spatial_floor_layout_1'),
+                                      key: const ValueKey(
+                                        'spatial_floor_layout_1',
+                                      ),
                                       direction: state.currentDirection,
                                       floorLevel: 1,
-                                      panOffset: Offset(_panX.value, _panY.value),
+                                      panOffset: panOffset,
                                     ),
                                   ),
                                 ),
                               ),
 
-                            // 🏠 الطبقة السطحية (Floor 0: الغرف الأساسية وقمرة القيادة)
-                            if (coreOpacity > 0.0)
+                            // 🏠 الطابق 0 (قمرة القيادة والغرف اليومية - يتسع للأمام ويتلاشى بنعومة)
+                            if (coreOpacity > 0.001)
                               Transform(
                                 alignment: Alignment.center,
-                                transform: Matrix4.identity()
-                                  ..scale(coreScale, coreScale),
+                                transform: coreMatrix,
                                 child: Opacity(
                                   opacity: coreOpacity,
                                   child: IgnorePointer(
-                                    ignoring: rawZ > 0.5,
+                                    ignoring: rawZ >= 0.5,
                                     child: SpatialFloorLayout(
-                                      key: const ValueKey('spatial_floor_layout_0'),
+                                      key: const ValueKey(
+                                        'spatial_floor_layout_0',
+                                      ),
                                       direction: state.currentDirection,
                                       floorLevel: 0,
-                                      panOffset: Offset(_panX.value, _panY.value),
+                                      panOffset: panOffset,
                                     ),
                                   ),
                                 ),
                               ),
 
-                            // 🗺️ شريط الـ HUD الملاحي
+                            // 🗺️ شريط الـ HUD الملاحي المتزامن عند منتصف العبور
                             SpatialCompassHud(
                               direction: state.currentDirection,
-                              currentFloor: state.currentFloor,
+                              currentFloor: rawZ >= 0.5 ? 1 : 0,
                               onCenterTap: compassCubit.returnToCenter,
                               onFloorToggle: compassCubit.toggleFloor,
                             ),
 
-                            // 🎙️ لوحة المساعد الصوتي
+                            // 🎙️ لوحة المساعد الصوتي العائمة
                             const AmbientVoiceOverlay(),
                           ],
                         );

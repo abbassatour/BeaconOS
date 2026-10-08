@@ -4,25 +4,29 @@ import 'package:beacon_os/spatial_compass/widgets/compass_transition_layout.dart
 import 'package:flutter/material.dart';
 
 /// المخطط الفضائي الموحد لأي طابق في النظام (يدعم الطوابق: ... -1, 0, 1, 2 ...)
+/// مغلف بـ [RepaintBoundary] لضمان عزل الكاش الرسومي على كرت الشاشة (GPU Raster Cache)
+/// ومنع إعادة رسم الغرف أثناء تحولات المنظور ثلاثي الأبعاد.
 class SpatialFloorLayout extends StatelessWidget {
   const SpatialFloorLayout({
     required this.direction,
     required this.floorLevel,
-    this.panOffset = Offset.zero, // 👈 تم إضافة المتغير هنا
+    this.panOffset = Offset.zero,
     super.key,
   });
 
   final CompassDirection direction;
   final int floorLevel;
-  final Offset panOffset; // 👈 تم الاستقبال هنا
+  final Offset panOffset;
 
   @override
   Widget build(BuildContext context) {
-    return CompassTransitionLayout(
-      key: ValueKey('compass_transition_floor_$floorLevel'),
-      direction: direction,
-      floorLevel: floorLevel,
-      panOffset: panOffset, // 👈 وتم تمريره إلى الطبقة الداخلية بنجاح
+    return RepaintBoundary(
+      child: CompassTransitionLayout(
+        key: ValueKey('compass_transition_floor_$floorLevel'),
+        direction: direction,
+        floorLevel: floorLevel,
+        panOffset: panOffset,
+      ),
     );
   }
 }
@@ -34,6 +38,7 @@ class CoreFloorLayout extends StatelessWidget {
     this.panOffset = Offset.zero,
     super.key,
   });
+
   final CompassDirection direction;
   final Offset panOffset;
 
@@ -54,6 +59,7 @@ class SettingsFloorLayout extends StatelessWidget {
     this.panOffset = Offset.zero,
     super.key,
   });
+
   final CompassDirection direction;
   final Offset panOffset;
 

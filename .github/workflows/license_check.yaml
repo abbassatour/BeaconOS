@@ -23,3 +23,4 @@ jobs:
     uses: VeryGoodOpenSource/very_good_workflows/.github/workflows/license_check.yml@v1
     with:
       allowed: "MIT,BSD-3-Clause,BSD-2-Clause,Apache-2.0"
+      skip_packages: "cloud_sync_api,launcher_repository,local_vault_api,system_hardware_api,voice_ai_api"

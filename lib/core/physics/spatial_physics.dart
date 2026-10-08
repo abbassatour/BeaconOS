@@ -2,7 +2,7 @@
 import 'package:flutter/physics.dart';
 
 /// محرك الفيزياء الحركية الفضائية (Spatial Motion Physics Engine)
-/// يعتمد على نوابض Runge-Kutta بدلاً من المنحنيات الزمنية الثابتة.
+/// يعتمد على نوابض Runge-Kutta، المنحنيات التوافقية المتصلة، وحسابات المنظور ثلاثي الأبعاد.
 class SpatialPhysics {
   SpatialPhysics._();
 
@@ -14,7 +14,7 @@ class SpatialPhysics {
   static const SpringDescription panSpring = SpringDescription(
     mass: 1.0,
     stiffness: 300.0,
-    damping: 26.8, 
+    damping: 26.8,
   );
 
   /// 🌟 نابض الانتقال الرأسي في العمق (Z-Axis Spread/Pinch) للطوابق
@@ -26,7 +26,17 @@ class SpatialPhysics {
   );
 
   // ===========================================================================
-  // 🚀 2. مولدات المحاكاة (Simulation Generators)
+  // 🎥 2. ثوابت المنظور ثلاثي الأبعاد (Spatial Portal Constants)
+  // ===========================================================================
+
+  /// معامل المنظور البؤري لمصفوفة Matrix4 (يعادل عدسة كاميرا قياس 35mm-50mm)
+  static const double perspectiveCoefficient = 0.0008;
+
+  /// إزاحة البارالاكس الرأسي المصاحبة لنغمة المصعد بالبكسل
+  static const double elevationLiftOffset = 30.0;
+
+  // ===========================================================================
+  // 🚀 3. مولدات المحاكاة (Simulation Generators)
   // ===========================================================================
 
   /// يولد محاكاة حركية بانسيابية للانتقال بين الغرف بناءً على سرعة الإفلات
@@ -58,9 +68,10 @@ class SpatialPhysics {
   }
 
   // ===========================================================================
-  // ✋ 3. حسابات الاحتكاك والمطاطية (Rubber-banding)
+  // ✋ 4. حسابات الاحتكاك والمطاطية (Rubber-banding)
   // ===========================================================================
 
+  /// تطبيق مقاومة مطاطية ناعمة عند محاولة السحب خارج حدود الطوابق والغرف
   static double applyRubberBanding({
     required double delta,
     required double limit,
@@ -68,7 +79,29 @@ class SpatialPhysics {
   }) {
     if (delta == 0) return 0.0;
     final absDelta = delta.abs();
-    final rubberDelta = limit * (1.0 - (1.0 / ((absDelta * stiffness / limit) + 1.0)));
+    final rubberDelta =
+        limit * (1.0 - (1.0 / ((absDelta * stiffness / limit) + 1.0)));
     return delta < 0 ? -rubberDelta : rubberDelta;
+  }
+
+  // ===========================================================================
+  // 🌀 5. منحنيات التنعيم الفضائي (Spatial Hermite & Smootherstep Curves)
+  // ===========================================================================
+
+  /// دالة التنعيم الكلاسيكية (Cubic Hermite Curve): 3t² - 2t³
+  static double smoothStep(double t) {
+    final clamped = t.clamp(0.0, 1.0);
+    return clamped * clamped * (3.0 - (2.0 * clamped));
+  }
+
+  /// دالة التنعيم المتصل خماسية الحدود (Ken Perlin's Smootherstep): 6t⁵ - 15t⁴ + 10t³
+  /// تتميز بمشتقين صفريين عند البداية والنهاية (C² Continuous)، مما يمنع الفجوات الميتة
+  /// (Dead Zones) والارتجاج البصري أثناء التلاشي التراكمي للطبقات.
+  static double smootherStep(double t) {
+    final clamped = t.clamp(0.0, 1.0);
+    return clamped *
+        clamped *
+        clamped *
+        (clamped * (clamped * 6.0 - 15.0) + 10.0);
   }
 }
