@@ -25,8 +25,8 @@ class MinimalistOnboardingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => MinimalistOnboardingCubit(
-        settingsRepository: context.read<SettingsRepository>(), // 👈 حقن مباشر
-        voiceDispatcher: context.read<VoiceCommandDispatcher>(), // 👈 حقن مباشر
+        settingsRepository: context.read<SettingsRepository>(),
+        voiceDispatcher: context.read<VoiceCommandDispatcher>(),
       ),
       child: const _MinimalistScaffold(),
     );
@@ -75,20 +75,31 @@ class _MinimalistScaffold extends StatelessWidget {
     final stepNum = state.currentStep.index + 1;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'BEACON OS • INTENTIONALITY $stepNum/4',
-            style: const TextStyle(
-              color: AppTheme.terracotta,
-              fontSize: 11,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.5,
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'BEACON OS • INTENTIONALITY $stepNum/4',
+                style: const TextStyle(
+                  color: AppTheme.terracotta,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.2,
+                ),
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
             onPressed: cubit.finishMinimalistOnboarding,
             child: const Text(
               'Skip to Cockpit',

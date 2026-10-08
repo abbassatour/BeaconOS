@@ -24,8 +24,8 @@ class BlindOnboardingPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (context) => BlindOnboardingCubit(
-        assistantRepository: context.read<AssistantRepository>(), // 👈 حقن مباشر
-        settingsRepository: context.read<SettingsRepository>(), // 👈 حقن مباشر
+        assistantRepository: context.read<AssistantRepository>(),
+        settingsRepository: context.read<SettingsRepository>(),
       ),
       child: const _BlindOnboardingScaffold(),
     );
@@ -72,27 +72,43 @@ class _BlindOnboardingScaffold extends StatelessWidget {
   Widget _buildHeaderBar(BuildContext context, BlindOnboardingState state) {
     final stepIndex = state.currentStep.index + 1;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppTheme.highContrastBorder)),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'ACCESSIBILITY SETUP • STEP $stepIndex OF 4',
-            style: const TextStyle(
-              color: AppTheme.cyanHighlight,
-              fontSize: 12,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 1.2,
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'ACCESSIBILITY SETUP • STEP $stepIndex OF 4',
+                style: const TextStyle(
+                  color: AppTheme.cyanHighlight,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 1.0,
+                ),
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           TextButton(
-            onPressed: () => context.read<BlindOnboardingCubit>().finishBlindOnboarding(),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: () =>
+                context.read<BlindOnboardingCubit>().finishBlindOnboarding(),
             child: const Text(
               'Skip to Cockpit',
-              style: TextStyle(color: AppTheme.highContrastMuted, fontSize: 13),
+              style: TextStyle(
+                color: AppTheme.highContrastMuted,
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
