@@ -12,6 +12,7 @@ import 'package:bloc/bloc.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:launcher_repository/launcher_repository.dart';
+import 'package:local_vault_api/local_vault_api.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:voice_ai_api/voice_ai_api.dart';
 
@@ -39,12 +40,16 @@ Future<void> bootstrap() async {
   Bloc.observer = const AppBlocObserver();
   WidgetsFlutterBinding.ensureInitialized();
 
-  // إخفاء شريط الحالة لشاشة كاملة حقيقية
-  await SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.immersiveSticky,
-  );
+  // 1. وضع الشاشة الكاملة الحقيقي (دون تعطيل الإقلاع)
+  try {
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.immersiveSticky,
+    );
+  } catch (e) {
+    log('Bootstrap: Immersive mode setup bypassed: $e');
+  }
 
-  // 1. تهيئة Supabase بشكل آمن
+  // 2. تهيئة Supabase بأمان تام
   if (ApiConstants.supabaseUrl.isNotEmpty &&
       ApiConstants.supabaseAnonKey.isNotEmpty) {
     try {
@@ -60,29 +65,72 @@ Future<void> bootstrap() async {
     log('Supabase: Skipped initialization (Keys are empty).');
   }
 
-  // 2. تهيئة خدمات الهاكاثون السحابية
-  await RevenueCatService.initialize();
-  await OneSignalService.initialize();
+  // 3. تهيئة خدمات السحابة والاشتراكات بحماية زمنية تمنع تعليق الإقلاع
+  try {
+    await RevenueCatService.initialize().timeout(const Duration(seconds: 2));
+  } catch (e) {
+    log('Bootstrap: RevenueCat init deferred: $e');
+  }
 
-  // 3. تزويد وكيل الذكاء الاصطناعي بمفتاح OpenRouter
+  try {
+    await OneSignalService.initialize().timeout(const Duration(seconds: 2));
+  } catch (e) {
+    log('Bootstrap: OneSignal init deferred: $e');
+  }
+
+  // 4. تهيئة وكيل الذكاء الاصطناعي ومستودع النظام
   final llmAgent = LlmAgent(openRouterApiKey: ApiConstants.openRouterApiKey);
+  final launcherRepository = LauncherRepository(llmAgent: llmAgent);
 
-  // 4. تهيئة مستودع النظام المنسق (Orchestrator)
-  final launcherRepository = LauncherRepository(
-    llmAgent: llmAgent,
-  );
+  // ⚡️ 5. تهيئة محركات الصوت (Speech-To-Text و TTS) مع حماية ضد تعليق المحاكي
+  try {
+    await launcherRepository.assistant
+        .initializeEngines()
+        .timeout(const Duration(seconds: 2));
+    log('Bootstrap: Audio engines initialized.');
+  } catch (e) {
+    log('Bootstrap: Audio engines init timed out or bypassed (Safe fallback for emulator): $e');
+  }
 
-  // ⚡️ (1) تهيئة محركات الصوت فوراً عند الإقلاع للمكفوفين عبر مستودع المساعد مباشرة
-  await launcherRepository.assistant.initializeEngines();
+  // 🎨 6. قراءة الإعدادات مع كائن احتياطي كامل في حال قفل الـ SQLite أثناء إعادة التشغيل السريع
+  AppSetting initialSettings;
+  try {
+    initialSettings = await launcherRepository.settings
+        .getSettings()
+        .timeout(const Duration(seconds: 2));
+  } catch (e) {
+    log('Bootstrap: Settings fallback triggered: $e');
+    initialSettings = AppSetting(
+      id: 'local_device_settings',
+      userPersona: 'digital_minimalist',
+      hasCompletedOnboarding: false,
+      speechRate: 0.5,
+      hapticsEnabled: true,
+      soundCuesEnabled: true,
+      isHighContrast: false,
+      defaultPriority: 'medium',
+      autoArchiveCompleted: true,
+      speakDueDatesAloud: true,
+      autoDialEmergency: true,
+      shareGpsOnSos: true,
+      speakIncomingSms: true,
+      voiceChimeHalfway: true,
+      vibrateOnSessionFinish: true,
+      syncAlarmsWithAndroidClock: true,
+      visionInspectionDetail: 'concise',
+      autoFlashlightInDark: true,
+      preferredCurrency: 'USD / Local',
+      updatedAt: DateTime.now(),
+      isSynced: false,
+    );
+  }
 
-  // 🎨 (2) قراءة الثيم وحالة الإعدادات فوراً
-  final initialSettings = await launcherRepository.settings.getSettings();
-
-  // 🎛️ (3) حقن تفضيلات الصوت والاهتزاز وسرعة النطق فوراً في المحركات لمنع أي تأخير أو وميض
+  // 🎛️ 7. ضبط التفضيلات فوراً وإطلاق سرعة النطق بالتوازي (Non-blocking)
   SoundController.instance.isEnabled = initialSettings.soundCuesEnabled;
   HapticManager.instance.isEnabled = initialSettings.hapticsEnabled;
-  await launcherRepository.assistant.setSpeechRate(initialSettings.speechRate);
+  unawaited(launcherRepository.assistant.setSpeechRate(initialSettings.speechRate));
 
+  // 🚀 8. إطلاق الواجهة فوراً
   runApp(
     App(
       launcherRepository: launcherRepository,
