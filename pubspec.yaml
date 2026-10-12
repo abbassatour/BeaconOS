@@ -23,7 +23,7 @@ dependencies:
     path: packages/launcher_repository
   local_vault_api:
     path: packages/local_vault_api
-  onesignal_flutter: ^5.6.11
+  onesignal_flutter: ^5.7.0
   purchases_flutter: ^8.11.0
   sqlite3_flutter_libs: 0.5.24
   supabase_flutter: ^2.17.2
