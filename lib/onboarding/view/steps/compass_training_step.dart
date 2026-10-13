@@ -82,7 +82,7 @@ class CompassTrainingStep extends StatelessWidget {
                     child: Text(
                       state.hasMasteredNorthSwipe
                           ? 'Next: Test Camera Eyes ➡️'
-                          : 'Swipe UP to practice',
+                          : 'Explore rooms to practice',
                       style: const TextStyle(
                           fontWeight: FontWeight.w900, fontSize: 16),
                     ),
@@ -98,7 +98,7 @@ class CompassTrainingStep extends StatelessWidget {
 
   Widget _buildCheckTile({required String label, required bool isMastered}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), // 👈 مصحح بالكامل
       decoration: BoxDecoration(
         color: AppTheme.voidCardSurface,
         borderRadius: BorderRadius.circular(14),

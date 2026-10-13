@@ -131,7 +131,7 @@ class AccessibleOnboardingCubit extends Cubit<AccessibleOnboardingState> {
     await _haptics.successNotification();
     emit(state.copyWith(hasMasteredNorthSwipe: true));
     await _assistant.speak(
-      'Excellent. That is the North Focus & Alarms chime. Now, swipe down to discover Communications.',
+      'Excellent. That is the Focus and Alarms chime. Now pan across the screen to discover Communications.',
     );
   }
 
@@ -140,7 +140,7 @@ class AccessibleOnboardingCubit extends Cubit<AccessibleOnboardingState> {
     await _haptics.successNotification();
     emit(state.copyWith(hasMasteredSouthSwipe: true));
     await _assistant.speak(
-      'Great job! That is the South Communications chime. '
+      'Great job! That is the Communications radar chime. '
       'Now spread your fingers apart to test the elevator, or tap continue to proceed.',
     );
   }
@@ -221,7 +221,6 @@ class AccessibleOnboardingCubit extends Cubit<AccessibleOnboardingState> {
       await _sound.play(SoundCue.success);
       await _assistant.speak(result);
 
-      // 🔊 التوجيه الصوتي المسترجع لمساعدة الكفيف على الانتقال للخطوة التالية
       await Future<void>.delayed(const Duration(seconds: 2));
       await _assistant.speak(
         'AI vision is verified. Double tap anywhere to move to the final Safety step.',
@@ -276,8 +275,8 @@ class AccessibleOnboardingCubit extends Cubit<AccessibleOnboardingState> {
         break;
       case AccessibleStep.compassTraining:
         await _assistant.speak(
-          'Step 2: Spatial Navigation Training. '
-          'Swipe up now to hear the North Focus chime.',
+          'Step 2: Spatial Sound Training. '
+          'Pan across the screen to explore your spatial rooms and hear their distinct audio chimes.',
         );
         break;
       case AccessibleStep.visionTest:
@@ -321,7 +320,6 @@ class AccessibleOnboardingCubit extends Cubit<AccessibleOnboardingState> {
   }
 }
 
-// 🛡️ أسماء توافقية لمنع انكسار الكود القديم
 typedef BlindStep = AccessibleStep;
 typedef BlindFlowStatus = AccessibleFlowStatus;
 typedef BlindOnboardingState = AccessibleOnboardingState;

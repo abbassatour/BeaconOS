@@ -115,7 +115,7 @@ class CloudSyncClient {
   }
 
   // ===========================================================================
-  // 📇 3. جهات الاتصال ورادار الطوارئ (Contacts - Complete with Batch Sync & Streams)
+  // 📇 3. جهات الاتصال ورادار الطوارئ (Contacts - Batch & Streams)
   // ===========================================================================
 
   Future<void> syncContact({
@@ -146,7 +146,6 @@ class CloudSyncClient {
     }
   }
 
-  /// ⚡ مزامنة دفعة كاملة من جهات الاتصال في طلب شبكي واحد (Batch Upsert)
   Future<void> syncContactsBatch(List<Map<String, dynamic>> contactsList) async {
     final client = _client;
     final userId = currentUser?.id;
@@ -213,7 +212,6 @@ class CloudSyncClient {
     }
   }
 
-  /// ⚡ حذف ناعم دفعة واحدة في السحابة لمجموعة معرفات
   Future<void> softDeleteContactsBatchInCloud(List<String> contactIds) async {
     final client = _client;
     final userId = currentUser?.id;
@@ -603,7 +601,8 @@ class CloudSyncClient {
   // 🧭 10. العُقد المكانية والشبكة الفضائية (Spatial Nodes & Topology Sync)
   // ===========================================================================
 
-  Future<void> syncSpatialNode({
+  /// مزامنة موقع وحالة الغرفة في السحابة مع إرجاع true عند النجاح
+  Future<bool> syncSpatialNode({
     required String id,
     required String moduleId,
     required int floorLevel,
@@ -615,13 +614,13 @@ class CloudSyncClient {
     DateTime? deletedAt,
   }) async {
     final client = _client;
+    if (client == null) return false;
+
     final userId = currentUser?.id;
-    if (client == null || userId == null) return;
 
     try {
-      await client.from('spatial_nodes').upsert({
+      final payload = <String, dynamic>{
         'id': id,
-        'user_id': userId,
         'module_id': moduleId,
         'floor_level': floorLevel,
         'x': x,
@@ -631,26 +630,39 @@ class CloudSyncClient {
         'is_visible': isVisible,
         'deleted_at': deletedAt?.toIso8601String(),
         'updated_at': DateTime.now().toIso8601String(),
-      });
-      log('CloudSyncClient: Spatial node synced [$id -> ($x, $y, F$floorLevel)]');
+      };
+
+      // ⚡️ ربط المعرف بالمستخدم إن وُجد، مع دعمه للعمل في وضع الضيف (user_id = null)
+      if (userId != null) {
+        payload['user_id'] = userId;
+      }
+
+      await client.from('spatial_nodes').upsert(payload);
+      log('CloudSyncClient: ⚡ Spatial node synced [$id -> ($x, $y, F$floorLevel)]');
+      return true;
     } catch (e) {
-      log('CloudSyncClient: Spatial node sync skipped: $e');
+      log('CloudSyncClient: Spatial node sync deferred/skipped: $e');
+      return false;
     }
   }
 
   Future<List<Map<String, dynamic>>> fetchSpatialNodes() async {
     final client = _client;
+    if (client == null) return [];
+
     final userId = currentUser?.id;
-    if (client == null || userId == null) return [];
 
     try {
-      final response = await client
+      var query = client
           .from('spatial_nodes')
           .select()
-          .eq('user_id', userId)
-          .filter('deleted_at', 'is', null)
-          .order('floor_level', ascending: true);
+          .filter('deleted_at', 'is', null);
 
+      if (userId != null) {
+        query = query.eq('user_id', userId);
+      }
+
+      final response = await query.order('floor_level', ascending: true);
       return List<Map<String, dynamic>>.from(response);
     } catch (e, st) {
       log('CloudSyncClient: Failed to fetch spatial nodes: $e', stackTrace: st);
@@ -660,21 +672,24 @@ class CloudSyncClient {
 
   Stream<List<Map<String, dynamic>>>? streamSpatialNodes() {
     final client = _client;
-    final userId = currentUser?.id;
-    if (client == null || userId == null) return null;
+    if (client == null) return null;
 
-    return client
+    final userId = currentUser?.id;
+    var query = client
         .from('spatial_nodes')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', userId)
-        .order('floor_level', ascending: true);
+        .stream(primaryKey: ['id']);
+
+    if (userId != null) {
+      query = query.eq('user_id', userId);
+    }
+
+    return query.order('floor_level', ascending: true);
   }
 
   // ===========================================================================
   // 🛰️ 11. الأوامر السحابية الواردة عن بُعد من أليكسا (Remote Actions Listener)
   // ===========================================================================
 
-  /// تدفق لحظي للأوامر المعلقة (pending) الصادرة من خادم MCP
   Stream<List<Map<String, dynamic>>>? streamRemoteActions() {
     final client = _client;
     if (client == null) return null;
@@ -692,7 +707,6 @@ class CloudSyncClient {
     return query;
   }
 
-  /// تأكيد استلام وتنفيذ الأمر لتجنب تكرار تنفيذه
   Future<void> acknowledgeRemoteAction(String actionId, {String status = 'completed'}) async {
     final client = _client;
     if (client == null) return;

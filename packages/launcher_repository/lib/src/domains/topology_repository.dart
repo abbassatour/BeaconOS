@@ -78,24 +78,30 @@ class TopologyRepositoryImpl implements TopologyRepository {
       floorLevel: floorLevel,
     );
 
-    // 2. المزامنة السحابية غير المعطلة
+    // 2. المزامنة السحابية غير المعطلة مع تأكيد حالة التزامن
     final nodes = await _db.getAllSpatialNodes();
     final updatedNode = nodes.where((n) => n.id == id).firstOrNull;
     if (updatedNode != null) {
-      _cloud
-          .syncSpatialNode(
-            id: updatedNode.id,
-            moduleId: updatedNode.moduleId,
-            floorLevel: updatedNode.floorLevel,
-            x: updatedNode.x,
-            y: updatedNode.y,
-            customTitle: updatedNode.customTitle,
-            configJson: updatedNode.configJson,
-            isVisible: updatedNode.isVisible,
-          )
-          .catchError((Object error) {
+      try {
+        final success = await _cloud.syncSpatialNode(
+          id: updatedNode.id,
+          moduleId: updatedNode.moduleId,
+          floorLevel: updatedNode.floorLevel,
+          x: updatedNode.x,
+          y: updatedNode.y,
+          customTitle: updatedNode.customTitle,
+          configJson: updatedNode.configJson,
+          isVisible: updatedNode.isVisible,
+        );
+
+        // ⚡️ عند نجاح الرفع للسحابة، يتم اعتماد isSynced = true محلياً فوراً
+        if (success) {
+          await (_db.update(_db.spatialNodes)..where((tbl) => tbl.id.equals(id)))
+              .write(const SpatialNodesCompanion(isSynced: Value(true)));
+        }
+      } catch (error) {
         log('TopologyRepository: Cloud sync deferred for node [$id]: $error');
-      });
+      }
     }
   }
 
@@ -121,89 +127,94 @@ class TopologyRepositoryImpl implements TopologyRepository {
       ),
     );
 
-    _cloud
-        .syncSpatialNode(
-          id: id,
-          moduleId: moduleId,
-          floorLevel: floorLevel,
-          x: x,
-          y: y,
-          customTitle: customTitle,
-          configJson: configJson,
-        )
-        .catchError((Object error) {
+    try {
+      final success = await _cloud.syncSpatialNode(
+        id: id,
+        moduleId: moduleId,
+        floorLevel: floorLevel,
+        x: x,
+        y: y,
+        customTitle: customTitle,
+        configJson: configJson,
+      );
+
+      if (success) {
+        await (_db.update(_db.spatialNodes)..where((tbl) => tbl.id.equals(id)))
+            .write(const SpatialNodesCompanion(isSynced: Value(true)));
+      }
+    } catch (error) {
       log('TopologyRepository: Cloud upsert deferred for node [$id]: $error');
-    });
+    }
   }
 
   @override
   void initializeRealtimeSync() {
     _authSubscription?.cancel();
     _authSubscription = _cloud.authStateChanges?.listen((_) {
-      if (_cloud.isAuthenticated) {
-        _subscribeToRealtimeNodes();
-      } else {
-        _realtimeSubscription?.cancel();
-        _realtimeSubscription = null;
-      }
+      _subscribeToRealtimeNodes();
     });
 
-    if (_cloud.isAuthenticated) {
-      _subscribeToRealtimeNodes();
-    }
+    // ⚡️ تفعيل الاستماع دائماً حتى في وضع الضيف طالما اتصال Supabase جاهز
+    _subscribeToRealtimeNodes();
   }
 
   void _subscribeToRealtimeNodes() {
     _realtimeSubscription?.cancel();
     final stream = _cloud.streamSpatialNodes();
     if (stream != null) {
-      _realtimeSubscription = stream.listen((cloudNodes) async {
-        if (cloudNodes.isEmpty) return;
-        try {
-          await _db.batch((batch) {
-            for (final item in cloudNodes) {
-              final id = item['id'] as String?;
-              if (id == null) continue;
+      _realtimeSubscription = stream.listen(
+        (cloudNodes) async {
+          if (cloudNodes.isEmpty) return;
+          try {
+            await _db.batch((batch) {
+              for (final item in cloudNodes) {
+                final id = item['id'] as String?;
+                if (id == null) continue;
 
-              final deletedAt = item['deleted_at'] != null
-                  ? DateTime.tryParse(item['deleted_at'] as String)
-                  : null;
+                final deletedAt = item['deleted_at'] != null
+                    ? DateTime.tryParse(item['deleted_at'] as String)
+                    : null;
 
-              if (deletedAt != null) {
-                batch.delete(
-                  _db.spatialNodes,
-                  SpatialNodesCompanion(id: Value(id)),
-                );
-              } else {
-                batch.insert(
-                  _db.spatialNodes,
-                  SpatialNodesCompanion.insert(
-                    id: id,
-                    moduleId: item['module_id'] as String,
-                    floorLevel: Value(item['floor_level'] as int? ?? 0),
-                    x: Value(item['x'] as int? ?? 0),
-                    y: Value(item['y'] as int? ?? 0),
-                    customTitle: Value(item['custom_title'] as String?),
-                    configJson: Value(item['config_json'] as String?),
-                    isVisible: Value(item['is_visible'] as bool? ?? true),
-                    isSynced: const Value(true),
-                  ),
-                  mode: InsertMode.insertOrReplace,
-                );
+                if (deletedAt != null) {
+                  batch.delete(
+                    _db.spatialNodes,
+                    SpatialNodesCompanion(id: Value(id)),
+                  );
+                } else {
+                  batch.insert(
+                    _db.spatialNodes,
+                    SpatialNodesCompanion.insert(
+                      id: id,
+                      moduleId: item['module_id'] as String,
+                      floorLevel: Value(item['floor_level'] as int? ?? 0),
+                      x: Value(item['x'] as int? ?? 0),
+                      y: Value(item['y'] as int? ?? 0),
+                      customTitle: Value(item['custom_title'] as String?),
+                      configJson: Value(item['config_json'] as String?),
+                      isVisible: Value(item['is_visible'] as bool? ?? true),
+                      isSynced: const Value(true),
+                    ),
+                    mode: InsertMode.insertOrReplace,
+                  );
+                }
               }
-            }
-          });
-          log('TopologyRepository: ⚡ Realtime topology synced (${cloudNodes.length} nodes).');
-        } catch (e) {
-          log('TopologyRepository: Error handling realtime nodes: $e');
-        }
-      });
+            });
+            log('TopologyRepository: ⚡ Realtime topology synced (${cloudNodes.length} nodes).');
+          } catch (e) {
+            log('TopologyRepository: Error handling realtime nodes: $e');
+          }
+        },
+        onError: (Object error) {
+          // 🛡️ التقاط أخطاء انقطاع الشبكة بسلاسة لمنع توقف التطبيق
+          log('TopologyRepository: Realtime stream connection paused/offline: $error');
+        },
+        cancelOnError: false,
+      );
     }
   }
 
   @override
   Future<void> restoreTopologyFromCloud() async {
-    if (!_cloud.isAuthenticated) return;
     try {
       final cloudNodes = await _cloud.fetchSpatialNodes();
       if (cloudNodes.isEmpty) return;
@@ -235,13 +246,12 @@ class TopologyRepositoryImpl implements TopologyRepository {
 
   @override
   Future<void> syncPendingTopology() async {
-    if (!_cloud.isAuthenticated) return;
     try {
       final pending = await (_db.select(_db.spatialNodes)
             ..where((n) => n.isSynced.equals(false)))
           .get();
       for (final n in pending) {
-        await _cloud.syncSpatialNode(
+        final success = await _cloud.syncSpatialNode(
           id: n.id,
           moduleId: n.moduleId,
           floorLevel: n.floorLevel,
@@ -252,8 +262,10 @@ class TopologyRepositoryImpl implements TopologyRepository {
           isVisible: n.isVisible,
           deletedAt: n.deletedAt,
         );
-        await (_db.update(_db.spatialNodes)..where((tbl) => tbl.id.equals(n.id)))
-            .write(const SpatialNodesCompanion(isSynced: Value(true)));
+        if (success) {
+          await (_db.update(_db.spatialNodes)..where((tbl) => tbl.id.equals(n.id)))
+              .write(const SpatialNodesCompanion(isSynced: Value(true)));
+        }
       }
     } catch (e) {
       log('TopologyRepository: Pending topology sync error: $e');

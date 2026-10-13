@@ -16,9 +16,9 @@ class PermissionService {
     Permission.notification,
   ];
 
-  /// طلب كافة الأذونات دفعة واحدة (مع حماية أنظمة سطح المكتب)
+  /// طلب الأذونات بطريقة آمنة وغير معطلة لخيط الرسوميات الرئيسي
   Future<Map<Permission, PermissionStatus>> requestAllPermissions() async {
-    // 🛡️ على أنظمة سطح المكتب (ويندوز وغيره)، لا نطلب أذونات أندرويد
+    // 🛡️ تجاوز أجهزة سطح المكتب تلقائياً
     if (!Platform.isAndroid && !Platform.isIOS) {
       log('PermissionService: Desktop environment detected. Bypassing mobile permission requests.');
       return {
@@ -26,15 +26,22 @@ class PermissionService {
       };
     }
 
-    log('PermissionService: Requesting all system permissions...');
+    log('PermissionService: Requesting system permissions in background...');
     try {
-      final statuses = await _requiredPermissions.request();
+      // ⚡️ حماية بمهلة زمنية (timeout) حتى لا يتجمد التطبيق إذا علق مربع حوار أندرويد في المحاكي
+      final statuses = await _requiredPermissions
+          .request()
+          .timeout(
+            const Duration(seconds: 6),
+            onTimeout: () => <Permission, PermissionStatus>{},
+          );
+
       statuses.forEach((permission, status) {
         log('PermissionService: $permission -> $status');
       });
       return statuses;
     } catch (e, st) {
-      log('PermissionService: Error requesting permissions: $e', stackTrace: st);
+      log('PermissionService: Error or timeout requesting permissions: $e', stackTrace: st);
       return {};
     }
   }

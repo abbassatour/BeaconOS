@@ -14,44 +14,44 @@ enum SpatialGesture {
   descendToGround(
     symbol: '🤏',
     shortLabel: 'Pinch together',
-    visualHint: '🤏 Pinch 2 fingers or tap HUD to return to Cockpit',
+    visualHint: '🤏 Pinch 2 fingers or double-tap HUD to return to Cockpit',
     spokenPrompt:
-        'Pinching two fingers together descends back to your Cockpit.',
-    onboardingStepLabel: 'Pinch together 🤏 to return to Ground Floor',
+        'Double tap HUD or pinch two fingers together to return to your Cockpit.',
+    onboardingStepLabel: 'Pinch together 🤏 or tap HUD to return to Ground Floor',
   ),
 
-  // 🧭 2. إيماءات الملاحة الفضائية (Compass Pan)
+  // 🧭 2. إيماءات واستكشاف الغرف المكانية (Spatial Presence & Sonification)
   swipeToFocus(
     symbol: '⬆️',
-    shortLabel: 'Swipe North',
-    visualHint: 'Swipe UP ⬆️ to visit Focus & Alarms',
+    shortLabel: 'Focus Room',
+    visualHint: 'Explore Focus & Alarms',
     spokenPrompt:
-        'Swipe up to open your Focus timer and scheduled alarms.',
-    onboardingStepLabel: 'Swipe UP ⬆️ to visit Focus & Alarms',
+        'Focus and Alarms room. Listen to the high-pitch radar chime as you approach.',
+    onboardingStepLabel: 'Explore Focus & Alarms room',
   ),
   swipeToComms(
     symbol: '⬇️',
-    shortLabel: 'Swipe South',
-    visualHint: 'Swipe DOWN ⬇️ to visit Communications',
+    shortLabel: 'Comms Room',
+    visualHint: 'Explore Communications & Radar',
     spokenPrompt:
-        'Swipe down to open Communications and Emergency radar.',
-    onboardingStepLabel: 'Swipe DOWN ⬇️ to visit Communications',
+        'Communications and Emergency radar room. Listen to the low-frequency radar chime as you approach.',
+    onboardingStepLabel: 'Explore Communications & Emergency Radar',
   ),
   swipeToAgenda(
     symbol: '⬅️',
-    shortLabel: 'Swipe West',
-    visualHint: 'Swipe LEFT ⬅️ to visit Agenda',
+    shortLabel: 'Agenda Room',
+    visualHint: 'Explore Agenda & Tasks',
     spokenPrompt:
-        'Swipe left to open your Agenda, tasks, and notes.',
-    onboardingStepLabel: 'Swipe LEFT ⬅️ to visit Agenda',
+        'Agenda room. Pan across to review tasks, deadlines, and voice memos.',
+    onboardingStepLabel: 'Explore Agenda & Tasks',
   ),
   swipeToVision(
     symbol: '➡️',
-    shortLabel: 'Swipe East',
-    visualHint: 'Swipe RIGHT ➡️ to visit AI Vision',
+    shortLabel: 'Vision Studio',
+    visualHint: 'Explore AI Vision',
     spokenPrompt:
-        'Swipe right to open the AI Vision camera studio.',
-    onboardingStepLabel: 'Swipe RIGHT ➡️ to visit AI Vision',
+        'AI Vision studio. Pan across to activate your camera eyes.',
+    onboardingStepLabel: 'Explore AI Vision Studio',
   ),
 
   // 🚨 3. إيماءات الطوارئ والتفاعل الصامت

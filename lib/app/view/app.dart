@@ -9,7 +9,7 @@ import 'package:beacon_os/core/theme/cubit/theme_cubit.dart';
 import 'package:beacon_os/core/topology/topology.dart';
 import 'package:beacon_os/core/voice_bus/voice_bus.dart';
 import 'package:beacon_os/desktop/view/desktop_shell_page.dart';
-import 'package:beacon_os/fire_tv/view/tv_shell_page.dart'; // 👈 استيراد واجهة التلفزيون
+import 'package:beacon_os/fire_tv/view/tv_shell_page.dart';
 import 'package:beacon_os/onboarding/onboarding.dart';
 import 'package:beacon_os/spatial_shell/spatial_shell.dart';
 import 'package:flutter/material.dart';
@@ -23,7 +23,7 @@ class App extends StatefulWidget {
   const App({
     required LauncherRepository launcherRepository,
     required AppSetting initialSettings,
-    this.isTv = false, // 👈 استقبال علامة التلفزيون
+    this.isTv = false,
     super.key,
   })  : _launcherRepository = launcherRepository,
         _initialSettings = initialSettings;
@@ -75,9 +75,12 @@ class _AppState extends State<App> {
       ),
     );
 
+    // ⚡️ تأخير طلب الأذونات لمدة 1.2 ثانية في الخلفية لضمان اكتمال رسم الإطار الأول للواجهة تماماً وتجنب الشاشة السوداء
     if (!_isDesktop && !_isTv) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        PermissionService.instance.requestAllPermissions();
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) {
+          PermissionService.instance.requestAllPermissions();
+        }
       });
     }
   }
@@ -85,19 +88,19 @@ class _AppState extends State<App> {
   @override
   void dispose() {
     _nodesSubscription?.cancel();
+    _topology.dispose();
     super.dispose();
   }
 
-  /// 🌟 الدالة الذكية لاختيار الشاشة المناسبة للمنصة
   Widget _resolveHomeScreen(bool hasCompletedOnboarding) {
     if (_isDesktop) {
       return const DesktopShellPage();
     }
     if (_isTv) {
-      return const TvShellPage(); // 📺 شاشة التلفزيون في غرفة المعيشة
+      return const TvShellPage();
     }
     return hasCompletedOnboarding
-        ? const SpatialShellPage() // 📱 شاشة الهاتف الأساسية
+        ? const SpatialShellPage()
         : const GatewayPage();
   }
 
